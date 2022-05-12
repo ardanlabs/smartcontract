@@ -1,3 +1,5 @@
+basic/node/geth
+
 # Binaries for programs and plugins
 *.exe
 *.exe~
