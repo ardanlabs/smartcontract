@@ -13,7 +13,7 @@ build:
 
 # ==============================================================================
 
-run:
+geth:
 	geth --datadir "node/" init "node/genesis.json"
 	geth --rpc.allow-unprotected-txs --cache 512 --ipcpath ~/Library/Ethereum/geth.ipc --networkid 12345 --datadir "node/" --nodiscover --mine --miner.threads 4 --miner.noverify --maxpeers 0 --unlock 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd --password node/password
 
