@@ -1,0 +1,82 @@
+# github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6
+## explicit
+github.com/StackExchange/wmi
+# github.com/btcsuite/btcd/btcec/v2 v2.1.2
+## explicit; go 1.17
+github.com/btcsuite/btcd/btcec/v2
+github.com/btcsuite/btcd/btcec/v2/ecdsa
+# github.com/deckarep/golang-set v1.8.0
+## explicit; go 1.17
+github.com/deckarep/golang-set
+# github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1
+## explicit; go 1.16
+github.com/decred/dcrd/dcrec/secp256k1/v4
+github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa
+# github.com/ethereum/go-ethereum v1.10.17
+## explicit; go 1.15
+github.com/ethereum/go-ethereum
+github.com/ethereum/go-ethereum/accounts
+github.com/ethereum/go-ethereum/accounts/abi
+github.com/ethereum/go-ethereum/accounts/abi/bind
+github.com/ethereum/go-ethereum/accounts/external
+github.com/ethereum/go-ethereum/accounts/keystore
+github.com/ethereum/go-ethereum/common
+github.com/ethereum/go-ethereum/common/hexutil
+github.com/ethereum/go-ethereum/common/math
+github.com/ethereum/go-ethereum/common/mclock
+github.com/ethereum/go-ethereum/core/types
+github.com/ethereum/go-ethereum/crypto
+github.com/ethereum/go-ethereum/crypto/secp256k1
+github.com/ethereum/go-ethereum/crypto/secp256k1/libsecp256k1/include
+github.com/ethereum/go-ethereum/crypto/secp256k1/libsecp256k1/src
+github.com/ethereum/go-ethereum/crypto/secp256k1/libsecp256k1/src/modules/recovery
+github.com/ethereum/go-ethereum/ethclient
+github.com/ethereum/go-ethereum/event
+github.com/ethereum/go-ethereum/log
+github.com/ethereum/go-ethereum/metrics
+github.com/ethereum/go-ethereum/p2p/netutil
+github.com/ethereum/go-ethereum/params
+github.com/ethereum/go-ethereum/rlp
+github.com/ethereum/go-ethereum/rlp/internal/rlpstruct
+github.com/ethereum/go-ethereum/rpc
+github.com/ethereum/go-ethereum/signer/core/apitypes
+# github.com/go-ole/go-ole v1.2.1
+## explicit
+github.com/go-ole/go-ole
+github.com/go-ole/go-ole/oleutil
+# github.com/go-stack/stack v1.8.0
+## explicit
+github.com/go-stack/stack
+# github.com/google/uuid v1.2.0
+## explicit
+github.com/google/uuid
+# github.com/gorilla/websocket v1.4.2
+## explicit; go 1.12
+github.com/gorilla/websocket
+# github.com/rjeczalik/notify v0.9.1
+## explicit
+github.com/rjeczalik/notify
+# github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible
+## explicit
+github.com/shirou/gopsutil/cpu
+github.com/shirou/gopsutil/internal/common
+# github.com/tklauser/go-sysconf v0.3.5
+## explicit; go 1.13
+github.com/tklauser/go-sysconf
+# github.com/tklauser/numcpus v0.2.2
+## explicit; go 1.11
+github.com/tklauser/numcpus
+# golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
+## explicit; go 1.11
+golang.org/x/crypto/pbkdf2
+golang.org/x/crypto/scrypt
+golang.org/x/crypto/sha3
+# golang.org/x/sys v0.0.0-20210816183151-1e6c022a8912
+## explicit; go 1.17
+golang.org/x/sys/cpu
+golang.org/x/sys/internal/unsafeheader
+golang.org/x/sys/unix
+golang.org/x/sys/windows
+# gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
+## explicit
+gopkg.in/natefinch/npipe.v2
