@@ -7,23 +7,24 @@ import (
 	"io/ioutil"
 	"log"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 
-	"sc/contracts/store"
+	"github.com/ardanlabs/smartcontract/contracts/store"
+	"github.com/ardanlabs/smartcontract/programs/pkg/smart"
 )
 
 func main() {
-	client, err := ethclient.Dial("/Users/bill/Library/Ethereum/geth.ipc")
+	client, privateKey, err := smart.Connect()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("dial ERROR:", err)
 	}
 
-	address := common.HexToAddress("0x6dB8BD2Fd59009cF8aBB62D0883B5c200333666A")
+	address := common.HexToAddress("0x531130464929826c57BBBF989e44085a02eeB120")
 	instance, err := store.NewStore(address, client)
 	if err != nil {
 		log.Fatal("NewStore ERROR:", err)
@@ -33,38 +34,23 @@ func main() {
 	if err != nil {
 		log.Fatal("version ERROR:", err)
 	}
-
-	fmt.Println(version) // "1.0"
+	fmt.Println("version:", version)
 
 	// =========================================================================
 
-	privateKey, err := privateKey()
-	if err != nil {
-		log.Fatal("capture private key ERROR:", err)
-	}
-
-	publicKey := privateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		log.Fatal("error casting public key to ECDSA")
-	}
-
-	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
-
+	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
 	fmt.Println("address:", fromAddress.String())
 
 	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
 	if err != nil {
 		log.Fatal("pending nonce at ERROR:", err)
 	}
-
 	fmt.Println("next nonce:", nonce)
 
 	gasPrice, err := client.SuggestGasPrice(context.Background())
 	if err != nil {
 		log.Fatal("suggest gas price ERROR:", err)
 	}
-
 	fmt.Println("gas price:", gasPrice)
 
 	auth := bind.NewKeyedTransactor(privateKey)
@@ -73,26 +59,35 @@ func main() {
 	auth.GasLimit = uint64(300000) // in units
 	auth.GasPrice = gasPrice
 
-	key := [32]byte{}
-	value := [32]byte{}
-	copy(key[:], []byte("foo"))
-	copy(value[:], []byte("bar"))
+	var key [32]byte
+	var value [32]byte
+	copy(key[:], []byte("name"))
+	copy(value[:], []byte("ale"))
 
-	// tx, err := instance.SetItem(auth, key, value)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// fmt.Printf("tx sent: %s", tx.Hash().Hex())
-
-	result, err := instance.Items(nil, key)
+	tx, err := instance.SetItem(auth, key, value)
 	if err != nil {
-		log.Fatal("Items ERROR:", err)
+		log.Fatal(err)
+	}
+	fmt.Println("tx sent:", tx.Hash().Hex())
+
+	// There is a delay from the time we set to the time we see. This
+	// includes changes.
+
+	var result [32]byte
+	for {
+		result, err = instance.Items(nil, key)
+		if err != nil {
+			log.Fatal("Items ERROR:", err)
+		}
+
+		if string(result[:]) == string(value[:]) {
+			break
+		}
+
+		time.Sleep(time.Second)
 	}
 
-	fmt.Println("**********************")
-	fmt.Println(string(result[:]))
-	fmt.Println("**********************")
+	fmt.Println("value:", string(result[:]))
 }
 
 func privateKey() (*ecdsa.PrivateKey, error) {

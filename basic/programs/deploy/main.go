@@ -11,51 +11,30 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 
-	"sc/contracts/store"
+	"github.com/ardanlabs/smartcontract/contracts/store"
+	"github.com/ardanlabs/smartcontract/programs/pkg/smart"
 )
 
 func main() {
-	client, err := ethclient.Dial("/Users/bill/Library/Ethereum/geth.ipc")
+	client, privateKey, err := smart.Connect()
 	if err != nil {
 		log.Fatal("dial ERROR:", err)
 	}
 
-	chain, err := client.ChainID(context.Background())
-	if err != nil {
-		log.Fatal("chain id ERROR:", err)
-	}
-
-	fmt.Println("chain:", chain)
-
-	privateKey, err := privateKey()
-	if err != nil {
-		log.Fatal("capture private key ERROR:", err)
-	}
-
-	publicKey := privateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		log.Fatal("error casting public key to ECDSA")
-	}
-
-	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
-
+	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
 	fmt.Println("address:", fromAddress.String())
 
 	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
 	if err != nil {
 		log.Fatal("pending nonce at ERROR:", err)
 	}
-
 	fmt.Println("next nonce:", nonce)
 
 	gasPrice, err := client.SuggestGasPrice(context.Background())
 	if err != nil {
 		log.Fatal("suggest gas price ERROR:", err)
 	}
-
 	fmt.Println("gas price:", gasPrice)
 
 	auth := bind.NewKeyedTransactor(privateKey)
