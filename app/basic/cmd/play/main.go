@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math/big"
+	"os"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -18,13 +19,14 @@ import (
 	"github.com/ardanlabs/smartcontract/business/smart"
 )
 
-const contractID = "0x87A061ED19dcA76EC5B01643b054f5eae2730a85"
-
 func main() {
 	client, privateKey, err := smart.Connect()
 	if err != nil {
 		log.Fatal("dial ERROR:", err)
 	}
+
+	contractID := os.Getenv("CONTRACT")
+	fmt.Println("contractID:", contractID)
 
 	address := common.HexToAddress(contractID)
 	instance, err := store.NewStore(address, client)

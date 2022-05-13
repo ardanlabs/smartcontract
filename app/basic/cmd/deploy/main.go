@@ -50,8 +50,9 @@ func main() {
 		log.Fatal("deploy ERROR:", err)
 	}
 
-	fmt.Println("address:", address.Hex())   // Capture this information.
-	fmt.Println("tx hash:", tx.Hash().Hex()) // Capture this information.
+	fmt.Println("address :", address.Hex())
+	fmt.Println("tx hash :", tx.Hash().Hex())
+	fmt.Printf("run this: export CONTRACT=\"%s\"\n", address.Hex())
 
 	_ = instance
 }
