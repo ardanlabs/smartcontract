@@ -2,7 +2,9 @@
 # https://goethereumbook.org/smart-contract-deploy/
 #
 # The environment has three accounts all using this same passkey (123).
-# Geth is started with address 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd being eth.coinbase.
+# Geth is started with address 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd and is used as the coinbase address.
+# The coinbase address is the account to pay mining rewards to.
+# The coinbase address is give a LOT of money to start.
 #
 # These are examples of what you can do in the attach JS environment.
 # 	eth.getBalance("0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd") or eth.getBalance(eth.coinbase)
@@ -32,12 +34,13 @@ basic-deploy:
 basic-play:
 	go run app/basic/cmd/play/main.go
 
+
 # ==============================================================================
 # These commands start the Ethereum node and provide examples of attaching
 # directly with potential commands to try, and creating a new account if necessary.
 
 geth-up:
-	geth --dev --http --ipcpath zarf/ethereum/geth.ipc --allow-insecure-unlock --rpc.allow-unprotected-txs --mine --miner.threads 1 --verbosity 4 --datadir "zarf/ethereum/" --unlock 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd --password zarf/ethereum/password
+	geth --dev --http --allow-insecure-unlock --rpc.allow-unprotected-txs --mine --miner.threads 1 --verbosity 4 --datadir "zarf/ethereum/" --unlock 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd --password zarf/ethereum/password
 
 geth-down:
 	kill -INT $(shell ps | grep "geth " | grep -v grep | sed -n 1,1p | cut -c1-5)
@@ -54,12 +57,14 @@ geth-deposit:
 	curl -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","method":"eth_sendTransaction", "params": [{"from":"0x8e113078adf6888b7ba84967f299f29aece24c55", "to":"0x0070742ff6003c3e809e78d524f0fe5dcc5ba7f7", "value":"0x1000000000000000000"}], "id":1}' localhost:8545
 	curl -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","method":"eth_sendTransaction", "params": [{"from":"0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd", "to":"0x0070742ff6003c3e809e78d524f0fe5dcc5ba7f7", "value":"0x1000000000000000000"}], "id":1}' localhost:8545
 
+
 # ==============================================================================
 # These commands provide Go related support.
 
 tidy:
 	go mod tidy
 	go mod vendor
+
 
 # ==============================================================================
 # These commands install geth, abigen, and solc using Homebrew.
