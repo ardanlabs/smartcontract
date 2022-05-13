@@ -25,8 +25,6 @@ func main() {
 		log.Fatal("dial ERROR:", err)
 	}
 
-	smart.Contract(context.Background(), client)
-
 	contractID := os.Getenv("CONTRACT")
 	fmt.Println("contractID:", contractID)
 

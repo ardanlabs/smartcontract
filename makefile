@@ -1,9 +1,21 @@
+# https://ethdocs.org/en/latest/contracts-and-transactions/accessing-contracts-and-transactions.html
 # https://goethereumbook.org/smart-contract-deploy/
 #
-# The environment has a single account for now with this information.
-#    Passkey: 123
-#    Public address of the key:   0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd
-#    Path of the secret key file: zarf/ethereum/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd
+# The environment has three accounts all using this same passkey (123).
+# Geth is started with address 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd being eth.coinbase.
+#
+# These are examples of what you can do in the attach JS environment.
+# 	eth.getBalance("0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd") or eth.getBalance(eth.coinbase)
+# 	eth.getBalance("0x8e113078adf6888b7ba84967f299f29aece24c55")
+# 	eth.getBalance("0x0070742ff6003c3e809e78d524f0fe5dcc5ba7f7")
+#   eth.sendTransaction({from:eth.coinbase, to:"0x8e113078adf6888b7ba84967f299f29aece24c55", value: web3.toWei(0.05, "ether")})
+#   eth.sendTransaction({from:eth.coinbase, to:"0x0070742ff6003c3e809e78d524f0fe5dcc5ba7f7", value: web3.toWei(0.05, "ether")})
+#
+# These are examples of what you can do in the HTTP-RPC environment.
+# https://documenter.getpostman.com/view/4117254/ethereum-json-rpc/RVu7CT5J
+# curl -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","method":"eth_coinbase", "id":1}' localhost:8545
+# curl -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","method":"eth_getBalance", "params": ["0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd", "latest"], "id":1}' localhost:8545
+
 
 # ==============================================================================
 # These commands build the basic smart contract, deploy the contract, and run the
@@ -25,23 +37,22 @@ basic-play:
 # directly with potential commands to try, and creating a new account if necessary.
 
 geth-up:
-	geth --dev --rpc.allow-unprotected-txs --verbosity 4 --cache 512 --ipcpath zarf/ethereum/geth.ipc --networkid 12345 --datadir "zarf/ethereum/" --unlock 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd --password zarf/ethereum/password
+	geth --dev --http --ipcpath zarf/ethereum/geth.ipc --allow-insecure-unlock --rpc.allow-unprotected-txs --mine --miner.threads 1 --verbosity 4 --datadir "zarf/ethereum/" --unlock 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd --password zarf/ethereum/password
 
 geth-down:
 	kill -INT $(shell ps | grep "geth " | grep -v grep | sed -n 1,1p | cut -c1-5)
 
 geth-attach:
 	geth attach --datadir zarf/ethereum/
-# 	eth.getBalance("0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd")
-# 	eth.getBalance("0x8e113078adf6888b7ba84967f299f29aece24c55")
-# 	eth.getBalance("0x0070742ff6003c3e809e78d524f0fe5dcc5ba7f7")
-#   personal.newAccount()
-#   eth.sendTransaction({from:eth.coinbase, to:"address", value: web3.toWei(0.05, "ether")})
 
 geth-new-account:
 	geth --datadir zarf/ethereum/ account new
-#	If you run this command, add the new account address to the genesis file.
-#	To see the new balances, you need to restart the geth service.
+#	This is add a new account to the keystore. You may need to remove the
+#   geth folder and start over for it to be seen.
+
+geth-deposit:
+	curl -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","method":"eth_sendTransaction", "params": [{"from":"0x8e113078adf6888b7ba84967f299f29aece24c55", "to":"0x0070742ff6003c3e809e78d524f0fe5dcc5ba7f7", "value":"0x1000000000000000000"}], "id":1}' localhost:8545
+	curl -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","method":"eth_sendTransaction", "params": [{"from":"0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd", "to":"0x0070742ff6003c3e809e78d524f0fe5dcc5ba7f7", "value":"0x1000000000000000000"}], "id":1}' localhost:8545
 
 # ==============================================================================
 # These commands provide Go related support.
