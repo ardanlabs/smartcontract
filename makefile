@@ -15,10 +15,10 @@ basic-build:
 	abigen --bin=basic/contracts/store/bin/store.bin --abi=basic/contracts/store/abi/store.abi --pkg=store --out=basic/contracts/store/store.go
 
 basic-deploy:
-	go run basic/programs/deploy/main.go
+	go run programs/basic/apps/deploy/main.go
 
 basic-play:
-	go run basic/programs/play/main.go
+	go run programs/basic/apps/play/main.go
 
 # ==============================================================================
 # These commands start the Ethereum node and provide examples of attaching
@@ -31,6 +31,9 @@ geth:
 	geth --rpc.allow-unprotected-txs --cache 512 --ipcpath ~/Library/Ethereum/geth.ipc --networkid 12345 --datadir "node/" --nodiscover --mine --miner.threads 4 --miner.noverify --maxpeers 0 --unlock 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd --password node/password
 
 geth-new: geth-init geth
+
+geth-down:
+	kill -INT $(shell ps | grep "geth " | grep -v grep | sed -n 1,1p | cut -c1-5)
 
 geth-attach:
 	geth attach --datadir ~/Library/Ethereum
