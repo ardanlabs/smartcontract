@@ -1,4 +1,4 @@
-basic/node/geth
+node/geth
 
 # Binaries for programs and plugins
 *.exe

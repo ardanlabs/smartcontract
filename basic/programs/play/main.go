@@ -14,9 +14,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/ardanlabs/smartcontract/contracts/store"
-	"github.com/ardanlabs/smartcontract/programs/pkg/smart"
+	"github.com/ardanlabs/smartcontract/basic/contracts/store"
+	"github.com/ardanlabs/smartcontract/pkg/smart"
 )
+
+const contractID = "0x87A061ED19dcA76EC5B01643b054f5eae2730a85"
 
 func main() {
 	client, privateKey, err := smart.Connect()
@@ -24,7 +26,7 @@ func main() {
 		log.Fatal("dial ERROR:", err)
 	}
 
-	address := common.HexToAddress("0x531130464929826c57BBBF989e44085a02eeB120")
+	address := common.HexToAddress(contractID)
 	instance, err := store.NewStore(address, client)
 	if err != nil {
 		log.Fatal("NewStore ERROR:", err)

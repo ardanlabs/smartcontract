@@ -6,27 +6,31 @@
 #    Path of the secret key file: node/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd
 
 # ==============================================================================
-# These commands build the smart contract, deploy the contract, and run the
+# These commands build the basic smart contract, deploy the contract, and run the
 # play code to test it is working.
 
-build:
-	solc --abi contracts/store/src/store.sol -o contracts/store/abi --overwrite
-	solc --bin contracts/store/src/store.sol -o contracts/store/bin --overwrite
-	abigen --bin=contracts/store/bin/store.bin --abi=contracts/store/abi/store.abi --pkg=store --out=contracts/store/store.go
+basic-build:
+	solc --abi basic/contracts/store/src/store.sol -o basic/contracts/store/abi --overwrite
+	solc --bin basic/contracts/store/src/store.sol -o basic/contracts/store/bin --overwrite
+	abigen --bin=basic/contracts/store/bin/store.bin --abi=basic/contracts/store/abi/store.abi --pkg=store --out=basic/contracts/store/store.go
 
-deploy:
-	go run programs/deploy/main.go
+basic-deploy:
+	go run basic/programs/deploy/main.go
 
-play:
-	go run programs/play/main.go
+basic-play:
+	go run basic/programs/play/main.go
 
 # ==============================================================================
 # These commands start the Ethereum node and provide examples of attaching
 # directly with potential commands to try, and creating a new account if necessary.
 
-geth:
+geth-init:
 	geth --datadir "node/" init "node/genesis.json"
+
+geth:
 	geth --rpc.allow-unprotected-txs --cache 512 --ipcpath ~/Library/Ethereum/geth.ipc --networkid 12345 --datadir "node/" --nodiscover --mine --miner.threads 4 --miner.noverify --maxpeers 0 --unlock 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd --password node/password
+
+geth-new: geth-init geth
 
 geth-attach:
 	geth attach --datadir ~/Library/Ethereum

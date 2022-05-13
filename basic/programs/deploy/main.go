@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/ardanlabs/smartcontract/contracts/store"
-	"github.com/ardanlabs/smartcontract/programs/pkg/smart"
+	"github.com/ardanlabs/smartcontract/basic/contracts/store"
+	"github.com/ardanlabs/smartcontract/pkg/smart"
 )
 
 func main() {
