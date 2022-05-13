@@ -1,4 +1,4 @@
-node/geth
+ethereum/geth
 
 # Binaries for programs and plugins
 *.exe

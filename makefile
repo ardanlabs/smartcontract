@@ -3,7 +3,7 @@
 # The environment has a single account for now with this information.
 #    Passkey: 123
 #    Public address of the key:   0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd
-#    Path of the secret key file: node/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd
+#    Path of the secret key file: ethereum/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd
 
 # ==============================================================================
 # These commands build the basic smart contract, deploy the contract, and run the
@@ -25,10 +25,10 @@ basic-play:
 # directly with potential commands to try, and creating a new account if necessary.
 
 geth-init:
-	geth --datadir "node/" init "node/genesis.json"
+	geth --datadir "ethereum/" init "ethereum/genesis.json"
 
 geth:
-	geth --rpc.allow-unprotected-txs --cache 512 --ipcpath ~/Library/Ethereum/geth.ipc --networkid 12345 --datadir "node/" --nodiscover --mine --miner.threads 4 --miner.noverify --maxpeers 0 --unlock 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd --password node/password
+	geth --rpc.allow-unprotected-txs --cache 512 --ipcpath ~/Library/Ethereum/geth.ipc --networkid 12345 --datadir "ethereum/" --nodiscover --mine --miner.threads 4 --miner.noverify --maxpeers 0 --unlock 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd --password ethereum/password
 
 geth-new: geth-init geth
 
@@ -42,7 +42,7 @@ geth-attach:
 # 	eth.getBalance("0xdd6B972ffcc631a62CAE1BB9d80b7ff429c8ebA4")
 
 geth-new-account:
-	geth --datadir "node/" account new
+	geth --datadir "ethereum/" account new
 #	If you run this command, add the new account address to the genesis file.
 #	To see the new balances, you need to restart the geth service.
 
