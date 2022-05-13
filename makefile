@@ -52,3 +52,16 @@ geth-new-account:
 tidy:
 	go mod tidy
 	go mod vendor
+
+# ==============================================================================
+# These commands install geth, abigen, and solc using Homebrew.
+
+install-geth:
+	brew update
+	brew tap ethereum/ethereum
+	brew install ethereum
+
+install-solc:
+	brew update
+	brew tap ethereum/ethereum
+	brew install solidity
