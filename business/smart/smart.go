@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -17,7 +18,8 @@ const (
 )
 
 func Connect() (*ethclient.Client, *ecdsa.PrivateKey, error) {
-	client, err := ethclient.Dial("/Users/bill/Library/Ethereum/geth.ipc")
+	home := os.Getenv("HOME")
+	client, err := ethclient.Dial(home + "/Library/Ethereum/geth.ipc")
 	if err != nil {
 		return nil, nil, fmt.Errorf("ethclient.Dial: %w", err)
 	}
