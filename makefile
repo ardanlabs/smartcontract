@@ -12,7 +12,7 @@
 basic-build:
 	solc --abi app/basic/contracts/store/src/store.sol -o app/basic/contracts/store/abi --overwrite
 	solc --bin app/basic/contracts/store/src/store.sol -o app/basic/contracts/store/bin --overwrite
-	abigen --bin=app/basic/contracts/store/bin/store.bin --abi=app/basic/contracts/store/abi/store.abi --pkg=store --out=app/basic/contracts/store/store.go
+	abigen --bin=app/basic/contracts/store/bin/Store.bin --abi=app/basic/contracts/store/abi/Store.abi --pkg=store --out=app/basic/contracts/store/store.go
 
 basic-deploy:
 	go run app/basic/cmd/deploy/main.go
