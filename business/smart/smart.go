@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"io/ioutil"
-	"os"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -13,13 +12,13 @@ import (
 // Hardcoding these for now since all the apps will use this same information
 // and the information is static.
 const (
-	keyStore   = "zarf/ethereum/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd"
+	ethereum   = "zarf/ethereum"
+	keyStore   = ethereum + "/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd"
 	passPhrase = "123"
 )
 
 func Connect() (*ethclient.Client, *ecdsa.PrivateKey, error) {
-	home := os.Getenv("HOME")
-	client, err := ethclient.Dial(home + "/Library/Ethereum/geth.ipc")
+	client, err := ethclient.Dial(ethereum + "/geth.ipc")
 	if err != nil {
 		return nil, nil, fmt.Errorf("ethclient.Dial: %w", err)
 	}

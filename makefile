@@ -27,10 +27,10 @@ basic-play:
 geth-init:
 	geth --datadir "zarf/ethereum/" init "zarf/ethereum/genesis.json"
 
-geth:
-	geth --rpc.allow-unprotected-txs --cache 512 --ipcpath ~/Library/Ethereum/geth.ipc --networkid 12345 --datadir "zarf/ethereum/" --nodiscover --mine --miner.threads 4 --miner.noverify --maxpeers 0 --unlock 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd --password zarf/ethereum/password
+geth-up:
+	geth --rpc.allow-unprotected-txs --cache 512 --ipcpath zarf/ethereum/geth.ipc --networkid 12345 --datadir "zarf/ethereum/" --nodiscover --mine --miner.threads 4 --miner.noverify --maxpeers 0 --unlock 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd --password zarf/ethereum/password
 
-geth-new: geth-init geth
+geth-new: geth-init geth-up
 
 geth-down:
 	kill -INT $(shell ps | grep "geth " | grep -v grep | sed -n 1,1p | cut -c1-5)
