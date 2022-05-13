@@ -7,38 +7,20 @@ import (
 	"io/ioutil"
 	"log"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/ardanlabs/smartcontract/pkg/smart"
-	"github.com/ardanlabs/smartcontract/programs/basic/contracts/store"
+	"github.com/ardanlabs/smartcontract/app/basic/contracts/store"
+	"github.com/ardanlabs/smartcontract/business/smart"
 )
-
-const contractID = "0x87A061ED19dcA76EC5B01643b054f5eae2730a85"
 
 func main() {
 	client, privateKey, err := smart.Connect()
 	if err != nil {
 		log.Fatal("dial ERROR:", err)
 	}
-
-	address := common.HexToAddress(contractID)
-	instance, err := store.NewStore(address, client)
-	if err != nil {
-		log.Fatal("NewStore ERROR:", err)
-	}
-
-	version, err := instance.Version(nil)
-	if err != nil {
-		log.Fatal("version ERROR:", err)
-	}
-	fmt.Println("version:", version)
-
-	// =========================================================================
 
 	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
 	fmt.Println("address:", fromAddress.String())
@@ -61,35 +43,17 @@ func main() {
 	auth.GasLimit = uint64(300000) // in units
 	auth.GasPrice = gasPrice
 
-	var key [32]byte
-	var value [32]byte
-	copy(key[:], []byte("name"))
-	copy(value[:], []byte("ale"))
+	fmt.Println("deploy store contract:", auth)
 
-	tx, err := instance.SetItem(auth, key, value)
+	address, tx, instance, err := store.DeployStore(auth, client)
 	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("tx sent:", tx.Hash().Hex())
-
-	// There is a delay from the time we set to the time we see. This
-	// includes changes.
-
-	var result [32]byte
-	for {
-		result, err = instance.Items(nil, key)
-		if err != nil {
-			log.Fatal("Items ERROR:", err)
-		}
-
-		if string(result[:]) == string(value[:]) {
-			break
-		}
-
-		time.Sleep(time.Second)
+		log.Fatal("deploy ERROR:", err)
 	}
 
-	fmt.Println("value:", string(result[:]))
+	fmt.Println("address:", address.Hex())   // Capture this information.
+	fmt.Println("tx hash:", tx.Hash().Hex()) // Capture this information.
+
+	_ = instance
 }
 
 func privateKey() (*ecdsa.PrivateKey, error) {

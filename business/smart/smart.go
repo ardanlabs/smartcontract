@@ -9,6 +9,13 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
+// Hardcoding these for now since all the apps will use this same information
+// and the information is static.
+const (
+	keyStore   = "zarf/ethereum/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd"
+	passPhrase = "123"
+)
+
 func Connect() (*ethclient.Client, *ecdsa.PrivateKey, error) {
 	client, err := ethclient.Dial("/Users/bill/Library/Ethereum/geth.ipc")
 	if err != nil {
@@ -24,15 +31,12 @@ func Connect() (*ethclient.Client, *ecdsa.PrivateKey, error) {
 }
 
 func privateKey() (*ecdsa.PrivateKey, error) {
-	inPath := "node/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd"
-	password := "123"
-
-	data, err := ioutil.ReadFile(inPath)
+	data, err := ioutil.ReadFile(keyStore)
 	if err != nil {
 		return nil, err
 	}
 
-	key, err := keystore.DecryptKey(data, password)
+	key, err := keystore.DecryptKey(data, passPhrase)
 	if err != nil {
 		return nil, err
 	}

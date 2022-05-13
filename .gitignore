@@ -1,4 +1,4 @@
-ethereum/geth
+zarf/ethereum/geth
 
 # Binaries for programs and plugins
 *.exe
