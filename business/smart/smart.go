@@ -17,6 +17,8 @@ const (
 	passPhrase = "123"
 )
 
+// Connect provides boilerplate for connecting to the geth service using
+// an IPC socket created by the geth service on startup.
 func Connect() (*ethclient.Client, *ecdsa.PrivateKey, error) {
 	client, err := ethclient.Dial(ethereum + "/geth.ipc")
 	if err != nil {
