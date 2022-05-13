@@ -56,11 +56,13 @@ tidy:
 # ==============================================================================
 # These commands install geth, abigen, and solc using Homebrew.
 
+# https://geth.ethereum.org/docs/install-and-build/installing-geth
 install-geth:
 	brew update
 	brew tap ethereum/ethereum
 	brew install ethereum
 
+# https://docs.soliditylang.org/en/v0.8.11/installing-solidity.html
 install-solc:
 	brew update
 	brew tap ethereum/ethereum
