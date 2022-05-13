@@ -1,4 +1,5 @@
 zarf/ethereum/geth
+history
 
 # Binaries for programs and plugins
 *.exe

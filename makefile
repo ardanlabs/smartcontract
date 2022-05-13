@@ -24,25 +24,22 @@ basic-play:
 # These commands start the Ethereum node and provide examples of attaching
 # directly with potential commands to try, and creating a new account if necessary.
 
-geth-init:
-	geth --datadir "zarf/ethereum/" init "zarf/ethereum/genesis.json"
-
 geth-up:
-	geth --rpc.allow-unprotected-txs --cache 512 --ipcpath zarf/ethereum/geth.ipc --networkid 12345 --datadir "zarf/ethereum/" --nodiscover --mine --miner.threads 4 --miner.noverify --maxpeers 0 --unlock 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd --password zarf/ethereum/password
-
-geth-new: geth-init geth-up
+	geth --dev --rpc.allow-unprotected-txs --verbosity 4 --cache 512 --ipcpath zarf/ethereum/geth.ipc --networkid 12345 --datadir "zarf/ethereum/" --unlock 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd --password zarf/ethereum/password
 
 geth-down:
 	kill -INT $(shell ps | grep "geth " | grep -v grep | sed -n 1,1p | cut -c1-5)
 
 geth-attach:
-	geth attach --datadir ~/Library/Ethereum
+	geth attach --datadir zarf/ethereum/
 # 	eth.getBalance("0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd")
-# 	eth.getBalance("0xF01813E4B85e178A83e29B8E7bF26BD830a25f32")
-# 	eth.getBalance("0xdd6B972ffcc631a62CAE1BB9d80b7ff429c8ebA4")
+# 	eth.getBalance("0x8e113078adf6888b7ba84967f299f29aece24c55")
+# 	eth.getBalance("0x0070742ff6003c3e809e78d524f0fe5dcc5ba7f7")
+#   personal.newAccount()
+#   eth.sendTransaction({from:eth.coinbase, to:"address", value: web3.toWei(0.05, "ether")})
 
 geth-new-account:
-	geth --datadir "zarf/ethereum/" account new
+	geth --datadir zarf/ethereum/ account new
 #	If you run this command, add the new account address to the genesis file.
 #	To see the new balances, you need to restart the geth service.
 
