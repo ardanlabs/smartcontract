@@ -25,7 +25,11 @@ func main() {
 		log.Fatal("dial ERROR:", err)
 	}
 
-	contractID := os.Getenv("CONTRACT")
+	data, err := os.ReadFile("contract.env")
+	if err != nil {
+		log.Fatal("ERROR: ", err)
+	}
+	contractID := string(data)
 	fmt.Println("contractID:", contractID)
 
 	address := common.HexToAddress(contractID)

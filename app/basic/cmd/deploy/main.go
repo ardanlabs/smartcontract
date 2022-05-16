@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math/big"
+	"os"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -52,7 +53,10 @@ func main() {
 
 	fmt.Println("address :", address.Hex())
 	fmt.Println("tx hash :", tx.Hash().Hex())
-	fmt.Printf("run this: export CONTRACT=\"%s\"\n", address.Hex())
+	err = os.WriteFile("contract.env", []byte(address.Hex()), 0666)
+	if err != nil {
+		log.Fatal("cannot write 'contract.env' ERROR: ", err)
+	}
 
 	_ = instance
 }
