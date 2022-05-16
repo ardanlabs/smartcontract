@@ -46,19 +46,17 @@ func main() {
 
 	fmt.Println("deploy store contract:", auth)
 
-	address, tx, instance, err := store.DeployStore(auth, client)
+	address, tx, _, err := store.DeployStore(auth, client)
 	if err != nil {
 		log.Fatal("deploy ERROR:", err)
 	}
 
 	fmt.Println("address :", address.Hex())
 	fmt.Println("tx hash :", tx.Hash().Hex())
-	err = os.WriteFile("contract.env", []byte(address.Hex()), 0666)
-	if err != nil {
+
+	if err := os.WriteFile("contract.env", []byte(address.Hex()), 0666); err != nil {
 		log.Fatal("cannot write 'contract.env' ERROR: ", err)
 	}
-
-	_ = instance
 }
 
 func privateKey() (*ecdsa.PrivateKey, error) {
