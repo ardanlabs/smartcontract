@@ -42,7 +42,7 @@ func main() {
 		log.Fatal("BalanceAt:", err)
 	}
 
-	const gasLimit = 30000
+	const gasLimit = 100000
 	tran, err := smart.NewTransaction(ctx, gasLimit, privateKey, client)
 	if err != nil {
 		log.Fatal("NewTransaction:", err)
@@ -55,7 +55,7 @@ func main() {
 	var key [32]byte
 	var value [32]byte
 	copy(key[:], []byte("name"))
-	copy(value[:], []byte("tommy"))
+	copy(value[:], []byte("jarrod"))
 
 	tx, err := store.SetItem(tran, key, value)
 	if err != nil {
