@@ -39,8 +39,12 @@ basic-deploy:
 	go run app/basic/cmd/deploy/main.go
 
 # This will execute a simple program to test access to the smart contract API.
-basic-play:
-	go run app/basic/cmd/play/main.go
+basic-write:
+	go run app/basic/cmd/write/main.go
+
+# This will execute a simple program to test access to the smart contract API.
+basic-read:
+	go run app/basic/cmd/read/main.go
 
 
 # ==============================================================================
@@ -50,7 +54,7 @@ basic-play:
 # This is start Ethereum in developer mode. Only when a transaction is pending will
 # Ethereum mine a block. It provides a minimal environment for development.
 geth-up:
-	geth --dev --http --allow-insecure-unlock --rpc.allow-unprotected-txs --mine --miner.threads 1 --verbosity 4 --datadir "zarf/ethereum/" --unlock 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd --password zarf/ethereum/password
+	geth --dev --http --allow-insecure-unlock --rpc.allow-unprotected-txs --mine --miner.threads 1 --verbosity 5 --datadir "zarf/ethereum/" --unlock 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd --password zarf/ethereum/password
 
 # This will signal Ethereum to shutdown.
 geth-down:

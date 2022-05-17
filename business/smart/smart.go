@@ -1,12 +1,18 @@
 package smart
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	"os"
 
+	"github.com/ardanlabs/smartcontract/app/basic/contracts/store"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
@@ -32,6 +38,55 @@ func Connect() (*ethclient.Client, *ecdsa.PrivateKey, error) {
 	}
 
 	return client, privateKey, nil
+}
+
+// NewTransaction constructs a new transaction for executing function that cost money.
+func NewTransaction(ctx context.Context, gasLimit uint64, pk *ecdsa.PrivateKey, client *ethclient.Client) (*bind.TransactOpts, error) {
+	address := crypto.PubkeyToAddress(pk.PublicKey)
+
+	nonce, err := client.PendingNonceAt(ctx, address)
+	if err != nil {
+		return nil, fmt.Errorf("PendingNonceAt: ERROR: %w", err)
+	}
+
+	chainID, err := client.ChainID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("ChainID: ERROR: %w", err)
+	}
+
+	gasPrice, err := client.SuggestGasPrice(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("SuggestGasPrice: ERROR: %w", err)
+	}
+
+	tran, err := bind.NewKeyedTransactorWithChainID(pk, chainID)
+	if err != nil {
+		return nil, fmt.Errorf("NewKeyedTransactorWithChainID: ERROR: %w", err)
+	}
+
+	tran.Nonce = big.NewInt(int64(nonce))
+	tran.Value = big.NewInt(0) // in wei
+	tran.GasLimit = gasLimit   // The maximum amount of Gas a user can consume to conduct this transaction.
+	tran.GasPrice = gasPrice   // What you are willing to pay per unit to complete this transaction.
+
+	return tran, nil
+}
+
+// NewStore constructs a Store value for smart contract API access.
+func NewStore(ctx context.Context, client *ethclient.Client) (*store.Store, string, error) {
+	data, err := os.ReadFile("contract.env")
+	if err != nil {
+		return nil, "", fmt.Errorf("SuggestGasPrice: ERROR: %w", err)
+	}
+	contractID := string(data)
+
+	contract := common.HexToAddress(contractID)
+	store, err := store.NewStore(contract, client)
+	if err != nil {
+		return nil, "", fmt.Errorf("NewStore: ERROR: %w", err)
+	}
+
+	return store, contractID, nil
 }
 
 // Wei2Eth converts the wei unit into a Eth for display.
