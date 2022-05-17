@@ -1,5 +1,6 @@
 zarf/ethereum/geth
 history
+contract.env
 
 # Binaries for programs and plugins
 *.exe
@@ -16,6 +17,3 @@ history
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
-
-# Temp file needed for communicating a value between deploy and play
-contract.env

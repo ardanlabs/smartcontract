@@ -59,13 +59,13 @@ func main() {
 	if err != nil {
 		log.Fatal("suggest gas price ERROR:", err)
 	}
-	fmt.Println("gas price:", gasPrice)
+	fmt.Println("suggested gas price:", smart.Wei2Eth(gasPrice))
 
 	auth := bind.NewKeyedTransactor(privateKey)
 	auth.Nonce = big.NewInt(int64(nonce))
-	auth.Value = big.NewInt(0)     // in wei
-	auth.GasLimit = uint64(300000) // in units
-	auth.GasPrice = gasPrice
+	auth.Value = big.NewInt(0)    // in wei
+	auth.GasLimit = uint64(30000) // The maximum amount of Gas a user can consume to conduct this transaction.
+	auth.GasPrice = gasPrice      // What you are willing to pay per unit to complete this transaction.
 
 	var key [32]byte
 	var value [32]byte
@@ -76,7 +76,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("tx sent:", tx.Hash().Hex())
+	fmt.Println("tx sent      :", tx.Hash().Hex())
+	fmt.Println("tx gas units :", tx.Gas())
+	fmt.Println("tx gas price :", smart.Wei2Eth(tx.GasPrice()))
+	fmt.Println("tx cost      :", smart.Wei2Eth(tx.Cost()))
 
 	// There is a delay from the time we set to the time we see. This
 	// includes changes.

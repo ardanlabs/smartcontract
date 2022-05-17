@@ -36,13 +36,13 @@ func main() {
 	if err != nil {
 		log.Fatal("suggest gas price ERROR:", err)
 	}
-	fmt.Println("gas price:", gasPrice)
+	fmt.Println("suggested gas price:", smart.Wei2Eth(gasPrice))
 
 	auth := bind.NewKeyedTransactor(privateKey)
 	auth.Nonce = big.NewInt(int64(nonce))
 	auth.Value = big.NewInt(0)     // in wei
-	auth.GasLimit = uint64(300000) // in units
-	auth.GasPrice = gasPrice
+	auth.GasLimit = uint64(300000) // The maximum amount of Gas a user can consume to conduct this transaction.
+	auth.GasPrice = gasPrice       // What you are willing to pay per unit to complete this transaction.
 
 	fmt.Println("deploy store contract:", auth)
 
@@ -51,8 +51,11 @@ func main() {
 		log.Fatal("deploy ERROR:", err)
 	}
 
-	fmt.Println("address :", address.Hex())
-	fmt.Println("tx hash :", tx.Hash().Hex())
+	fmt.Println("tx sent          :", tx.Hash().Hex())
+	fmt.Println("tx gas units     :", tx.Gas())
+	fmt.Println("tx gas price     :", smart.Wei2Eth(tx.GasPrice()))
+	fmt.Println("tx cost          :", smart.Wei2Eth(tx.Cost()))
+	fmt.Println("Contract Address :", address.Hex())
 
 	if err := os.WriteFile("contract.env", []byte(address.Hex()), 0666); err != nil {
 		log.Fatal("cannot write 'contract.env' ERROR: ", err)

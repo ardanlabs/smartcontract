@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -31,6 +32,15 @@ func Connect() (*ethclient.Client, *ecdsa.PrivateKey, error) {
 	}
 
 	return client, privateKey, nil
+}
+
+// Wei2Eth converts the wei unit into a Eth for display.
+func Wei2Eth(amount *big.Int) string {
+	compact_amount := big.NewInt(0)
+	reminder := big.NewInt(0)
+	divisor := big.NewInt(1e18)
+	compact_amount.QuoRem(amount, divisor, reminder)
+	return fmt.Sprintf("%v.%018s", compact_amount.String(), reminder.String())
 }
 
 func privateKey() (*ecdsa.PrivateKey, error) {
