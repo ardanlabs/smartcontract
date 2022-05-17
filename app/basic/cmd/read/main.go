@@ -15,7 +15,7 @@ func main() {
 
 	client, privateKey, err := smart.Connect()
 	if err != nil {
-		log.Fatal("Connect:", err)
+		log.Fatal("Connect: ERROR:", err)
 	}
 
 	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
@@ -25,13 +25,13 @@ func main() {
 
 	store, contractID, err := smart.NewStore(ctx, client)
 	if err != nil {
-		log.Fatal("NewStore:", err)
+		log.Fatal("NewStore: ERROR:", err)
 	}
 	fmt.Println("contractID:", contractID)
 
 	version, err := store.Version(nil)
 	if err != nil {
-		log.Fatal("version:", err)
+		log.Fatal("version: ERROR:", err)
 	}
 	fmt.Println("version:", version)
 

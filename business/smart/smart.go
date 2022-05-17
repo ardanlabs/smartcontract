@@ -29,7 +29,7 @@ const (
 func Connect() (*ethclient.Client, *ecdsa.PrivateKey, error) {
 	client, err := ethclient.Dial(ethereum)
 	if err != nil {
-		return nil, nil, fmt.Errorf("ethclient.Dial: %w", err)
+		return nil, nil, fmt.Errorf("DialConnect: %w", err)
 	}
 
 	privateKey, err := privateKey()
@@ -46,22 +46,22 @@ func NewTransaction(ctx context.Context, gasLimit uint64, pk *ecdsa.PrivateKey, 
 
 	nonce, err := client.PendingNonceAt(ctx, address)
 	if err != nil {
-		return nil, fmt.Errorf("PendingNonceAt: ERROR: %w", err)
+		return nil, fmt.Errorf("PendingNonceAt: %w", err)
 	}
 
 	chainID, err := client.ChainID(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("ChainID: ERROR: %w", err)
+		return nil, fmt.Errorf("ChainID: %w", err)
 	}
 
 	gasPrice, err := client.SuggestGasPrice(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("SuggestGasPrice: ERROR: %w", err)
+		return nil, fmt.Errorf("SuggestGasPrice: %w", err)
 	}
 
 	tran, err := bind.NewKeyedTransactorWithChainID(pk, chainID)
 	if err != nil {
-		return nil, fmt.Errorf("NewKeyedTransactorWithChainID: ERROR: %w", err)
+		return nil, fmt.Errorf("NewKeyedTransactorWithChainID: %w", err)
 	}
 
 	tran.Nonce = big.NewInt(int64(nonce))
@@ -76,14 +76,14 @@ func NewTransaction(ctx context.Context, gasLimit uint64, pk *ecdsa.PrivateKey, 
 func NewStore(ctx context.Context, client *ethclient.Client) (*store.Store, string, error) {
 	data, err := os.ReadFile("contract.env")
 	if err != nil {
-		return nil, "", fmt.Errorf("SuggestGasPrice: ERROR: %w", err)
+		return nil, "", fmt.Errorf("SuggestGasPrice: %w", err)
 	}
 	contractID := string(data)
 
 	contract := common.HexToAddress(contractID)
 	store, err := store.NewStore(contract, client)
 	if err != nil {
-		return nil, "", fmt.Errorf("NewStore: ERROR: %w", err)
+		return nil, "", fmt.Errorf("NewStore: %w", err)
 	}
 
 	return store, contractID, nil

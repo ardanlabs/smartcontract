@@ -17,7 +17,7 @@ func main() {
 
 	client, privateKey, err := smart.Connect()
 	if err != nil {
-		log.Fatal("Connect:", err)
+		log.Fatal("Connect: ERROR:", err)
 	}
 
 	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
@@ -27,13 +27,13 @@ func main() {
 
 	balBefore, err := client.BalanceAt(ctx, fromAddress, nil)
 	if err != nil {
-		log.Fatal("BalanceAt:", err)
+		log.Fatal("BalanceAt: ERROR:", err)
 	}
 
 	const gasLimit = 300000
 	tran, err := smart.NewTransaction(ctx, gasLimit, privateKey, client)
 	if err != nil {
-		log.Fatal("NewTransaction:", err)
+		log.Fatal("NewTransaction: ERROR:", err)
 	}
 
 	fmt.Println("transaction:", tran)
@@ -45,10 +45,23 @@ func main() {
 		log.Fatal("deploy ERROR:", err)
 	}
 
-	fmt.Println("tx sent          :", tx.Hash().Hex())
-	fmt.Println("tx gas units     :", tx.Gas())
-	fmt.Println("tx gas price     :", smart.Wei2Eth(tx.GasPrice()))
-	fmt.Println("tx cost          :", smart.Wei2Eth(tx.Cost()))
+	fmt.Println("tx sent        :", tx.Hash().Hex())
+	fmt.Println("tx gas price   :", smart.Wei2Eth(tx.GasPrice()))
+	fmt.Println("tx cost        :", smart.Wei2Eth(tx.Cost()))
+
+	receipt, err := client.TransactionReceipt(ctx, tx.Hash())
+	if err != nil {
+		log.Fatal("set item ERROR:", err)
+	}
+
+	fmt.Println("tx gas allowed :", tx.Gas())
+	fmt.Println("tx gas used    :", receipt.GasUsed)
+	fmt.Println("tx status      :", receipt.Status)
+
+	if receipt.Status == 0 {
+		log.Fatal("Transaction Failed, check gas numbers.")
+	}
+
 	fmt.Println("Contract Address :", address.Hex())
 
 	if err := os.WriteFile("contract.env", []byte(address.Hex()), 0666); err != nil {
