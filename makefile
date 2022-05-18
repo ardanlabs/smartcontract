@@ -76,6 +76,10 @@ geth-up:
 geth-down:
 	kill -INT $(shell ps | grep "geth " | grep -v grep | sed -n 1,1p | cut -c1-5)
 
+# This will remove the local blockchain and let you start new.
+geth-reset:
+	rm -rf zarf/ethereum/geth/
+
 # This is a JS console environment for making geth related API calls.
 geth-attach:
 	geth attach --datadir zarf/ethereum/
