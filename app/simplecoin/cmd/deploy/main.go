@@ -76,6 +76,6 @@ func main() {
 		log.Fatal("balance at ERROR:", err)
 	}
 
-	fmt.Println("balance before   :", smart.Wei2Eth(balBefore))
-	fmt.Println("balance after    :", smart.Wei2Eth(balAfter))
+	fmt.Println("balance before :", smart.Wei2Eth(balBefore))
+	fmt.Println("balance afte   :", smart.Wei2Eth(balAfter))
 }
