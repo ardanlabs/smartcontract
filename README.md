@@ -59,19 +59,23 @@ If this is successful, the follow output should result.
 
 ```
 go run app/basic/cmd/deploy/main.go
-address: 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd
-next nonce: 8
-gas price: 417115737
-deploy store contract: &{0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd 8 0x436a4c0 0 417115737 <nil> <nil> 300000 context.Background false}
-address : 0x0BA052bAeb8925Ac8b480a291F75Ff0dD2c4297c
-tx hash : 0x55555675c0035271998f6ca98ae2d3c3a8346c50aee0be7178bd71a1cfc0549c
-run this: export CONTRACT="0x0BA052bAeb8925Ac8b480a291F75Ff0dD2c4297c"
+fromAddress: 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd
+transaction: &{0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd 2 0x101065e90 0 897051399 <nil> <nil> 300000 context.Background false}
+tx sent        : 0x515e9a3f97b9764267d6d13eb3a10f483b506abc9e1d5cbfe6bf8913590fcf36
+tx gas price   : 0.000000000897051399
+tx cost        : 0.000269115419700000
+tx gas allowed : 300000
+tx gas used    : 299056
+tx status      : 1
+Contract Address : 0x87A061ED19dcA76EC5B01643b054f5eae2730a85
+balance before   : 115792089237316195423570985008687907853269984665640564039457.583671928961867053
+balance after    : 115792089237316195423570985008687907853269984665640564039457.583469638337138349
 ```
 
 Make sure you execute the export command in the terminal.
 
 ```
-export CONTRACT="0x0BA052bAeb8925Ac8b480a291F75Ff0dD2c4297c"
+export CONTRACT="0x87A061ED19dcA76EC5B01643b054f5eae2730a85"
 ```
 
 Each time you deploy the contract, you will get a new contract ID. Every code change needs to be mined into a new block and therefore the API moves. Be aware what version of the API you are using.
@@ -81,20 +85,43 @@ Each time you deploy the contract, you will get a new contract ID. Every code ch
 To validate everything is working, run the follow make command.
 
 ```
-$ make basic-play
+$ make basic-write
 ```
 
-When you run this command, attempt to update the contracts map with the key `name` and value `ale`. You should see the following output if everything is working correctly.
+When you run this command, attempt to update the contracts map with the key `name` and value `brianna`. You should see the following output if everything is working correctly.
 
 ```
-go run app/basic/cmd/play/main.go
-contractID: 0x0BA052bAeb8925Ac8b480a291F75Ff0dD2c4297c
-version: 1.1
+go run app/basic/cmd/write/main.go
 address: 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd
-next nonce: 9
-gas price: 373867576
-tx sent: 0x119a8a44ddb429ef5652261d07cd74b6bf85dcee629d2adde6cd210b26ebaff4
-value: ale
+contractID: 0x87A061ED19dcA76EC5B01643b054f5eae2730a85
+version: 1.1
+transaction: &{0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd 3 0x10074a440 0 897051399 <nil> <nil> 100000 context.Background false}
+tx sent        : 0x59013826bdb18e2ae2bcf358e3ba282e4ab71cf1cf54e89ad0288c149d1a79e4
+tx gas price   : 0.000000000897051399
+tx cost        : 0.000089705139900000
+tx gas allowed : 100000
+tx gas used    : 45795
+tx status      : 1
+balance before : 115792089237316195423570985008687907853269984665640564039457.583469638337138349
+balance after  : 115792089237316195423570985008687907853269984665640564039457.583442331360647004
 ```
 
-In this case, a transaction is sent and the value returned is `ale`.
+To see if the value was written to the map for that key, run the follow make command.
+
+```
+$ make basic-read
+```
+
+You should see the following output if everything is working correctly.
+
+```
+go run app/basic/cmd/read/main.go
+address: 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd
+contractID: 0x87A061ED19dcA76EC5B01643b054f5eae2730a85
+version: 1.1
+value: brianna
+```
+
+## What's Next
+
+Check out the `simplecoin` app which is a more complext smart contract. This is a work in progress.
