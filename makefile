@@ -24,8 +24,7 @@
 
 
 # ==============================================================================
-# These commands build the basic smart contract, deploy the contract, and run the
-# play code to test it is working.
+# These commands build, deploy, and run the basic smart contract.
 
 # This will compile the smart contract and produce the binary code. Then with the
 # abi and binary code, a Go source code file can be generated for Go API access.
@@ -46,6 +45,23 @@ basic-write:
 basic-read:
 	go run app/basic/cmd/read/main.go
 
+
+# ==============================================================================
+# These commands build, deploy, and run the simplecoin smart contract.
+
+scoin-build:
+	solc --abi app/simplecoin/contracts/scoin/src/simplecoin.sol -o app/simplecoin/contracts/scoin/abi --overwrite
+	solc --bin app/simplecoin/contracts/scoin/src/simplecoin.sol -o app/simplecoin/contracts/scoin/bin --overwrite
+	abigen --bin=app/simplecoin/contracts/scoin/bin/Simplecoin.bin --abi=app/simplecoin/contracts/scoin/abi/Simplecoin.abi --pkg=scoin --out=app/simplecoin/contracts/scoin/scoin.go
+
+scoin-deploy:
+	go run app/simplecoin/cmd/deploy/main.go
+
+scoin-transfer:
+	go run app/simplecoin/cmd/transfer/main.go
+
+scoin-trancheck:
+	go run app/simplecoin/cmd/trancheck/main.go
 
 # ==============================================================================
 # These commands start the Ethereum node and provide examples of attaching

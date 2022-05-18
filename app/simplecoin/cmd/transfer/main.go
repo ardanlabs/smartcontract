@@ -4,13 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/big"
 	"os"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
-	"github.com/ardanlabs/smartcontract/app/basic/contracts/store"
+	"github.com/ardanlabs/smartcontract/app/simplecoin/contracts/scoin"
 	"github.com/ardanlabs/smartcontract/business/smart"
 )
 
@@ -27,17 +29,11 @@ func main() {
 
 	// =========================================================================
 
-	store, contractID, err := newStore(ctx, client)
+	scoin, contractID, err := newScoin(ctx, client)
 	if err != nil {
-		log.Fatal("newStore: ERROR:", err)
+		log.Fatal("newScoin: ERROR:", err)
 	}
 	fmt.Println("contractID:", contractID)
-
-	version, err := store.Version(nil)
-	if err != nil {
-		log.Fatal("version: ERROR:", err)
-	}
-	fmt.Println("version:", version)
 
 	// =========================================================================
 
@@ -56,32 +52,26 @@ func main() {
 
 	// =========================================================================
 
-	var key [32]byte
-	var value [32]byte
-	copy(key[:], []byte("name"))
-	copy(value[:], []byte("brianna"))
-
-	tx, err := store.SetItem(tran, key, value)
+	tx, err := scoin.Transfer(tran, common.HexToAddress("0x8e113078adf6888b7ba84967f299f29aece24c55"), big.NewInt(100))
 	if err != nil {
-		log.Fatal("SetItem ERROR:", err)
+		log.Fatal("Transfer ERROR:", err)
 	}
 
 	fmt.Println("tx sent        :", tx.Hash().Hex())
 	fmt.Println("tx gas price   :", smart.Wei2Eth(tx.GasPrice()))
 	fmt.Println("tx cost        :", smart.Wei2Eth(tx.Cost()))
+	fmt.Println("tx gas allowed :", tx.Gas())
 
-	receipt, err := client.TransactionReceipt(ctx, tx.Hash())
+	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
+
+	receipt, err := smart.CheckReceipt(ctx, tx.Hash(), client)
 	if err != nil {
-		log.Fatal("TransactionReceipt ERROR:", err)
+		log.Fatal("CheckReceipt ERROR:", err)
 	}
 
-	fmt.Println("tx gas allowed :", tx.Gas())
 	fmt.Println("tx gas used    :", receipt.GasUsed)
 	fmt.Println("tx status      :", receipt.Status)
-
-	if receipt.Status == 0 {
-		log.Fatal("Transaction Failed, check gas numbers.")
-	}
 
 	// =========================================================================
 
@@ -94,8 +84,8 @@ func main() {
 	fmt.Println("balance after  :", smart.Wei2Eth(balAfter))
 }
 
-// newStore constructs a Store value for smart contract API access.
-func newStore(ctx context.Context, client *ethclient.Client) (*store.Store, string, error) {
+// newScoin constructs a SimpleCoin value for smart contract API access.
+func newScoin(ctx context.Context, client *ethclient.Client) (*scoin.Scoin, string, error) {
 	data, err := os.ReadFile("contract.env")
 	if err != nil {
 		return nil, "", fmt.Errorf("readfile: %w", err)
@@ -103,10 +93,10 @@ func newStore(ctx context.Context, client *ethclient.Client) (*store.Store, stri
 	contractID := string(data)
 
 	contract := common.HexToAddress(contractID)
-	store, err := store.NewStore(contract, client)
+	scoin, err := scoin.NewScoin(contract, client)
 	if err != nil {
-		return nil, "", fmt.Errorf("NewStore: %w", err)
+		return nil, "", fmt.Errorf("NewScoin: %w", err)
 	}
 
-	return store, contractID, nil
+	return scoin, contractID, nil
 }

@@ -4,9 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
 
+	"github.com/ardanlabs/smartcontract/app/basic/contracts/store"
 	"github.com/ardanlabs/smartcontract/business/smart"
 )
 
@@ -23,9 +27,9 @@ func main() {
 
 	// =========================================================================
 
-	store, contractID, err := smart.NewStore(ctx, client)
+	store, contractID, err := newStore(ctx, client)
 	if err != nil {
-		log.Fatal("NewStore: ERROR:", err)
+		log.Fatal("newStore: ERROR:", err)
 	}
 	fmt.Println("contractID:", contractID)
 
@@ -47,4 +51,21 @@ func main() {
 	}
 
 	fmt.Println("value:", string(result[:]))
+}
+
+// newStore constructs a Store value for smart contract API access.
+func newStore(ctx context.Context, client *ethclient.Client) (*store.Store, string, error) {
+	data, err := os.ReadFile("contract.env")
+	if err != nil {
+		return nil, "", fmt.Errorf("readfile: %w", err)
+	}
+	contractID := string(data)
+
+	contract := common.HexToAddress(contractID)
+	store, err := store.NewStore(contract, client)
+	if err != nil {
+		return nil, "", fmt.Errorf("NewStore: %w", err)
+	}
+
+	return store, contractID, nil
 }

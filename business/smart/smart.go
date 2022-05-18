@@ -3,15 +3,16 @@ package smart
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/big"
-	"os"
+	"time"
 
-	"github.com/ardanlabs/smartcontract/app/basic/contracts/store"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
@@ -72,21 +73,35 @@ func NewTransaction(ctx context.Context, gasLimit uint64, pk *ecdsa.PrivateKey, 
 	return tran, nil
 }
 
-// NewStore constructs a Store value for smart contract API access.
-func NewStore(ctx context.Context, client *ethclient.Client) (*store.Store, string, error) {
-	data, err := os.ReadFile("contract.env")
-	if err != nil {
-		return nil, "", fmt.Errorf("SuggestGasPrice: %w", err)
-	}
-	contractID := string(data)
+// CheckReceipt will pull the transaction receipt waiting based on the context timeout.
+func CheckReceipt(ctx context.Context, txHash common.Hash, client *ethclient.Client) (*types.Receipt, error) {
+	var err error
+	var receipt *types.Receipt
 
-	contract := common.HexToAddress(contractID)
-	store, err := store.NewStore(contract, client)
-	if err != nil {
-		return nil, "", fmt.Errorf("NewStore: %w", err)
+	i := 1
+	for ctx.Err() == nil {
+		time.Sleep(time.Millisecond * time.Duration(100*i))
+		i++
+
+		receipt, err = client.TransactionReceipt(ctx, txHash)
+		if err != nil {
+			continue
+		}
+
+		if receipt.Status == 1 {
+			break
+		}
 	}
 
-	return store, contractID, nil
+	if err != nil {
+		return nil, err
+	}
+
+	if receipt.Status == 0 {
+		return nil, errors.New("transaction failed")
+	}
+
+	return receipt, nil
 }
 
 // Wei2Eth converts the wei unit into a Eth for display.
