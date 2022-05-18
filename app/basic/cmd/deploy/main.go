@@ -45,18 +45,18 @@ func main() {
 		log.Fatal("deploy ERROR:", err)
 	}
 
-	fmt.Println("tx sent        :", tx.Hash().Hex())
-	fmt.Println("tx gas price   :", smart.Wei2Eth(tx.GasPrice()))
-	fmt.Println("tx cost        :", smart.Wei2Eth(tx.Cost()))
+	fmt.Println("tx sent          :", tx.Hash().Hex())
+	fmt.Println("tx gas price     :", smart.Wei2Eth(tx.GasPrice()))
+	fmt.Println("tx cost          :", smart.Wei2Eth(tx.Cost()))
 
 	receipt, err := client.TransactionReceipt(ctx, tx.Hash())
 	if err != nil {
 		log.Fatal("TransactionReceipt ERROR:", err)
 	}
 
-	fmt.Println("tx gas allowed :", tx.Gas())
-	fmt.Println("tx gas used    :", receipt.GasUsed)
-	fmt.Println("tx status      :", receipt.Status)
+	fmt.Println("tx gas allowed   :", tx.Gas())
+	fmt.Println("tx gas used      :", receipt.GasUsed)
+	fmt.Println("tx status        :", receipt.Status)
 
 	if receipt.Status == 0 {
 		log.Fatal("Transaction Failed, check gas numbers.")

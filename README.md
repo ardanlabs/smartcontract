@@ -61,12 +61,12 @@ If this is successful, the follow output should result.
 go run app/basic/cmd/deploy/main.go
 fromAddress: 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd
 transaction: &{0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd 2 0x101065e90 0 897051399 <nil> <nil> 300000 context.Background false}
-tx sent        : 0x515e9a3f97b9764267d6d13eb3a10f483b506abc9e1d5cbfe6bf8913590fcf36
-tx gas price   : 0.000000000897051399
-tx cost        : 0.000269115419700000
-tx gas allowed : 300000
-tx gas used    : 299056
-tx status      : 1
+tx sent          : 0x515e9a3f97b9764267d6d13eb3a10f483b506abc9e1d5cbfe6bf8913590fcf36
+tx gas price     : 0.000000000897051399
+tx cost          : 0.000269115419700000
+tx gas allowed   : 300000
+tx gas used      : 299056
+tx status        : 1
 Contract Address : 0x87A061ED19dcA76EC5B01643b054f5eae2730a85
 balance before   : 115792089237316195423570985008687907853269984665640564039457.583671928961867053
 balance after    : 115792089237316195423570985008687907853269984665640564039457.583469638337138349
