@@ -56,7 +56,7 @@ func main() {
 		log.Fatal("cannot write 'contract.env' ERROR: ", err)
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+	ctx, cancel := context.WithTimeout(ctx, time.Second*14)
 	defer cancel()
 
 	receipt, err := smart.CheckReceipt(ctx, tx.Hash(), client)

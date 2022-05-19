@@ -72,7 +72,7 @@ func main() {
 	fmt.Println("tx cost        :", smart.Wei2Eth(tx.Cost()))
 	fmt.Println("tx gas allowed :", tx.Gas())
 
-	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+	ctx, cancel := context.WithTimeout(ctx, time.Second*14)
 	defer cancel()
 
 	receipt, err := smart.CheckReceipt(ctx, tx.Hash(), client)
