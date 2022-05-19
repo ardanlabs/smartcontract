@@ -52,7 +52,7 @@ basic-read:
 scoin-build:
 	solc --abi app/simplecoin/contracts/scoin/src/simplecoin.sol -o app/simplecoin/contracts/scoin/abi --overwrite
 	solc --bin app/simplecoin/contracts/scoin/src/simplecoin.sol -o app/simplecoin/contracts/scoin/bin --overwrite
-	abigen --bin=app/simplecoin/contracts/scoin/bin/Simplecoin.bin --abi=app/simplecoin/contracts/scoin/abi/Simplecoin.abi --pkg=scoin --out=app/simplecoin/contracts/scoin/scoin.go
+	abigen --bin=app/simplecoin/contracts/scoin/bin/SimpleCoin.bin --abi=app/simplecoin/contracts/scoin/abi/SimpleCoin.abi --pkg=scoin --out=app/simplecoin/contracts/scoin/scoin.go
 
 scoin-deploy:
 	go run app/simplecoin/cmd/deploy/main.go
