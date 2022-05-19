@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -69,19 +70,18 @@ func main() {
 	fmt.Println("tx sent        :", tx.Hash().Hex())
 	fmt.Println("tx gas price   :", smart.Wei2Eth(tx.GasPrice()))
 	fmt.Println("tx cost        :", smart.Wei2Eth(tx.Cost()))
+	fmt.Println("tx gas allowed :", tx.Gas())
 
-	receipt, err := client.TransactionReceipt(ctx, tx.Hash())
+	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
+
+	receipt, err := smart.CheckReceipt(ctx, tx.Hash(), client)
 	if err != nil {
-		log.Fatal("TransactionReceipt ERROR:", err)
+		log.Fatal("CheckReceipt ERROR:", err)
 	}
 
-	fmt.Println("tx gas allowed :", tx.Gas())
 	fmt.Println("tx gas used    :", receipt.GasUsed)
 	fmt.Println("tx status      :", receipt.Status)
-
-	if receipt.Status == 0 {
-		log.Fatal("Transaction Failed, check gas numbers.")
-	}
 
 	// =========================================================================
 
