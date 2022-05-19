@@ -1,6 +1,7 @@
 zarf/ethereum/geth
 history
 contract.env
+geth.ipc
 
 # Binaries for programs and plugins
 *.exe

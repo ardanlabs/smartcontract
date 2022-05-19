@@ -20,7 +20,8 @@ import (
 // Hardcoding these for now since all the apps will use this same information
 // and the information is static.
 const (
-	ethereum       = "http://localhost:8545"
+	// ethereum = "http://localhost:8545"
+	ethereum       = "zarf/ethereum/geth.ipc"
 	primaryAccount = "zarf/ethereum/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd"
 	passPhrase     = "123"
 )
@@ -84,11 +85,7 @@ func CheckReceipt(ctx context.Context, txHash common.Hash, client *ethclient.Cli
 		i++
 
 		receipt, err = client.TransactionReceipt(ctx, txHash)
-		if err != nil {
-			continue
-		}
-
-		if receipt.Status == 1 {
+		if err == nil {
 			break
 		}
 	}

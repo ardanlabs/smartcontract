@@ -29,7 +29,7 @@ func main() {
 
 	// =========================================================================
 
-	scoin, contractID, err := newScoin(ctx, client)
+	coin, contractID, err := newScoin(ctx, client)
 	if err != nil {
 		log.Fatal("newScoin: ERROR:", err)
 	}
@@ -42,7 +42,7 @@ func main() {
 		log.Fatal("BalanceAt ERROR:", err)
 	}
 
-	const gasLimit = 100000
+	const gasLimit = 300000
 	tran, err := smart.NewTransaction(ctx, gasLimit, privateKey, client)
 	if err != nil {
 		log.Fatal("NewTransaction: ERROR:", err)
@@ -50,9 +50,27 @@ func main() {
 
 	fmt.Println("transaction:", tran)
 
+	to := common.HexToAddress("0x8e113078adf6888b7ba84967f299f29aece24c55")
+
 	// =========================================================================
 
-	tx, err := scoin.Transfer(tran, common.HexToAddress("0x8e113078adf6888b7ba84967f299f29aece24c55"), big.NewInt(100))
+	sink := make(chan *scoin.ScoinTransfer, 100)
+	sub, err := coin.WatchTransfer(nil, sink, []common.Address{fromAddress}, []common.Address{to})
+	if err != nil {
+		log.Fatal("WatchTransfer: ERROR:", err)
+	}
+	fmt.Println("sub:", sub)
+
+	go func() {
+		event := <-sink
+		fmt.Println("=======================================")
+		fmt.Println("tx event", event)
+		fmt.Println("=======================================")
+	}()
+
+	// =========================================================================
+
+	tx, err := coin.Transfer(tran, to, big.NewInt(100))
 	if err != nil {
 		log.Fatal("Transfer ERROR:", err)
 	}

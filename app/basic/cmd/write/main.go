@@ -47,7 +47,7 @@ func main() {
 		log.Fatal("BalanceAt ERROR:", err)
 	}
 
-	const gasLimit = 100000
+	const gasLimit = 250000
 	tran, err := smart.NewTransaction(ctx, gasLimit, privateKey, client)
 	if err != nil {
 		log.Fatal("NewTransaction: ERROR:", err)
