@@ -98,6 +98,16 @@ func CheckReceipt(ctx context.Context, txHash common.Hash, client *ethclient.Cli
 		return nil, errors.New("transaction failed")
 	}
 
+	topic := crypto.Keccak256Hash([]byte("Log(string)"))
+	if len(receipt.Logs) > 0 {
+		for i, v := range receipt.Logs {
+			if v.Topics[i] == topic {
+				l := v.Data[63]
+				fmt.Printf("LOG:[%s]\n", string(v.Data[64:64+l]))
+			}
+		}
+	}
+
 	return receipt, nil
 }
 
