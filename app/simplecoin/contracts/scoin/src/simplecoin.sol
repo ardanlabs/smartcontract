@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 contract SimpleCoin {
     mapping (address => uint256) public coinBalance;
 
+    event Log(string value);
     event Transfer(address indexed from, address indexed to, uint256 value);
 
     constructor(uint256 initialSupply) {
@@ -11,12 +12,15 @@ contract SimpleCoin {
     }
 
     function transfer(address to, uint256 amount) external {
-        require(coinBalance[msg.sender] > amount);
-        require(coinBalance[to] + amount >= coinBalance[to]);
-        
+        require(coinBalance[msg.sender] > amount, "send doesn't have enough money");
+        require(coinBalance[to] + amount >= coinBalance[to], "can't send negative amount");
+
         coinBalance[msg.sender] -= amount;
         coinBalance[to] += amount;
 
-        emit Transfer(msg.sender, to, amount);
+        emit Log("did I get this log");
+        revert("did I get this error");
+
+       // emit Transfer(msg.sender, to, amount);
     }
 }

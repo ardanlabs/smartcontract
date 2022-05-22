@@ -54,6 +54,20 @@ func main() {
 
 	// =========================================================================
 
+	sink2 := make(chan *scoin.ScoinLog, 100)
+	sub2, err := coin.WatchLog(nil, sink2)
+	if err != nil {
+		log.Fatal("WatchTransfer: ERROR:", err)
+	}
+	fmt.Println("sub:", sub2)
+
+	go func() {
+		event := <-sink2
+		fmt.Println("=======================================")
+		fmt.Println("tx log", event.Value)
+		fmt.Println("=======================================")
+	}()
+
 	sink := make(chan *scoin.ScoinTransfer, 100)
 	sub, err := coin.WatchTransfer(nil, sink, []common.Address{fromAddress}, []common.Address{to})
 	if err != nil {
@@ -77,8 +91,9 @@ func main() {
 
 	fmt.Println("tx sent        :", tx.Hash().Hex())
 	fmt.Println("tx gas price   :", smart.Wei2Eth(tx.GasPrice()))
-	fmt.Println("tx cost        :", smart.Wei2Eth(tx.Cost()))
 	fmt.Println("tx gas allowed :", tx.Gas())
+	fmt.Println("tx value       :", smart.Wei2Eth(tx.Value()))
+	fmt.Println("tx max cost    :", smart.Wei2Eth(tx.Cost()), " // gas * gasPrice + value")
 
 	ctx, cancel := context.WithTimeout(ctx, time.Second*14)
 	defer cancel()
@@ -89,6 +104,7 @@ func main() {
 	}
 
 	fmt.Println("tx gas used    :", receipt.GasUsed)
+	fmt.Println("tx act cost    :", smart.Wei2Eth(big.NewInt(0).Mul(big.NewInt(int64(receipt.GasUsed)), tx.GasPrice())))
 	fmt.Println("tx status      :", receipt.Status)
 
 	// =========================================================================
@@ -100,6 +116,7 @@ func main() {
 
 	fmt.Println("balance before :", smart.Wei2Eth(balBefore))
 	fmt.Println("balance after  :", smart.Wei2Eth(balAfter))
+	fmt.Println("diff           :", smart.Wei2Eth(big.NewInt(0).Sub(balBefore, balAfter)))
 }
 
 // newScoin constructs a SimpleCoin value for smart contract API access.
