@@ -19,8 +19,8 @@ contract SimpleCoin {
         coinBalance[to] += amount;
 
         emit Log("did I get this log");
-        // revert("did I get this error");
+        revert("did I get this error");
 
-       emit Transfer(msg.sender, to, amount);
+        // emit Transfer(msg.sender, to, amount);
     }
 }
