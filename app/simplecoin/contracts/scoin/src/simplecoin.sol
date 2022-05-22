@@ -15,12 +15,13 @@ contract SimpleCoin {
         require(coinBalance[msg.sender] > amount, "send doesn't have enough money");
         require(coinBalance[to] + amount >= coinBalance[to], "can't send negative amount");
 
+        emit Log("starting transfer");
+
         coinBalance[msg.sender] -= amount;
         coinBalance[to] += amount;
 
-        emit Log("did I get this log");
-        revert("did I get this error");
+        emit Log("ending transfer");
 
-        // emit Transfer(msg.sender, to, amount);
+        emit Transfer(msg.sender, to, amount);
     }
 }

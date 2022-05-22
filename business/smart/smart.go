@@ -3,12 +3,12 @@ package smart
 import (
 	"context"
 	"crypto/ecdsa"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
@@ -20,8 +20,8 @@ import (
 // Hardcoding these for now since all the apps will use this same information
 // and the information is static.
 const (
-	// ethereum = "http://localhost:8545"
-	ethereum       = "zarf/ethereum/geth.ipc"
+	// geth = "http://localhost:8545"
+	geth           = "zarf/ethereum/geth.ipc"
 	primaryAccount = "zarf/ethereum/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd"
 	passPhrase     = "123"
 )
@@ -29,7 +29,7 @@ const (
 // Connect provides boilerplate for connecting to the geth service using
 // an IPC socket created by the geth service on startup.
 func Connect() (*ethclient.Client, *ecdsa.PrivateKey, error) {
-	client, err := ethclient.Dial(ethereum)
+	client, err := ethclient.Dial(geth)
 	if err != nil {
 		return nil, nil, fmt.Errorf("DialConnect: %w", err)
 	}
@@ -94,21 +94,86 @@ func CheckReceipt(ctx context.Context, txHash common.Hash, client *ethclient.Cli
 		return nil, err
 	}
 
-	if receipt.Status == 0 {
-		return nil, errors.New("transaction failed")
-	}
-
 	topic := crypto.Keccak256Hash([]byte("Log(string)"))
 	if len(receipt.Logs) > 0 {
-		for i, v := range receipt.Logs {
-			if v.Topics[i] == topic {
+		fmt.Println("================ LOGS =================")
+		for _, v := range receipt.Logs {
+			if v.Topics[0] == topic {
 				l := v.Data[63]
-				fmt.Printf("LOG:[%s]\n", string(v.Data[64:64+l]))
+				fmt.Println(string(v.Data[64 : 64+l]))
 			}
 		}
+		fmt.Println("================ LOGS =================")
+	}
+
+	if receipt.Status == 0 {
+		msg, err := GetFailingMessage(client, txHash)
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("transaction failed: %s", msg)
 	}
 
 	return receipt, nil
+}
+
+// GetFailingMessage returns the reason a call failed.
+func GetFailingMessage(client *ethclient.Client, hash common.Hash) (string, error) {
+	tx, _, err := client.TransactionByHash(context.Background(), hash)
+	if err != nil {
+		return "", err
+	}
+
+	from, err := types.Sender(types.NewEIP155Signer(tx.ChainId()), tx)
+	if err != nil {
+		return "", err
+	}
+
+	msg := ethereum.CallMsg{
+		From:     from,
+		To:       tx.To(),
+		Gas:      tx.Gas(),
+		GasPrice: tx.GasPrice(),
+		Value:    tx.Value(),
+		Data:     tx.Data(),
+	}
+
+	res, err := client.CallContract(context.Background(), msg, nil)
+	if err != nil {
+		return "", err
+	}
+
+	return string(res), nil
+}
+
+// PrintTransaction outputs the transaction details.
+func PrintTransaction(tx *types.Transaction) {
+	fmt.Println("tx sent        :", tx.Hash().Hex())
+	fmt.Println("tx gas price   :", Wei2Eth(tx.GasPrice()))
+	fmt.Println("tx gas allowed :", tx.Gas())
+	fmt.Println("tx value       :", Wei2Eth(tx.Value()))
+	fmt.Println("tx max cost    :", Wei2Eth(tx.Cost()), " // gas * gasPrice + value")
+}
+
+// PrintTransactionReceipt outputs the transaction receipt.
+func PrintTransactionReceipt(receipt *types.Receipt, tx *types.Transaction) {
+	fmt.Println("tx gas used    :", receipt.GasUsed)
+	fmt.Println("tx act cost    :", Wei2Eth(big.NewInt(0).Mul(big.NewInt(int64(receipt.GasUsed)), tx.GasPrice())))
+	fmt.Println("tx status      :", receipt.Status)
+}
+
+// PrintBalanceDiff outputs the start and ending balances with difference.
+func PrintBalanceDiff(ctx context.Context, startingBalance *big.Int, fromAddress common.Address, client *ethclient.Client) error {
+	endingBalance, err := client.BalanceAt(ctx, fromAddress, nil)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("balance before :", Wei2Eth(startingBalance))
+	fmt.Println("balance after  :", Wei2Eth(endingBalance))
+	fmt.Println("balance diff   :", Wei2Eth(big.NewInt(0).Sub(startingBalance, endingBalance)))
+
+	return nil
 }
 
 // Wei2Eth converts the wei unit into a Eth for display.

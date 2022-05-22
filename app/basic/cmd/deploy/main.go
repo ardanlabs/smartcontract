@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 
@@ -14,11 +13,17 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatalln(err)
+	}
+}
+
+func run() error {
 	ctx := context.Background()
 
 	client, privateKey, err := smart.Connect()
 	if err != nil {
-		log.Fatal("Connect: ERROR:", err)
+		return err
 	}
 
 	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
@@ -26,54 +31,37 @@ func main() {
 
 	// =========================================================================
 
-	balBefore, err := client.BalanceAt(ctx, fromAddress, nil)
+	startingBalance, err := client.BalanceAt(ctx, fromAddress, nil)
 	if err != nil {
-		log.Fatal("BalanceAt: ERROR:", err)
+		return err
 	}
-
-	const gasLimit = 300000
-	tran, err := smart.NewTransaction(ctx, gasLimit, privateKey, client)
-	if err != nil {
-		log.Fatal("NewTransaction: ERROR:", err)
-	}
-
-	fmt.Println("transaction:", tran)
+	defer smart.PrintBalanceDiff(ctx, startingBalance, fromAddress, client)
 
 	// =========================================================================
 
-	address, tx, _, err := store.DeployStore(tran, client)
+	const gasLimit = 300000
+	tranOpts, err := smart.NewTransaction(ctx, gasLimit, privateKey, client)
 	if err != nil {
-		log.Fatal("deploy ERROR:", err)
+		return err
 	}
 
-	fmt.Println("tx sent        :", tx.Hash().Hex())
-	fmt.Println("tx gas price   :", smart.Wei2Eth(tx.GasPrice()))
-	fmt.Println("tx cost        :", smart.Wei2Eth(tx.Cost()))
-	fmt.Println("tx gas allowed :", tx.Gas())
-	fmt.Println("contract       :", address.Hex())
+	// =========================================================================
+
+	address, tx, _, err := store.DeployStore(tranOpts, client)
+	if err != nil {
+		return err
+	}
+	smart.PrintTransaction(tx)
 
 	if err := os.WriteFile("contract.env", []byte(address.Hex()), 0666); err != nil {
-		log.Fatal("cannot write 'contract.env' ERROR: ", err)
+		return err
 	}
-
-	ctx, cancel := context.WithTimeout(ctx, time.Second*14)
-	defer cancel()
 
 	receipt, err := smart.CheckReceipt(ctx, tx.Hash(), client)
 	if err != nil {
-		log.Fatal("CheckReceipt ERROR:", err)
+		return err
 	}
+	smart.PrintTransactionReceipt(receipt, tx)
 
-	fmt.Println("tx gas used    :", receipt.GasUsed)
-	fmt.Println("tx status      :", receipt.Status)
-
-	// =========================================================================
-
-	balAfter, err := client.BalanceAt(ctx, fromAddress, nil)
-	if err != nil {
-		log.Fatal("balance at ERROR:", err)
-	}
-
-	fmt.Println("balance before   :", smart.Wei2Eth(balBefore))
-	fmt.Println("balance after    :", smart.Wei2Eth(balAfter))
+	return nil
 }

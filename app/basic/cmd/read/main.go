@@ -15,11 +15,17 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatalln(err)
+	}
+}
+
+func run() error {
 	ctx := context.Background()
 
 	client, privateKey, err := smart.Connect()
 	if err != nil {
-		log.Fatal("Connect: ERROR:", err)
+		return err
 	}
 
 	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
@@ -29,13 +35,13 @@ func main() {
 
 	store, contractID, err := newStore(ctx, client)
 	if err != nil {
-		log.Fatal("newStore: ERROR:", err)
+		return err
 	}
 	fmt.Println("contractID:", contractID)
 
 	version, err := store.Version(nil)
 	if err != nil {
-		log.Fatal("version: ERROR:", err)
+		return err
 	}
 	fmt.Println("version:", version)
 
@@ -47,10 +53,12 @@ func main() {
 	var result [32]byte
 	result, err = store.Items(nil, key)
 	if err != nil {
-		log.Fatal("Items ERROR:", err)
+		return err
 	}
 
 	fmt.Println("value:", string(result[:]))
+
+	return nil
 }
 
 // newStore constructs a Store value for smart contract API access.

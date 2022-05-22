@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -16,11 +15,17 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatalln(err)
+	}
+}
+
+func run() error {
 	ctx := context.Background()
 
 	client, privateKey, err := smart.Connect()
 	if err != nil {
-		log.Fatal("Connect: ERROR:", err)
+		return err
 	}
 
 	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
@@ -30,30 +35,31 @@ func main() {
 
 	store, contractID, err := newStore(ctx, client)
 	if err != nil {
-		log.Fatal("newStore: ERROR:", err)
+		return err
 	}
 	fmt.Println("contractID:", contractID)
 
 	version, err := store.Version(nil)
 	if err != nil {
-		log.Fatal("version: ERROR:", err)
+		return err
 	}
 	fmt.Println("version:", version)
 
 	// =========================================================================
 
-	balBefore, err := client.BalanceAt(ctx, fromAddress, nil)
+	startingBalance, err := client.BalanceAt(ctx, fromAddress, nil)
 	if err != nil {
-		log.Fatal("BalanceAt ERROR:", err)
+		return err
 	}
+	defer smart.PrintBalanceDiff(ctx, startingBalance, fromAddress, client)
+
+	// =========================================================================
 
 	const gasLimit = 250000
 	tran, err := smart.NewTransaction(ctx, gasLimit, privateKey, client)
 	if err != nil {
-		log.Fatal("NewTransaction: ERROR:", err)
+		return err
 	}
-
-	fmt.Println("transaction:", tran)
 
 	// =========================================================================
 
@@ -66,32 +72,15 @@ func main() {
 	if err != nil {
 		log.Fatal("SetItem ERROR:", err)
 	}
-
-	fmt.Println("tx sent        :", tx.Hash().Hex())
-	fmt.Println("tx gas price   :", smart.Wei2Eth(tx.GasPrice()))
-	fmt.Println("tx cost        :", smart.Wei2Eth(tx.Cost()))
-	fmt.Println("tx gas allowed :", tx.Gas())
-
-	ctx, cancel := context.WithTimeout(ctx, time.Second*14)
-	defer cancel()
+	smart.PrintTransaction(tx)
 
 	receipt, err := smart.CheckReceipt(ctx, tx.Hash(), client)
 	if err != nil {
-		log.Fatal("CheckReceipt ERROR:", err)
+		return err
 	}
+	smart.PrintTransactionReceipt(receipt, tx)
 
-	fmt.Println("tx gas used    :", receipt.GasUsed)
-	fmt.Println("tx status      :", receipt.Status)
-
-	// =========================================================================
-
-	balAfter, err := client.BalanceAt(ctx, fromAddress, nil)
-	if err != nil {
-		log.Fatal("balance at ERROR:", err)
-	}
-
-	fmt.Println("balance before :", smart.Wei2Eth(balBefore))
-	fmt.Println("balance after  :", smart.Wei2Eth(balAfter))
+	return nil
 }
 
 // newStore constructs a Store value for smart contract API access.
