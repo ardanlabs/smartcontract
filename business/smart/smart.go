@@ -11,9 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 // Hardcoding these for now since all the apps will use this same information
@@ -115,7 +117,7 @@ func PrintTransaction(tx *types.Transaction) {
 // PrintTransactionReceipt outputs the transaction receipt.
 func PrintTransactionReceipt(receipt *types.Receipt, tx *types.Transaction) {
 	fmt.Println("tx gas used    :", receipt.GasUsed)
-	fmt.Println("tx act cost    :", Wei2Eth(big.NewInt(0).Mul(big.NewInt(int64(receipt.GasUsed)), tx.GasPrice())))
+	fmt.Println("tx act cost    :", Wei2Eth(big.NewInt(0).Mul(big.NewInt(int64(receipt.GasUsed)), tx.GasPrice())), " // gasUsed * gasPrice + value")
 	fmt.Println("tx status      :", receipt.Status)
 
 	topic := crypto.Keccak256Hash([]byte("Log(string)"))
@@ -143,6 +145,16 @@ func PrintBalanceDiff(ctx context.Context, startingBalance *big.Int, fromAddress
 	fmt.Println("balance diff   :", Wei2Eth(big.NewInt(0).Sub(startingBalance, endingBalance)))
 
 	return nil
+}
+
+// PrintBaseFee calculates the base fee for the latest block.
+func PrintBaseFee(client *ethclient.Client) {
+	bn, _ := client.BlockNumber(context.Background())
+	bignumBn := big.NewInt(0).SetUint64(bn)
+	blk, _ := client.BlockByNumber(context.Background(), bignumBn)
+	baseFee := misc.CalcBaseFee(params.RopstenChainConfig, blk.Header())
+
+	fmt.Println("base fee       :", Wei2Eth(baseFee))
 }
 
 // Wei2Eth converts the wei unit into a Eth for display.
