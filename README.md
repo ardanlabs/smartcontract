@@ -55,7 +55,7 @@ With the Ethereum service up and running, run the following make command to depl
 $ make basic-deploy
 ```
 
-If this is successful, the follow output should result.
+If this is successful, the following output should result.
 
 ```
 go run app/basic/cmd/deploy/main.go
@@ -70,12 +70,6 @@ tx status        : 1
 Contract Address : 0x87A061ED19dcA76EC5B01643b054f5eae2730a85
 balance before   : 115792089237316195423570985008687907853269984665640564039457.583671928961867053
 balance after    : 115792089237316195423570985008687907853269984665640564039457.583469638337138349
-```
-
-Make sure you execute the export command in the terminal.
-
-```
-export CONTRACT="0x87A061ED19dcA76EC5B01643b054f5eae2730a85"
 ```
 
 Each time you deploy the contract, you will get a new contract ID. Every code change needs to be mined into a new block and therefore the API moves. Be aware what version of the API you are using.
@@ -93,17 +87,21 @@ When you run this command, attempt to update the contracts map with the key `nam
 ```
 go run app/basic/cmd/write/main.go
 address: 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd
-contractID: 0x87A061ED19dcA76EC5B01643b054f5eae2730a85
+contractID: 0x1da2185Ff21DE4291E8690407A4de5459E09de16
 version: 1.1
-transaction: &{0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd 3 0x10074a440 0 897051399 <nil> <nil> 100000 context.Background false}
-tx sent        : 0x59013826bdb18e2ae2bcf358e3ba282e4ab71cf1cf54e89ad0288c149d1a79e4
-tx gas price   : 0.000000000897051399
-tx cost        : 0.000089705139900000
-tx gas allowed : 100000
-tx gas used    : 45795
+tx sent        : 0x9e54198a243f99f6f433284b3ac0fe78ff8ad213e6295c9fa8a81a31fe403496
+tx gas price   : 0.000000000000000001
+tx gas allowed : 250000
+tx value       : 0.000000000000000000
+tx max cost    : 0.000000000000250000  // gas * gasPrice + value
+tx gas used    : 43695
+tx act cost    : 0.000000000000043695  // gasUsed * gasPrice + value
 tx status      : 1
-balance before : 115792089237316195423570985008687907853269984665640564039457.583469638337138349
-balance after  : 115792089237316195423570985008687907853269984665640564039457.583442331360647004
+================ LOGS =================
+================ LOGS =================
+balance before : 35779.000000000000000000
+balance after  : 35781.000000000000000000
+balance diff   : -2.000000000000000000
 ```
 
 To see if the value was written to the map for that key, run the follow make command.
@@ -117,7 +115,7 @@ You should see the following output if everything is working correctly.
 ```
 go run app/basic/cmd/read/main.go
 address: 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd
-contractID: 0x87A061ED19dcA76EC5B01643b054f5eae2730a85
+contractID: 0x1da2185Ff21DE4291E8690407A4de5459E09de16
 version: 1.1
 value: brianna
 ```
@@ -125,3 +123,4 @@ value: brianna
 ## What's Next
 
 Check out the `simplecoin` app which is a more complext smart contract. This is a work in progress.
+The steps are similar: `scoin-build`, `scoin-deploy`, `scoin-transfer` and `scoin-trancheck`.

@@ -34,7 +34,7 @@ basic-build:
 	abigen --bin=app/basic/contracts/store/bin/Store.bin --abi=app/basic/contracts/store/abi/Store.abi --pkg=store --out=app/basic/contracts/store/store.go
 
 # This will deploy the smart contract to the locally running Ethereum environment.
-basic-deploy:
+basic-deploy: basic-build
 	go run app/basic/cmd/deploy/main.go
 
 # This will execute a simple program to test access to the smart contract API.
