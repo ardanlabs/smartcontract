@@ -18,6 +18,12 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 )
 
+// These values are used to calculate ETH in USD.
+var (
+	AmountWei = big.NewInt(10_000_000)
+	PriceWei  = big.NewFloat(0.00000002)
+)
+
 // Hardcoding these for now since all the apps will use this same information
 // and the information is static.
 const (
@@ -108,16 +114,17 @@ func ExtractError(client *ethclient.Client, tx *types.Transaction, fromAddress c
 // PrintTransaction outputs the transaction details.
 func PrintTransaction(tx *types.Transaction) {
 	fmt.Println("tx sent        :", tx.Hash().Hex())
-	fmt.Println("tx gas price   :", Wei2Eth(tx.GasPrice()))
+	fmt.Println("tx gas Eth     :", Wei2Eth(tx.GasPrice()))
 	fmt.Println("tx gas allowed :", tx.Gas())
-	fmt.Println("tx value       :", Wei2Eth(tx.Value()))
-	fmt.Println("tx max cost    :", Wei2Eth(tx.Cost()), " // gas * gasPrice + value")
+	fmt.Println("tx value Eth   :", Wei2Eth(tx.Value()))
+	fmt.Println("tx max Eth     :", Wei2Eth(tx.Cost()), " // gas * gasPrice + value")
+	fmt.Println("tx max USD     :", USDCost(tx.Cost()))
 }
 
 // PrintTransactionReceipt outputs the transaction receipt.
 func PrintTransactionReceipt(receipt *types.Receipt, tx *types.Transaction) {
 	fmt.Println("tx gas used    :", receipt.GasUsed)
-	fmt.Println("tx act cost    :", Wei2Eth(big.NewInt(0).Mul(big.NewInt(int64(receipt.GasUsed)), tx.GasPrice())), " // gasUsed * gasPrice + value")
+	fmt.Println("tx cost eth    :", Wei2Eth(big.NewInt(0).Mul(big.NewInt(int64(receipt.GasUsed)), tx.GasPrice())), " // gasUsed * gasPrice + value")
 	fmt.Println("tx status      :", receipt.Status)
 
 	topic := crypto.Keccak256Hash([]byte("Log(string)"))
@@ -140,9 +147,12 @@ func PrintBalanceDiff(ctx context.Context, startingBalance *big.Int, fromAddress
 		return err
 	}
 
-	fmt.Println("balance before :", Wei2Eth(startingBalance))
-	fmt.Println("balance after  :", Wei2Eth(endingBalance))
-	fmt.Println("balance diff   :", Wei2Eth(big.NewInt(0).Sub(startingBalance, endingBalance)))
+	cost := big.NewInt(0).Sub(startingBalance, endingBalance)
+
+	fmt.Println("bal before Eth :", Wei2Eth(startingBalance))
+	fmt.Println("bal after  Eth :", Wei2Eth(endingBalance))
+	fmt.Println("bal diff   Eth :", Wei2Eth(cost))
+	fmt.Println("diff cost  USD :", USDCost(cost))
 
 	return nil
 }
@@ -155,6 +165,13 @@ func PrintBaseFee(client *ethclient.Client) {
 	baseFee := misc.CalcBaseFee(params.RopstenChainConfig, blk.Header())
 
 	fmt.Println("base fee       :", Wei2Eth(baseFee))
+}
+
+// USDCost converts Wei to USD.
+func USDCost(amount *big.Int) string {
+	units := big.NewFloat(0).SetInt(big.NewInt(0).Div(amount, AmountWei))
+	ans, _ := big.NewFloat(0).Mul(units, PriceWei).Float64()
+	return fmt.Sprintf("$%.2f", ans)
 }
 
 // Wei2Eth converts the wei unit into a Eth for display.
