@@ -13,9 +13,7 @@ contract SimpleCoin {
 
     function transfer(address to, uint256 amount) external {
         if (coinBalance[msg.sender] < amount) {
-            string memory resp = concatenate("insufficent funds  bal:", uint2str(coinBalance[msg.sender]));
-            resp = concatenate(resp, " amount:");
-            resp = concatenate(resp, uint2str(amount));
+            string memory resp = string(abi.encodePacked("insufficent funds  bal:", uint2str(coinBalance[msg.sender]), "  amount: ", uint2str(amount)));
             revert(resp);
         }
 
@@ -29,11 +27,7 @@ contract SimpleCoin {
         emit Transfer(msg.sender, to, amount);
     }
 
-    function concatenate(string memory a, string memory b) public pure returns (string memory) {
-        return string(bytes.concat(bytes(a), " ", bytes(b)));
-    }
-
-    function uint2str(uint i) internal pure returns (string memory _uintAsString) {
+    function uint2str(uint i) internal pure returns (string memory) {
         if (i == 0) {
             return "0";
         }
