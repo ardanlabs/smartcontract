@@ -59,7 +59,7 @@ func run() error {
 		log.Fatal("cannot write 'contract.env' ERROR: ", err)
 	}
 
-	receipt, err := smart.CheckReceipt(ctx, tx.Hash(), client)
+	receipt, err := smart.WaitMined(ctx, tx, fromAddress, client)
 	if err != nil {
 		return err
 	}

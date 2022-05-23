@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -74,63 +73,25 @@ func NewTransaction(ctx context.Context, gasLimit uint64, pk *ecdsa.PrivateKey, 
 	return tran, nil
 }
 
-// CheckReceipt will pull the transaction receipt waiting based on the context timeout.
-func CheckReceipt(ctx context.Context, txHash common.Hash, client *ethclient.Client) (*types.Receipt, error) {
-	var err error
-	var receipt *types.Receipt
-
-	i := 1
-	for ctx.Err() == nil {
-		time.Sleep(time.Millisecond * time.Duration(100*i))
-		i++
-
-		receipt, err = client.TransactionReceipt(ctx, txHash)
-		if err == nil {
-			break
-		}
-	}
-
+// WaitMined will wait for the transaction to be minded and return a receipt.
+func WaitMined(ctx context.Context, tx *types.Transaction, fromAddress common.Address, client *ethclient.Client) (*types.Receipt, error) {
+	receipt, err := bind.WaitMined(ctx, client, tx)
 	if err != nil {
 		return nil, err
 	}
 
-	topic := crypto.Keccak256Hash([]byte("Log(string)"))
-	if len(receipt.Logs) > 0 {
-		fmt.Println("================ LOGS =================")
-		for _, v := range receipt.Logs {
-			if v.Topics[0] == topic {
-				l := v.Data[63]
-				fmt.Println(string(v.Data[64 : 64+l]))
-			}
-		}
-		fmt.Println("================ LOGS =================")
-	}
-
 	if receipt.Status == 0 {
-		msg, err := GetFailingMessage(client, txHash)
-		if err != nil {
-			return nil, err
-		}
-		return nil, fmt.Errorf("transaction failed: %s", msg)
+		err := ExtractError(client, tx, fromAddress)
+		return nil, err
 	}
 
 	return receipt, nil
 }
 
-// GetFailingMessage returns the reason a call failed.
-func GetFailingMessage(client *ethclient.Client, hash common.Hash) (string, error) {
-	tx, _, err := client.TransactionByHash(context.Background(), hash)
-	if err != nil {
-		return "", err
-	}
-
-	from, err := types.Sender(types.NewEIP155Signer(tx.ChainId()), tx)
-	if err != nil {
-		return "", err
-	}
-
+// ExtractError checks the failed transaction for the error message.
+func ExtractError(client *ethclient.Client, tx *types.Transaction, fromAddress common.Address) error {
 	msg := ethereum.CallMsg{
-		From:     from,
+		From:     fromAddress,
 		To:       tx.To(),
 		Gas:      tx.Gas(),
 		GasPrice: tx.GasPrice(),
@@ -138,12 +99,8 @@ func GetFailingMessage(client *ethclient.Client, hash common.Hash) (string, erro
 		Data:     tx.Data(),
 	}
 
-	res, err := client.CallContract(context.Background(), msg, nil)
-	if err != nil {
-		return "", err
-	}
-
-	return string(res), nil
+	_, err := client.CallContract(context.Background(), msg, nil)
+	return err
 }
 
 // PrintTransaction outputs the transaction details.
@@ -160,6 +117,18 @@ func PrintTransactionReceipt(receipt *types.Receipt, tx *types.Transaction) {
 	fmt.Println("tx gas used    :", receipt.GasUsed)
 	fmt.Println("tx act cost    :", Wei2Eth(big.NewInt(0).Mul(big.NewInt(int64(receipt.GasUsed)), tx.GasPrice())))
 	fmt.Println("tx status      :", receipt.Status)
+
+	topic := crypto.Keccak256Hash([]byte("Log(string)"))
+	if len(receipt.Logs) > 0 {
+		fmt.Println("================ LOGS =================")
+		for _, v := range receipt.Logs {
+			if v.Topics[0] == topic {
+				l := v.Data[63]
+				fmt.Println(string(v.Data[64 : 64+l]))
+			}
+		}
+		fmt.Println("================ LOGS =================")
+	}
 }
 
 // PrintBalanceDiff outputs the start and ending balances with difference.

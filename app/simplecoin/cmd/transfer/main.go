@@ -74,13 +74,13 @@ func run() error {
 
 	// =========================================================================
 
-	tx, err := coin.Transfer(tran, to, big.NewInt(100))
+	tx, err := coin.Transfer(tran, to, big.NewInt(-100))
 	if err != nil {
 		return err
 	}
 	smart.PrintTransaction(tx)
 
-	receipt, err := smart.CheckReceipt(ctx, tx.Hash(), client)
+	receipt, err := smart.WaitMined(ctx, tx, fromAddress, client)
 	if err != nil {
 		return err
 	}

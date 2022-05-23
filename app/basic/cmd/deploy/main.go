@@ -57,7 +57,7 @@ func run() error {
 		return err
 	}
 
-	receipt, err := smart.CheckReceipt(ctx, tx.Hash(), client)
+	receipt, err := smart.WaitMined(ctx, tx, fromAddress, client)
 	if err != nil {
 		return err
 	}
