@@ -180,7 +180,7 @@ func Wei2Eth(amount *big.Int) string {
 	reminder := big.NewInt(0)
 	divisor := big.NewInt(1e18)
 	compact_amount.QuoRem(amount, divisor, reminder)
-	return fmt.Sprintf("%v.%018s", compact_amount.String(), reminder.String())
+	return fmt.Sprintf("%s.%018s", compact_amount.String(), reminder.String())
 }
 
 func privateKey() (*ecdsa.PrivateKey, error) {
