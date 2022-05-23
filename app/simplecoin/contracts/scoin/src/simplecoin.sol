@@ -12,8 +12,12 @@ contract SimpleCoin {
     }
 
     function transfer(address to, uint256 amount) external {
-        require(coinBalance[msg.sender] > amount, "send doesn't have enough money");
-        require(coinBalance[to] + amount >= coinBalance[to], "can't send negative amount");
+        if (coinBalance[msg.sender] < amount) {
+            string memory resp = concatenate("insufficent funds  bal:", uint2str(coinBalance[msg.sender]));
+            resp = concatenate(resp, " amount:");
+            resp = concatenate(resp, uint2str(amount));
+            revert(resp);
+        }
 
         emit Log("starting transfer");
 
@@ -23,5 +27,34 @@ contract SimpleCoin {
         emit Log("ending transfer");
 
         emit Transfer(msg.sender, to, amount);
+    }
+
+    function concatenate(string memory a, string memory b) public pure returns (string memory) {
+        return string(bytes.concat(bytes(a), " ", bytes(b)));
+    }
+
+    function uint2str(uint i) internal pure returns (string memory _uintAsString) {
+        if (i == 0) {
+            return "0";
+        }
+
+        uint j = i;
+        uint len;
+        while (j != 0) {
+            len++;
+            j /= 10;
+        }
+
+        bytes memory bstr = new bytes(len);
+        uint k = len;
+        while (i != 0) {
+            k = k-1;
+            uint8 temp = (48 + uint8(i - i / 10 * 10));
+            bytes1 b1 = bytes1(temp);
+            bstr[k] = b1;
+            i /= 10;
+        }
+
+        return string(bstr);
     }
 }

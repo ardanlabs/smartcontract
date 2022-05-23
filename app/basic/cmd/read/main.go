@@ -33,13 +33,12 @@ func run() error {
 
 	// =========================================================================
 
-	store, contractID, err := newStore(ctx, client)
+	contract, err := newContract(ctx, client)
 	if err != nil {
 		return err
 	}
-	fmt.Println("contractID:", contractID)
 
-	version, err := store.Version(nil)
+	version, err := contract.Version(nil)
 	if err != nil {
 		return err
 	}
@@ -51,7 +50,7 @@ func run() error {
 	copy(key[:], []byte("name"))
 
 	var result [32]byte
-	result, err = store.Items(nil, key)
+	result, err = contract.Items(nil, key)
 	if err != nil {
 		return err
 	}
@@ -61,19 +60,19 @@ func run() error {
 	return nil
 }
 
-// newStore constructs a Store value for smart contract API access.
-func newStore(ctx context.Context, client *ethclient.Client) (*store.Store, string, error) {
+// newContract constructs a SimpleCoin contract.
+func newContract(ctx context.Context, client *ethclient.Client) (*store.Store, error) {
 	data, err := os.ReadFile("contract.env")
 	if err != nil {
-		return nil, "", fmt.Errorf("readfile: %w", err)
+		return nil, fmt.Errorf("readfile: %w", err)
 	}
 	contractID := string(data)
+	fmt.Println("contractID:", contractID)
 
-	contract := common.HexToAddress(contractID)
-	store, err := store.NewStore(contract, client)
+	contract, err := store.NewStore(common.HexToAddress(contractID), client)
 	if err != nil {
-		return nil, "", fmt.Errorf("NewStore: %w", err)
+		return nil, fmt.Errorf("NewStore: %w", err)
 	}
 
-	return store, contractID, nil
+	return contract, nil
 }

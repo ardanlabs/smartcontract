@@ -54,7 +54,7 @@ scoin-build:
 	solc --bin app/simplecoin/contracts/scoin/src/simplecoin.sol -o app/simplecoin/contracts/scoin/bin --overwrite
 	abigen --bin=app/simplecoin/contracts/scoin/bin/SimpleCoin.bin --abi=app/simplecoin/contracts/scoin/abi/SimpleCoin.abi --pkg=scoin --out=app/simplecoin/contracts/scoin/scoin.go
 
-scoin-deploy:
+scoin-deploy: scoin-build
 	go run app/simplecoin/cmd/deploy/main.go
 
 scoin-transfer:

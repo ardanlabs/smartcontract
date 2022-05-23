@@ -29,21 +29,20 @@ func run() error {
 
 	// =========================================================================
 
-	scoin, contractID, err := newScoin(ctx, client)
+	contract, err := newContract(ctx, client)
 	if err != nil {
 		return err
 	}
-	fmt.Println("contractID:", contractID)
 
 	// =========================================================================
 
-	balance, err := scoin.CoinBalance(nil, common.HexToAddress("0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd"))
+	balance, err := contract.CoinBalance(nil, common.HexToAddress("0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd"))
 	if err != nil {
 		return err
 	}
 	fmt.Println("balance 0x6327:", smart.Wei2Eth(balance))
 
-	balance, err = scoin.CoinBalance(nil, common.HexToAddress("0x8e113078adf6888b7ba84967f299f29aece24c55"))
+	balance, err = contract.CoinBalance(nil, common.HexToAddress("0x8e113078adf6888b7ba84967f299f29aece24c55"))
 	if err != nil {
 		return err
 	}
@@ -52,19 +51,19 @@ func run() error {
 	return nil
 }
 
-// newScoin constructs a SimpleCoin value for smart contract API access.
-func newScoin(ctx context.Context, client *ethclient.Client) (*scoin.Scoin, string, error) {
+// newContract constructs a SimpleCoin contract.
+func newContract(ctx context.Context, client *ethclient.Client) (*scoin.Scoin, error) {
 	data, err := os.ReadFile("contract.env")
 	if err != nil {
-		return nil, "", fmt.Errorf("readfile: %w", err)
+		return nil, fmt.Errorf("readfile: %w", err)
 	}
 	contractID := string(data)
+	fmt.Println("contractID:", contractID)
 
-	contract := common.HexToAddress(contractID)
-	scoin, err := scoin.NewScoin(contract, client)
+	contract, err := scoin.NewScoin(common.HexToAddress(contractID), client)
 	if err != nil {
-		return nil, "", fmt.Errorf("NewScoin: %w", err)
+		return nil, fmt.Errorf("NewScoin: %w", err)
 	}
 
-	return scoin, contractID, nil
+	return contract, nil
 }
