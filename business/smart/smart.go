@@ -139,7 +139,7 @@ func PrintTransactionReceipt(receipt *types.Receipt, tx *types.Transaction) {
 				fmt.Println(string(v.Data[64 : 64+l]))
 			}
 		}
-		fmt.Println("================ LOGS =================")
+		fmt.Println("=======================================")
 	}
 }
 
