@@ -152,6 +152,7 @@ func PrintBalanceDiff(ctx context.Context, startingBalance *big.Int, fromAddress
 
 	cost := big.NewInt(0).Sub(startingBalance, endingBalance)
 
+	fmt.Println("base fee       :", Wei2Eth(BaseFee(client)))
 	fmt.Println("bal before Eth :", Wei2Eth(startingBalance))
 	fmt.Println("bal after  Eth :", Wei2Eth(endingBalance))
 	fmt.Println("bal diff   Eth :", Wei2Eth(cost))
@@ -161,13 +162,12 @@ func PrintBalanceDiff(ctx context.Context, startingBalance *big.Int, fromAddress
 }
 
 // PrintBaseFee calculates the base fee for the latest block.
-func PrintBaseFee(client *ethclient.Client) {
+func BaseFee(client *ethclient.Client) *big.Int {
 	bn, _ := client.BlockNumber(context.Background())
 	bignumBn := big.NewInt(0).SetUint64(bn)
 	blk, _ := client.BlockByNumber(context.Background(), bignumBn)
-	baseFee := misc.CalcBaseFee(params.RopstenChainConfig, blk.Header())
 
-	fmt.Println("base fee       :", Wei2Eth(baseFee))
+	return misc.CalcBaseFee(params.RopstenChainConfig, blk.Header())
 }
 
 // USDCost converts Wei to USD.
