@@ -21,7 +21,19 @@
 # https://documenter.getpostman.com/view/4117254/ethereum-json-rpc/RVu7CT5J
 # curl -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","method":"eth_coinbase", "id":1}' localhost:8545
 # curl -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","method":"eth_getBalance", "params": ["0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd", "latest"], "id":1}' localhost:8545
-
+#
+# check this out https://etherscan.io/gastracker
+# If you want something to go through soon, have a base fee (~30) and the priority fee or tip of 1 gwei
+# Priority fee doesn't do much i've noticed and is always around 1-3 gwei. I've been setting that base fee higher.
+#
+#  Unit	                Wei Value	 Wei
+#  wei	                1 wei        1
+#  Kwei (babbage)	    1e3 wei	     1,000
+#  Mwei (lovelace)	    1e6 wei	     1,000,000
+#  Gwei (shannon)	    1e9 wei	     1,000,000,000
+#  microether (szabo)	1e12 wei	 1,000,000,000,000
+#  milliether (finney)	1e15 wei	 1,000,000,000,000,000
+#  ether	            1e18 wei	 1,000,000,000,000,000,000
 
 # ==============================================================================
 # These commands build, deploy, and run the basic smart contract.
