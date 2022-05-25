@@ -123,7 +123,7 @@ func PrintTransaction(tx *types.Transaction) {
 // PrintTransactionReceipt outputs the transaction receipt.
 func PrintTransactionReceipt(receipt *types.Receipt, tx *types.Transaction, client *ethclient.Client) {
 	baseFeePerGas := BaseFeePreGas(receipt, client)
-	cost := big.NewInt(0).Mul(big.NewInt(int64(receipt.GasUsed)), baseFeePerGas)
+	cost := big.NewInt(0).Add(big.NewInt(0).Mul(big.NewInt(int64(receipt.GasUsed)), baseFeePerGas), tx.Value())
 
 	fmt.Println("----------------------------------------------------")
 	fmt.Println("re status          :", receipt.Status)
