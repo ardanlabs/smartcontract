@@ -12,8 +12,18 @@ contract SimpleCoin {
     }
 
     function transfer(address to, uint256 amount) external {
+
+        // Check that the sender has enough coins.
         if (coinBalance[msg.sender] < amount) {
             string memory resp = string(abi.encodePacked("insufficent funds  bal:", uint2str(coinBalance[msg.sender]), "  amount: ", uint2str(amount)));
+            revert(resp);
+        }
+
+        // Check for any arithmetic overflow has occurred on the to balance.
+        // This can happen if the amount received causes the to balance to be
+        // largers than an uint256 value.
+        if (coinBalance[to] + amount >= coinBalance[to]) {
+            string memory resp = string(abi.encodePacked("arithmetic overflow  amount: ", uint2str(amount)));
             revert(resp);
         }
 
