@@ -116,7 +116,6 @@ func PrintTransaction(tx *types.Transaction) {
 	fmt.Println("tx gas offer price :", Wei2Eth(tx.GasPrice()), "ETH")
 	fmt.Println("tx gas max allowed :", tx.Gas(), "LIMIT")
 	fmt.Println("tx value           :", Wei2Eth(tx.Value()), "ETH")
-	fmt.Println("----------------------------------------------------")
 	fmt.Println("tx max offer price :", Wei2Eth(tx.Cost()), "ETH")
 	fmt.Println("tx max offer price :", USDCost(tx.Cost()), "USD")
 }
@@ -130,7 +129,6 @@ func PrintTransactionReceipt(receipt *types.Receipt, tx *types.Transaction, clie
 	fmt.Println("re status          :", receipt.Status)
 	fmt.Println("re gas act price   :", Wei2Eth(baseFeePerGas), "ETH")
 	fmt.Println("re gas act used    :", receipt.GasUsed)
-	fmt.Println("----------------------------------------------------")
 	fmt.Println("re final price     :", Wei2Eth(cost), "ETH")
 	fmt.Println("re final price     :", USDCost(cost), "USD")
 
@@ -159,7 +157,6 @@ func PrintBalanceDiff(ctx context.Context, startingBalance *big.Int, fromAddress
 	fmt.Println("----------------------------------------------------")
 	fmt.Println("balance before     :", Wei2Eth(startingBalance), "ETH")
 	fmt.Println("balance after      :", Wei2Eth(endingBalance), "ETH")
-	fmt.Println("----------------------------------------------------")
 	fmt.Println("balance diff price :", Wei2Eth(cost), "ETH")
 	fmt.Println("balance diff price :", USDCost(cost), "USD")
 
