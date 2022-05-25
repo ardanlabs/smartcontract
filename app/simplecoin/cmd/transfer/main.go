@@ -66,9 +66,9 @@ func run() error {
 
 	go func() {
 		event := <-sink
-		fmt.Println("================ EVENT ================")
+		fmt.Println("======================= EVENT ======================")
 		fmt.Println("tx event", event)
-		fmt.Println("=======================================")
+		fmt.Println("====================================================")
 	}()
 
 	// =========================================================================
@@ -83,7 +83,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	smart.PrintTransactionReceipt(receipt, tx)
+	smart.PrintTransactionReceipt(receipt, tx, client)
 
 	return nil
 }

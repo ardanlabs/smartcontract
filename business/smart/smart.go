@@ -11,11 +11,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/params"
 )
 
 // These values are used to calculate ETH in USD.
@@ -113,33 +111,39 @@ func ExtractError(client *ethclient.Client, tx *types.Transaction, fromAddress c
 
 // PrintTransaction outputs the transaction details.
 func PrintTransaction(tx *types.Transaction) {
-	fmt.Println("tx sent        :", tx.Hash().Hex())
-	fmt.Println("tx gas Eth     :", Wei2Eth(tx.GasPrice()))
-	fmt.Println("tx gas allowed :", tx.Gas())
-	fmt.Println("tx value Eth   :", Wei2Eth(tx.Value()))
-	fmt.Println("tx max Eth     :", Wei2Eth(tx.Cost()), " // gas * gasPrice + value")
-	fmt.Println("tx max USD     :", USDCost(tx.Cost()))
+	fmt.Println("tx sent :", tx.Hash().Hex())
+	fmt.Println("----------------------------------------------------")
+	fmt.Println("tx gas offer price :", Wei2Eth(tx.GasPrice()), "ETH")
+	fmt.Println("tx gas max allowed :", tx.Gas(), "LIMIT")
+	fmt.Println("tx value           :", Wei2Eth(tx.Value()), "ETH")
+	fmt.Println("----------------------------------------------------")
+	fmt.Println("tx max offer price :", Wei2Eth(tx.Cost()), "ETH")
+	fmt.Println("tx max offer price :", USDCost(tx.Cost()), "USD")
 }
 
 // PrintTransactionReceipt outputs the transaction receipt.
-func PrintTransactionReceipt(receipt *types.Receipt, tx *types.Transaction) {
-	cost := big.NewInt(0).Mul(big.NewInt(int64(receipt.GasUsed)), tx.GasPrice())
+func PrintTransactionReceipt(receipt *types.Receipt, tx *types.Transaction, client *ethclient.Client) {
+	baseFeePerGas := BaseFee(receipt, client)
+	cost := big.NewInt(0).Mul(big.NewInt(int64(receipt.GasUsed)), baseFeePerGas)
 
-	fmt.Println("tx gas used    :", receipt.GasUsed)
-	fmt.Println("tx cost eth    :", Wei2Eth(cost), " // gasUsed * gasPrice + value")
-	fmt.Println("tx cost USD    :", USDCost(cost))
-	fmt.Println("tx status      :", receipt.Status)
+	fmt.Println("re status          :", receipt.Status)
+	fmt.Println("----------------------------------------------------")
+	fmt.Println("re gas act price   :", Wei2Eth(baseFeePerGas), "ETH")
+	fmt.Println("re gas act used    :", receipt.GasUsed)
+	fmt.Println("----------------------------------------------------")
+	fmt.Println("re final price     :", Wei2Eth(cost), "ETH")
+	fmt.Println("re final price     :", USDCost(cost), "USD")
 
 	topic := crypto.Keccak256Hash([]byte("Log(string)"))
 	if len(receipt.Logs) > 0 {
-		fmt.Println("================ LOGS =================")
+		fmt.Println("====================== LOGS =======================")
 		for _, v := range receipt.Logs {
 			if v.Topics[0] == topic {
 				l := v.Data[63]
 				fmt.Println(string(v.Data[64 : 64+l]))
 			}
 		}
-		fmt.Println("=======================================")
+		fmt.Println("====================================================")
 	}
 }
 
@@ -152,22 +156,19 @@ func PrintBalanceDiff(ctx context.Context, startingBalance *big.Int, fromAddress
 
 	cost := big.NewInt(0).Sub(startingBalance, endingBalance)
 
-	fmt.Println("base fee       :", Wei2Eth(BaseFee(client)))
-	fmt.Println("bal before Eth :", Wei2Eth(startingBalance))
-	fmt.Println("bal after  Eth :", Wei2Eth(endingBalance))
-	fmt.Println("bal diff   Eth :", Wei2Eth(cost))
-	fmt.Println("diff cost  USD :", USDCost(cost))
+	fmt.Println("balance before     :", Wei2Eth(startingBalance), "ETH")
+	fmt.Println("balance after      :", Wei2Eth(endingBalance), "ETH")
+	fmt.Println("----------------------------------------------------")
+	fmt.Println("balance diff price :", Wei2Eth(cost), "ETH")
+	fmt.Println("balance diff price :", USDCost(cost), "USD")
 
 	return nil
 }
 
 // PrintBaseFee calculates the base fee for the latest block.
-func BaseFee(client *ethclient.Client) *big.Int {
-	bn, _ := client.BlockNumber(context.Background())
-	bignumBn := big.NewInt(0).SetUint64(bn)
-	blk, _ := client.BlockByNumber(context.Background(), bignumBn)
-
-	return misc.CalcBaseFee(params.RopstenChainConfig, blk.Header())
+func BaseFee(receipt *types.Receipt, client *ethclient.Client) *big.Int {
+	block, _ := client.BlockByNumber(context.Background(), receipt.BlockNumber)
+	return block.BaseFee()
 }
 
 // USDCost converts Wei to USD.
