@@ -126,8 +126,8 @@ func PrintTransactionReceipt(receipt *types.Receipt, tx *types.Transaction, clie
 	baseFeePerGas := BaseFeePreGas(receipt, client)
 	cost := big.NewInt(0).Mul(big.NewInt(int64(receipt.GasUsed)), baseFeePerGas)
 
-	fmt.Println("re status          :", receipt.Status)
 	fmt.Println("----------------------------------------------------")
+	fmt.Println("re status          :", receipt.Status)
 	fmt.Println("re gas act price   :", Wei2Eth(baseFeePerGas), "ETH")
 	fmt.Println("re gas act used    :", receipt.GasUsed)
 	fmt.Println("----------------------------------------------------")
