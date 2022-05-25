@@ -167,7 +167,10 @@ func PrintBalanceDiff(ctx context.Context, startingBalance *big.Int, fromAddress
 
 // PrintBaseFee calculates the base fee for the latest block.
 func BaseFee(receipt *types.Receipt, client *ethclient.Client) *big.Int {
-	block, _ := client.BlockByNumber(context.Background(), receipt.BlockNumber)
+	block, err := client.BlockByNumber(context.Background(), receipt.BlockNumber)
+	if err != nil {
+		return big.NewInt(0)
+	}
 	return block.BaseFee()
 }
 
