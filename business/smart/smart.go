@@ -111,8 +111,9 @@ func ExtractError(client *ethclient.Client, tx *types.Transaction, fromAddress c
 
 // PrintTransaction outputs the transaction details.
 func PrintTransaction(tx *types.Transaction) {
-	fmt.Println("tx sent :", tx.Hash().Hex())
+	fmt.Println("\nTransaction Details")
 	fmt.Println("----------------------------------------------------")
+	fmt.Println("tx sent            :", tx.Hash().Hex())
 	fmt.Println("tx gas offer price :", Wei2Eth(tx.GasPrice()), "ETH")
 	fmt.Println("tx gas max allowed :", tx.Gas(), "LIMIT")
 	fmt.Println("tx value           :", Wei2Eth(tx.Value()), "ETH")
@@ -125,6 +126,7 @@ func PrintTransactionReceipt(receipt *types.Receipt, tx *types.Transaction, clie
 	baseFeePerGas := BaseFeePreGas(receipt, client)
 	cost := big.NewInt(0).Add(big.NewInt(0).Mul(big.NewInt(int64(receipt.GasUsed)), baseFeePerGas), tx.Value())
 
+	fmt.Println("\nReceipt Details")
 	fmt.Println("----------------------------------------------------")
 	fmt.Println("re status          :", receipt.Status)
 	fmt.Println("re gas act price   :", Wei2Eth(baseFeePerGas), "ETH")
@@ -134,14 +136,14 @@ func PrintTransactionReceipt(receipt *types.Receipt, tx *types.Transaction, clie
 
 	topic := crypto.Keccak256Hash([]byte("Log(string)"))
 	if len(receipt.Logs) > 0 {
-		fmt.Println("====================== LOGS =======================")
+		fmt.Println("\nLogs")
+		fmt.Println("----------------------------------------------------")
 		for _, v := range receipt.Logs {
 			if v.Topics[0] == topic {
 				l := v.Data[63]
 				fmt.Println(string(v.Data[64 : 64+l]))
 			}
 		}
-		fmt.Println("====================================================")
 	}
 }
 
@@ -154,6 +156,7 @@ func PrintBalanceDiff(ctx context.Context, startingBalance *big.Int, fromAddress
 
 	cost := big.NewInt(0).Sub(startingBalance, endingBalance)
 
+	fmt.Println("\nBalance")
 	fmt.Println("----------------------------------------------------")
 	fmt.Println("balance before     :", Wei2Eth(startingBalance), "ETH")
 	fmt.Println("balance after      :", Wei2Eth(endingBalance), "ETH")
