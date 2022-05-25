@@ -123,7 +123,7 @@ func PrintTransaction(tx *types.Transaction) {
 
 // PrintTransactionReceipt outputs the transaction receipt.
 func PrintTransactionReceipt(receipt *types.Receipt, tx *types.Transaction, client *ethclient.Client) {
-	baseFeePerGas := BaseFee(receipt, client)
+	baseFeePerGas := BaseFeePreGas(receipt, client)
 	cost := big.NewInt(0).Mul(big.NewInt(int64(receipt.GasUsed)), baseFeePerGas)
 
 	fmt.Println("re status          :", receipt.Status)
@@ -165,8 +165,8 @@ func PrintBalanceDiff(ctx context.Context, startingBalance *big.Int, fromAddress
 	return nil
 }
 
-// PrintBaseFee calculates the base fee for the latest block.
-func BaseFee(receipt *types.Receipt, client *ethclient.Client) *big.Int {
+// BaseFeePreGas calculates the base fee for the latest block.
+func BaseFeePreGas(receipt *types.Receipt, client *ethclient.Client) *big.Int {
 	block, err := client.BlockByNumber(context.Background(), receipt.BlockNumber)
 	if err != nil {
 		return big.NewInt(0)

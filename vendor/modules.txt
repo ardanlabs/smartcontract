@@ -1,16 +1,10 @@
 # github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6
 ## explicit
 github.com/StackExchange/wmi
-# github.com/VictoriaMetrics/fastcache v1.6.0
-## explicit; go 1.13
-github.com/VictoriaMetrics/fastcache
 # github.com/btcsuite/btcd/btcec/v2 v2.1.2
 ## explicit; go 1.17
 github.com/btcsuite/btcd/btcec/v2
 github.com/btcsuite/btcd/btcec/v2/ecdsa
-# github.com/cespare/xxhash/v2 v2.1.1
-## explicit; go 1.11
-github.com/cespare/xxhash/v2
 # github.com/deckarep/golang-set v1.8.0
 ## explicit; go 1.17
 github.com/deckarep/golang-set
@@ -30,11 +24,6 @@ github.com/ethereum/go-ethereum/common
 github.com/ethereum/go-ethereum/common/hexutil
 github.com/ethereum/go-ethereum/common/math
 github.com/ethereum/go-ethereum/common/mclock
-github.com/ethereum/go-ethereum/common/prque
-github.com/ethereum/go-ethereum/consensus/misc
-github.com/ethereum/go-ethereum/core/rawdb
-github.com/ethereum/go-ethereum/core/state
-github.com/ethereum/go-ethereum/core/state/snapshot
 github.com/ethereum/go-ethereum/core/types
 github.com/ethereum/go-ethereum/crypto
 github.com/ethereum/go-ethereum/crypto/secp256k1
@@ -42,9 +31,6 @@ github.com/ethereum/go-ethereum/crypto/secp256k1/libsecp256k1/include
 github.com/ethereum/go-ethereum/crypto/secp256k1/libsecp256k1/src
 github.com/ethereum/go-ethereum/crypto/secp256k1/libsecp256k1/src/modules/recovery
 github.com/ethereum/go-ethereum/ethclient
-github.com/ethereum/go-ethereum/ethdb
-github.com/ethereum/go-ethereum/ethdb/leveldb
-github.com/ethereum/go-ethereum/ethdb/memorydb
 github.com/ethereum/go-ethereum/event
 github.com/ethereum/go-ethereum/log
 github.com/ethereum/go-ethereum/metrics
@@ -54,7 +40,6 @@ github.com/ethereum/go-ethereum/rlp
 github.com/ethereum/go-ethereum/rlp/internal/rlpstruct
 github.com/ethereum/go-ethereum/rpc
 github.com/ethereum/go-ethereum/signer/core/apitypes
-github.com/ethereum/go-ethereum/trie
 # github.com/go-ole/go-ole v1.2.1
 ## explicit
 github.com/go-ole/go-ole
@@ -62,34 +47,12 @@ github.com/go-ole/go-ole/oleutil
 # github.com/go-stack/stack v1.8.0
 ## explicit
 github.com/go-stack/stack
-# github.com/golang/snappy v0.0.4
-## explicit
-github.com/golang/snappy
 # github.com/google/uuid v1.2.0
 ## explicit
 github.com/google/uuid
 # github.com/gorilla/websocket v1.4.2
 ## explicit; go 1.12
 github.com/gorilla/websocket
-# github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
-## explicit; go 1.12
-github.com/hashicorp/golang-lru
-github.com/hashicorp/golang-lru/simplelru
-# github.com/holiman/bloomfilter/v2 v2.0.3
-## explicit; go 1.15
-github.com/holiman/bloomfilter/v2
-# github.com/mattn/go-runewidth v0.0.9
-## explicit; go 1.9
-github.com/mattn/go-runewidth
-# github.com/olekukonko/tablewriter v0.0.5
-## explicit; go 1.12
-github.com/olekukonko/tablewriter
-# github.com/pkg/errors v0.9.1
-## explicit
-github.com/pkg/errors
-# github.com/prometheus/tsdb v0.7.1
-## explicit
-github.com/prometheus/tsdb/fileutil
 # github.com/rjeczalik/notify v0.9.1
 ## explicit
 github.com/rjeczalik/notify
@@ -97,20 +60,6 @@ github.com/rjeczalik/notify
 ## explicit
 github.com/shirou/gopsutil/cpu
 github.com/shirou/gopsutil/internal/common
-# github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
-## explicit; go 1.14
-github.com/syndtr/goleveldb/leveldb
-github.com/syndtr/goleveldb/leveldb/cache
-github.com/syndtr/goleveldb/leveldb/comparer
-github.com/syndtr/goleveldb/leveldb/errors
-github.com/syndtr/goleveldb/leveldb/filter
-github.com/syndtr/goleveldb/leveldb/iterator
-github.com/syndtr/goleveldb/leveldb/journal
-github.com/syndtr/goleveldb/leveldb/memdb
-github.com/syndtr/goleveldb/leveldb/opt
-github.com/syndtr/goleveldb/leveldb/storage
-github.com/syndtr/goleveldb/leveldb/table
-github.com/syndtr/goleveldb/leveldb/util
 # github.com/tklauser/go-sysconf v0.3.5
 ## explicit; go 1.13
 github.com/tklauser/go-sysconf
