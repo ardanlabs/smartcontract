@@ -158,8 +158,8 @@ func PrintBalanceDiff(ctx context.Context, startingBalance *big.Int, fromAddress
 
 	fmt.Println("\nBalance")
 	fmt.Println("----------------------------------------------------")
-	fmt.Println("balance before     :", Wei2Eth(startingBalance), "ETH")
-	fmt.Println("balance after      :", Wei2Eth(endingBalance), "ETH")
+	fmt.Println("balance before     :", Wei2GWei(startingBalance), "GWei")
+	fmt.Println("balance after      :", Wei2GWei(endingBalance), "GWei")
 	fmt.Println("balance diff price :", Wei2GWei(cost), "GWei")
 	fmt.Println("balance diff price :", USDCost(cost), "USD")
 
