@@ -29,7 +29,7 @@ func run() error {
 		return err
 	}
 
-	fmt.Println("balance before :", smart.Wei2Eth(balance), "ETH")
+	fmt.Println("balance before :", smart.Wei2GWei(balance), "GWei")
 
 	return nil
 }

@@ -16,10 +16,10 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
-// These values are used to calculate ETH in USD.
+// These values are used to calculate Wei values in both GWei and USD.
 var (
-	AmountWei = big.NewInt(10_000_000)
-	PriceWei  = big.NewFloat(0.00000002)
+	GWeiConv  = big.NewInt(1_000_000_000)
+	GWeiPrice = big.NewFloat(0.00000255) // 5/26/22 at 7pm ET
 )
 
 // Hardcoding these for now since all the apps will use this same information
@@ -121,7 +121,7 @@ func PrintTransaction(tx *types.Transaction) {
 	fmt.Println("tx gas limit       :", tx.Gas())
 	fmt.Println("tx value           :", Wei2GWei(tx.Value()), "GWei")
 	fmt.Println("tx max price       :", Wei2GWei(tx.Cost()), "GWei", "(Gas Offer Price * Max Gas Allowed)")
-	fmt.Println("tx max price       :", USDCost(tx.Cost()), "USD")
+	fmt.Println("tx max price       :", Wei2USD(tx.Cost()), "USD")
 }
 
 // PrintTransactionReceipt outputs the transaction receipt.
@@ -133,7 +133,7 @@ func PrintTransactionReceipt(receipt *types.Receipt, tx *types.Transaction) {
 	fmt.Println("re status          :", receipt.Status)
 	fmt.Println("re gas used        :", receipt.GasUsed)
 	fmt.Println("final cost         :", Wei2GWei(cost), "GWei", "(Gas Offer Price * Gas Used)")
-	fmt.Println("final cost         :", USDCost(cost), "USD")
+	fmt.Println("final cost         :", Wei2USD(cost), "USD")
 
 	topic := crypto.Keccak256Hash([]byte("Log(string)"))
 	if len(receipt.Logs) > 0 {
@@ -161,7 +161,7 @@ func PrintBalanceDiff(ctx context.Context, startingBalance *big.Int, fromAddress
 	fmt.Println("balance before     :", Wei2GWei(startingBalance), "GWei")
 	fmt.Println("balance after      :", Wei2GWei(endingBalance), "GWei")
 	fmt.Println("balance diff price :", Wei2GWei(cost), "GWei")
-	fmt.Println("balance diff price :", USDCost(cost), "USD")
+	fmt.Println("balance diff price :", Wei2USD(cost), "USD")
 
 	return nil
 }
@@ -175,20 +175,19 @@ func BaseFee(receipt *types.Receipt, client *ethclient.Client) *big.Int {
 	return block.BaseFee()
 }
 
-// USDCost converts Wei to USD.
-func USDCost(amount *big.Int) string {
-	units := big.NewFloat(0).SetInt(big.NewInt(0).Div(amount, AmountWei))
-	ans, _ := big.NewFloat(0).Mul(units, PriceWei).Float64()
-	return fmt.Sprintf("$%.2f", ans)
-}
+// Wei2USD converts Wei to USD.
+func Wei2USD(amount *big.Int) string {
 
-// Wei2Eth converts the wei unit into a Eth for display.
-func Wei2Eth(amount *big.Int) string {
-	compact_amount := big.NewInt(0)
+	// Convert the amount in wei to gwei.
+	gWei := big.NewInt(0)
 	reminder := big.NewInt(0)
-	divisor := big.NewInt(1e18)
-	compact_amount.QuoRem(amount, divisor, reminder)
-	return fmt.Sprintf("%s.%018s", compact_amount.String(), reminder.String())
+	gWei.QuoRem(amount, GWeiConv, reminder)
+	gWeiAmount := new(big.Float).SetInt(gWei)
+
+	// Multiple the current price of GWei to the USD.
+	cost := big.NewFloat(0).Mul(gWeiAmount, GWeiPrice)
+	costFloat, _ := cost.Float64()
+	return fmt.Sprintf("%.8f", costFloat)
 }
 
 // Wei2GWei converts the wei unit into a GWei for display.
@@ -197,7 +196,7 @@ func Wei2GWei(amount *big.Int) string {
 	reminder := big.NewInt(0)
 	divisor := big.NewInt(1e9)
 	compact_amount.QuoRem(amount, divisor, reminder)
-	return fmt.Sprintf("%s.%018s", compact_amount.String(), reminder.String())
+	return fmt.Sprintf("%s.%s", compact_amount.String(), reminder.String())
 }
 
 func privateKey() (*ecdsa.PrivateKey, error) {

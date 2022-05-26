@@ -40,13 +40,13 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("balance 0x6327:", smart.Wei2Eth(balance))
+	fmt.Println("balance 0x6327:", smart.Wei2GWei(balance), "GWei")
 
 	balance, err = contract.CoinBalance(nil, common.HexToAddress("0x8e113078adf6888b7ba84967f299f29aece24c55"))
 	if err != nil {
 		return err
 	}
-	fmt.Println("balance 0x8e11:", smart.Wei2Eth(balance))
+	fmt.Println("balance 0x8e11:", smart.Wei2GWei(balance), "GWei")
 
 	return nil
 }
