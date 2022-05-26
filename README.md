@@ -55,21 +55,36 @@ With the Ethereum service up and running, run the following make command to depl
 $ make basic-deploy
 ```
 
-If this is successful, the following output should result.
+If this is successful, the following output should be similar to.
 
 ```
 go run app/basic/cmd/deploy/main.go
 fromAddress: 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd
-transaction: &{0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd 2 0x101065e90 0 897051399 <nil> <nil> 300000 context.Background false}
-tx sent          : 0x515e9a3f97b9764267d6d13eb3a10f483b506abc9e1d5cbfe6bf8913590fcf36
-tx gas price     : 0.000000000897051399
-tx cost          : 0.000269115419700000
-tx gas allowed   : 300000
-tx gas used      : 299056
-tx status        : 1
-Contract Address : 0x87A061ED19dcA76EC5B01643b054f5eae2730a85
-balance before   : 115792089237316195423570985008687907853269984665640564039457.583671928961867053
-balance after    : 115792089237316195423570985008687907853269984665640564039457.583469638337138349
+
+Transaction Details
+----------------------------------------------------
+tx sent            : 0xafc894991575d94d1cbc004784e6d6bd4201e56fedfbe417e250f2b0a9c624ef
+tx gas offer price : 0.431556798 GWei
+tx gas limit       : 300000
+tx value           : 0.0 GWei
+tx max price       : 129467.39400000 GWei (Gas Offer Price * Max Gas Allowed)
+tx max price       : 0.33014085 USD
+
+waiting for transaction to be mined...
+
+Receipt Details
+----------------------------------------------------
+re status          : 1
+re gas used        : 299044
+final cost         : 129054.471101112 GWei (Gas Offer Price * Gas Used)
+final cost         : 0.32908770 USD
+
+Balance
+----------------------------------------------------
+balance before     : 115792089237316195423570985008687907853269984665640564039457583061627.121056760 GWei
+balance after      : 115792089237316195423570985008687907853269984665640564039457583061619.525339160 GWei
+balance diff price : 7.595717600 GWei
+balance diff price : 0.00001785 USD
 ```
 
 Each time you deploy the contract, you will get a new contract ID. Every code change needs to be mined into a new block and therefore the API moves. Be aware what version of the API you are using.
@@ -85,23 +100,37 @@ $ make basic-write
 When you run this command, attempt to update the contracts map with the key `name` and value `brianna`. You should see the following output if everything is working correctly.
 
 ```
-go run app/basic/cmd/write/main.go
 address: 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd
-contractID: 0x1da2185Ff21DE4291E8690407A4de5459E09de16
+contractID: 0x46D9cE545007E4E694016b3959D4dC11D96F3F2b
 version: 1.1
-tx sent        : 0x9e54198a243f99f6f433284b3ac0fe78ff8ad213e6295c9fa8a81a31fe403496
-tx gas price   : 0.000000000000000001
-tx gas allowed : 250000
-tx value       : 0.000000000000000000
-tx max cost    : 0.000000000000250000  // gas * gasPrice + value
-tx gas used    : 43695
-tx act cost    : 0.000000000000043695  // gasUsed * gasPrice + value
-tx status      : 1
-================ LOGS =================
-================ LOGS =================
-balance before : 35779.000000000000000000
-balance after  : 35781.000000000000000000
-balance diff   : -2.000000000000000000
+
+Transaction Details
+----------------------------------------------------
+tx sent            : 0x1d4581b3ec85ae60b331f8d21752e1805ad86118577d1965b06cfc2b407fcb95
+tx gas offer price : 0.431553329 GWei
+tx gas limit       : 250000
+tx value           : 0.0 GWei
+tx max price       : 107888.332250000 GWei (Gas Offer Price * Max Gas Allowed)
+tx max price       : 0.27511440 USD
+
+waiting for transaction to be mined...
+
+Receipt Details
+----------------------------------------------------
+re status          : 1
+re gas used        : 45795
+final cost         : 19762.984701555 GWei (Gas Offer Price * Gas Used)
+final cost         : 0.05039310 USD
+
+Logs
+----------------------------------------------------
+
+Balance
+----------------------------------------------------
+balance before     : 115792089237316195423570985008687907853269984665640564039457583061619.525339160 GWei
+balance after      : 115792089237316195423570985008687907853269984665640564039457583061618.499347980 GWei
+balance diff price : 1.25991180 GWei
+balance diff price : 0.00000255 USD
 ```
 
 To see if the value was written to the map for that key, run the follow make command.
