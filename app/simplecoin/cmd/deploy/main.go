@@ -22,7 +22,7 @@ func main() {
 func run() error {
 	ctx := context.Background()
 
-	client, privateKey, err := smart.Connect()
+	client, privateKey, err := smart.Connect(smart.NetworkGoerli)
 	if err != nil {
 		return err
 	}

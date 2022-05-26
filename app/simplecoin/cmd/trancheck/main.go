@@ -22,7 +22,7 @@ func main() {
 func run() error {
 	ctx := context.Background()
 
-	client, _, err := smart.Connect()
+	client, _, err := smart.Connect(smart.NetworkLocalhost)
 	if err != nil {
 		return err
 	}

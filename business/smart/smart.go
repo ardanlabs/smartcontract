@@ -26,15 +26,16 @@ var (
 // and the information is static.
 const (
 	// geth = "http://localhost:8545"
-	geth           = "zarf/ethereum/geth.ipc"
-	primaryAccount = "zarf/ethereum/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd"
-	passPhrase     = "123"
+	NetworkLocalhost = "zarf/ethereum/geth.ipc"
+	NetworkGoerli    = "https://rpc.goerli.mudit.blog/"
+	primaryAccount   = "zarf/ethereum/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd"
+	passPhrase       = "123"
 )
 
 // Connect provides boilerplate for connecting to the geth service using
 // an IPC socket created by the geth service on startup.
-func Connect() (*ethclient.Client, *ecdsa.PrivateKey, error) {
-	client, err := ethclient.Dial(geth)
+func Connect(rawurl string) (*ethclient.Client, *ecdsa.PrivateKey, error) {
+	client, err := ethclient.Dial(rawurl)
 	if err != nil {
 		return nil, nil, fmt.Errorf("DialConnect: %w", err)
 	}

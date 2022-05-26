@@ -24,7 +24,9 @@ func main() {
 func run() error {
 	ctx := context.Background()
 
-	client, privateKey, err := smart.Connect()
+	rawurl := smart.NetworkGoerli
+
+	client, privateKey, err := smart.Connect(rawurl)
 	if err != nil {
 		return err
 	}
@@ -59,17 +61,19 @@ func run() error {
 
 	// =========================================================================
 
-	sink := make(chan *scoin.ScoinTransfer, 100)
-	if _, err := contract.WatchTransfer(nil, sink, []common.Address{fromAddress}, []common.Address{to}); err != nil {
-		return err
-	}
+	if rawurl == smart.NetworkLocalhost {
+		sink := make(chan *scoin.ScoinTransfer, 100)
+		if _, err := contract.WatchTransfer(nil, sink, []common.Address{fromAddress}, []common.Address{to}); err != nil {
+			return err
+		}
 
-	go func() {
-		event := <-sink
-		fmt.Println("\nEvents")
-		fmt.Println("----------------------------------------------------")
-		fmt.Println("tx event", event)
-	}()
+		go func() {
+			event := <-sink
+			fmt.Println("\nEvents")
+			fmt.Println("----------------------------------------------------")
+			fmt.Println("tx event", event)
+		}()
+	}
 
 	// =========================================================================
 

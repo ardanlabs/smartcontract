@@ -34,6 +34,10 @@
 #  microether (szabo)	1e12 wei	 1,000,000,000,000
 #  milliether (finney)	1e15 wei	 1,000,000,000,000,000
 #  ether	            1e18 wei	 1,000,000,000,000,000,000
+#
+# Goerli Testnet Faucet
+# https://goerlifaucet.com/
+# Endpoint: https://rpc.goerli.mudit.blog/
 
 # ==============================================================================
 # These commands build, deploy, and run the basic smart contract.
@@ -74,6 +78,12 @@ scoin-transfer:
 
 scoin-trancheck:
 	go run app/simplecoin/cmd/trancheck/main.go
+
+# ==============================================================================
+# These commands test access to the goerli testnet.
+
+goerli-balance:
+	go run app/goerli/main.go
 
 # ==============================================================================
 # These commands start the Ethereum node and provide examples of attaching
