@@ -82,6 +82,8 @@ func NewTransaction(ctx context.Context, gasLimit uint64, pk *ecdsa.PrivateKey, 
 
 // WaitMined will wait for the transaction to be minded and return a receipt.
 func WaitMined(ctx context.Context, tx *types.Transaction, fromAddress common.Address, client *ethclient.Client) (*types.Receipt, error) {
+	fmt.Println("\nwaiting for transaction to be mined...")
+
 	receipt, err := bind.WaitMined(ctx, client, tx)
 	if err != nil {
 		return nil, err
@@ -116,24 +118,18 @@ func PrintTransaction(tx *types.Transaction) {
 	fmt.Println("----------------------------------------------------")
 	fmt.Println("tx sent            :", tx.Hash().Hex())
 	fmt.Println("tx gas offer price :", Wei2Eth(tx.GasPrice()), "ETH")
-	fmt.Println("tx gas max allowed :", tx.Gas(), "LIMIT")
+	fmt.Println("tx gas limit       :", tx.Gas())
 	fmt.Println("tx value           :", Wei2Eth(tx.Value()), "ETH")
-	fmt.Println("tx max offer price :", Wei2Eth(tx.Cost()), "ETH")
-	fmt.Println("tx max offer price :", USDCost(tx.Cost()), "USD")
+	fmt.Println("tx max price       :", Wei2Eth(tx.Cost()), "ETH", "(Gas Offer Price * Max Gas Allowed)")
+	fmt.Println("tx max price       :", USDCost(tx.Cost()), "USD")
 }
 
 // PrintTransactionReceipt outputs the transaction receipt.
-func PrintTransactionReceipt(receipt *types.Receipt, tx *types.Transaction, client *ethclient.Client) {
-	baseFeePerGas := BaseFeePreGas(receipt, client)
-	cost := big.NewInt(0).Add(big.NewInt(0).Mul(big.NewInt(int64(receipt.GasUsed)), baseFeePerGas), tx.Value())
-
+func PrintTransactionReceipt(receipt *types.Receipt) {
 	fmt.Println("\nReceipt Details")
 	fmt.Println("----------------------------------------------------")
 	fmt.Println("re status          :", receipt.Status)
-	fmt.Println("re gas act price   :", Wei2Eth(baseFeePerGas), "ETH")
-	fmt.Println("re gas act used    :", receipt.GasUsed)
-	fmt.Println("re final price     :", Wei2Eth(cost), "ETH")
-	fmt.Println("re final price     :", USDCost(cost), "USD")
+	fmt.Println("re gas used        :", receipt.GasUsed)
 
 	topic := crypto.Keccak256Hash([]byte("Log(string)"))
 	if len(receipt.Logs) > 0 {
@@ -154,21 +150,20 @@ func PrintBalanceDiff(ctx context.Context, startingBalance *big.Int, fromAddress
 	if err != nil {
 		return err
 	}
-
 	cost := big.NewInt(0).Sub(startingBalance, endingBalance)
 
 	fmt.Println("\nBalance")
 	fmt.Println("----------------------------------------------------")
 	fmt.Println("balance before     :", Wei2Eth(startingBalance), "ETH")
 	fmt.Println("balance after      :", Wei2Eth(endingBalance), "ETH")
-	fmt.Println("balance diff price :", Wei2Eth(cost), "ETH")
+	fmt.Println("balance diff price :", Wei2Eth(cost), "ETH", "(Gas Offer Price * Gas Used)")
 	fmt.Println("balance diff price :", USDCost(cost), "USD")
 
 	return nil
 }
 
-// BaseFeePreGas calculates the base fee for the latest block.
-func BaseFeePreGas(receipt *types.Receipt, client *ethclient.Client) *big.Int {
+// BaseFee calculates the base fee from the block for this receipt.
+func BaseFee(receipt *types.Receipt, client *ethclient.Client) *big.Int {
 	block, err := client.BlockByNumber(context.Background(), receipt.BlockNumber)
 	if err != nil {
 		return big.NewInt(0)
