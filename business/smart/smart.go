@@ -125,11 +125,15 @@ func PrintTransaction(tx *types.Transaction) {
 }
 
 // PrintTransactionReceipt outputs the transaction receipt.
-func PrintTransactionReceipt(receipt *types.Receipt) {
+func PrintTransactionReceipt(receipt *types.Receipt, tx *types.Transaction) {
+	cost := big.NewInt(0).Mul(big.NewInt(int64(receipt.GasUsed)), tx.GasPrice())
+
 	fmt.Println("\nReceipt Details")
 	fmt.Println("----------------------------------------------------")
 	fmt.Println("re status          :", receipt.Status)
 	fmt.Println("re gas used        :", receipt.GasUsed)
+	fmt.Println("final cost         :", Wei2Eth(cost), "ETH", "(Gas Offer Price * Gas Used)")
+	fmt.Println("final cost         :", USDCost(cost), "USD")
 
 	topic := crypto.Keccak256Hash([]byte("Log(string)"))
 	if len(receipt.Logs) > 0 {
@@ -156,7 +160,7 @@ func PrintBalanceDiff(ctx context.Context, startingBalance *big.Int, fromAddress
 	fmt.Println("----------------------------------------------------")
 	fmt.Println("balance before     :", Wei2Eth(startingBalance), "ETH")
 	fmt.Println("balance after      :", Wei2Eth(endingBalance), "ETH")
-	fmt.Println("balance diff price :", Wei2Eth(cost), "ETH", "(Gas Offer Price * Gas Used)")
+	fmt.Println("balance diff price :", Wei2Eth(cost), "ETH")
 	fmt.Println("balance diff price :", USDCost(cost), "USD")
 
 	return nil

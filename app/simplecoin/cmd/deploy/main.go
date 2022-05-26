@@ -22,7 +22,7 @@ func main() {
 func run() error {
 	ctx := context.Background()
 
-	client, privateKey, err := smart.Connect(smart.NetworkGoerli)
+	client, privateKey, err := smart.Connect(smart.NetworkLocalhost)
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	smart.PrintTransactionReceipt(receipt)
+	smart.PrintTransactionReceipt(receipt, tx)
 
 	return nil
 }

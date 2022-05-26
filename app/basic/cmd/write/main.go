@@ -77,7 +77,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	smart.PrintTransactionReceipt(receipt)
+	smart.PrintTransactionReceipt(receipt, tx)
 
 	return nil
 }
