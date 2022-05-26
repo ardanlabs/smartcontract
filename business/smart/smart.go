@@ -117,10 +117,10 @@ func PrintTransaction(tx *types.Transaction) {
 	fmt.Println("\nTransaction Details")
 	fmt.Println("----------------------------------------------------")
 	fmt.Println("tx sent            :", tx.Hash().Hex())
-	fmt.Println("tx gas offer price :", Wei2Eth(tx.GasPrice()), "ETH")
+	fmt.Println("tx gas offer price :", Wei2GWei(tx.GasPrice()), "GWei")
 	fmt.Println("tx gas limit       :", tx.Gas())
-	fmt.Println("tx value           :", Wei2Eth(tx.Value()), "ETH")
-	fmt.Println("tx max price       :", Wei2Eth(tx.Cost()), "ETH", "(Gas Offer Price * Max Gas Allowed)")
+	fmt.Println("tx value           :", Wei2GWei(tx.Value()), "GWei")
+	fmt.Println("tx max price       :", Wei2GWei(tx.Cost()), "GWei", "(Gas Offer Price * Max Gas Allowed)")
 	fmt.Println("tx max price       :", USDCost(tx.Cost()), "USD")
 }
 
@@ -132,7 +132,7 @@ func PrintTransactionReceipt(receipt *types.Receipt, tx *types.Transaction) {
 	fmt.Println("----------------------------------------------------")
 	fmt.Println("re status          :", receipt.Status)
 	fmt.Println("re gas used        :", receipt.GasUsed)
-	fmt.Println("final cost         :", Wei2Eth(cost), "ETH", "(Gas Offer Price * Gas Used)")
+	fmt.Println("final cost         :", Wei2GWei(cost), "GWei", "(Gas Offer Price * Gas Used)")
 	fmt.Println("final cost         :", USDCost(cost), "USD")
 
 	topic := crypto.Keccak256Hash([]byte("Log(string)"))
@@ -160,7 +160,7 @@ func PrintBalanceDiff(ctx context.Context, startingBalance *big.Int, fromAddress
 	fmt.Println("----------------------------------------------------")
 	fmt.Println("balance before     :", Wei2Eth(startingBalance), "ETH")
 	fmt.Println("balance after      :", Wei2Eth(endingBalance), "ETH")
-	fmt.Println("balance diff price :", Wei2Eth(cost), "ETH")
+	fmt.Println("balance diff price :", Wei2GWei(cost), "GWei")
 	fmt.Println("balance diff price :", USDCost(cost), "USD")
 
 	return nil
@@ -187,6 +187,15 @@ func Wei2Eth(amount *big.Int) string {
 	compact_amount := big.NewInt(0)
 	reminder := big.NewInt(0)
 	divisor := big.NewInt(1e18)
+	compact_amount.QuoRem(amount, divisor, reminder)
+	return fmt.Sprintf("%s.%018s", compact_amount.String(), reminder.String())
+}
+
+// Wei2GWei converts the wei unit into a GWei for display.
+func Wei2GWei(amount *big.Int) string {
+	compact_amount := big.NewInt(0)
+	reminder := big.NewInt(0)
+	divisor := big.NewInt(1e9)
 	compact_amount.QuoRem(amount, divisor, reminder)
 	return fmt.Sprintf("%s.%018s", compact_amount.String(), reminder.String())
 }
