@@ -1,6 +1,6 @@
 zarf/ethereum/geth
+zarf/smart
 history
-contract.env
 geth.ipc
 
 # Binaries for programs and plugins

@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/ardanlabs/smartcontract/app/basic/contracts/store"
@@ -23,17 +22,16 @@ func main() {
 func run() error {
 	ctx := context.Background()
 
-	client, privateKey, err := smart.Connect(smart.NetworkLocalhost)
+	sc, err := smart.Connect(ctx, smart.NetworkLocalhost, smart.PrimaryKeyPath, smart.PrimaryPassPhrase)
 	if err != nil {
 		return err
 	}
 
-	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
-	fmt.Println("address:", fromAddress.String())
+	fmt.Println("fromAddress:", sc.Account)
 
 	// =========================================================================
 
-	contract, err := newContract(ctx, client)
+	contract, err := newContract(ctx, sc.Client)
 	if err != nil {
 		return err
 	}
@@ -46,16 +44,17 @@ func run() error {
 
 	// =========================================================================
 
-	startingBalance, err := client.BalanceAt(ctx, fromAddress, nil)
+	startingBalance, err := sc.CurrentBalance(ctx)
 	if err != nil {
 		return err
 	}
-	defer smart.PrintBalanceDiff(ctx, startingBalance, fromAddress, client)
+	defer smart.DisplayBalanceSheet(ctx, sc, startingBalance)
 
 	// =========================================================================
 
 	const gasLimit = 250000
-	tran, err := smart.NewTransaction(ctx, gasLimit, privateKey, client)
+	const valueGwei = 0
+	tranOpts, err := sc.NewTransactOpts(ctx, gasLimit, valueGwei)
 	if err != nil {
 		return err
 	}
@@ -67,24 +66,24 @@ func run() error {
 	copy(key[:], []byte("name"))
 	copy(value[:], []byte("brianna"))
 
-	tx, err := contract.SetItem(tran, key, value)
+	tx, err := contract.SetItem(tranOpts, key, value)
 	if err != nil {
 		log.Fatal("SetItem ERROR:", err)
 	}
-	smart.PrintTransaction(tx)
+	smart.DisplayTransaction(tx)
 
-	receipt, err := smart.WaitMined(ctx, tx, fromAddress, client)
+	receipt, err := sc.WaitMined(ctx, tx)
 	if err != nil {
 		return err
 	}
-	smart.PrintTransactionReceipt(receipt, tx)
+	smart.DisplayTransactionReceipt(receipt, tx)
 
 	return nil
 }
 
 // newContract constructs a SimpleCoin contract.
 func newContract(ctx context.Context, client *ethclient.Client) (*store.Store, error) {
-	data, err := os.ReadFile("contract.env")
+	data, err := os.ReadFile("zarf/smart/basic.env")
 	if err != nil {
 		return nil, fmt.Errorf("readfile: %w", err)
 	}

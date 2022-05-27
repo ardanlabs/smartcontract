@@ -22,14 +22,16 @@ func main() {
 func run() error {
 	ctx := context.Background()
 
-	client, _, err := smart.Connect(smart.NetworkLocalhost)
+	sc, err := smart.Connect(ctx, smart.NetworkLocalhost, smart.PrimaryKeyPath, smart.PrimaryPassPhrase)
 	if err != nil {
 		return err
 	}
 
+	fmt.Println("fromAddress:", sc.Account)
+
 	// =========================================================================
 
-	contract, err := newContract(ctx, client)
+	contract, err := newContract(ctx, sc.Client)
 	if err != nil {
 		return err
 	}
@@ -53,7 +55,7 @@ func run() error {
 
 // newContract constructs a SimpleCoin contract.
 func newContract(ctx context.Context, client *ethclient.Client) (*scoin.Scoin, error) {
-	data, err := os.ReadFile("contract.env")
+	data, err := os.ReadFile("zarf/smart/scoin.env")
 	if err != nil {
 		return nil, fmt.Errorf("readfile: %w", err)
 	}

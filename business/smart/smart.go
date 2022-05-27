@@ -16,91 +16,130 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
-// These values are used to calculate Wei values in both GWei and USD.
-var (
-	GWeiConv  = big.NewInt(1_000_000_000)
-	GWeiPrice = big.NewFloat(0.00000255) // 5/26/22 at 7pm ET
-)
-
-// Hardcoding these for now since all the apps will use this same information
-// and the information is static.
+// Set of networks supported by the smart package.
 const (
 	// geth = "http://localhost:8545"
 	NetworkLocalhost = "zarf/ethereum/geth.ipc"
 	NetworkGoerli    = "https://rpc.goerli.mudit.blog/"
-	primaryAccount   = "zarf/ethereum/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd"
-	passPhrase       = "123"
 )
+
+// Harded this here for now just to make life easier.
+const (
+	PrimaryKeyPath    = "zarf/ethereum/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd"
+	PrimaryPassPhrase = "123"
+)
+
+// =============================================================================
+
+// SmartContract provides an API for working with smart contracts.
+type SmartContract struct {
+	Network string
+	Account common.Address
+	Client  *ethclient.Client
+
+	privateKey *ecdsa.PrivateKey
+	chainID    *big.Int
+}
 
 // Connect provides boilerplate for connecting to the geth service using
 // an IPC socket created by the geth service on startup.
-func Connect(rawurl string) (*ethclient.Client, *ecdsa.PrivateKey, error) {
-	client, err := ethclient.Dial(rawurl)
+func Connect(ctx context.Context, network string, keyPath string, passPhrase string) (*SmartContract, error) {
+	client, err := ethclient.Dial(network)
 	if err != nil {
-		return nil, nil, fmt.Errorf("DialConnect: %w", err)
+		return nil, fmt.Errorf("dial network: %w", err)
 	}
 
-	privateKey, err := privateKey()
+	privateKey, err := privateKeyByKeyFile(keyPath, passPhrase)
 	if err != nil {
-		return nil, nil, fmt.Errorf("privateKey: %w", err)
-	}
-
-	return client, privateKey, nil
-}
-
-// NewTransaction constructs a new transaction for executing function that cost money.
-func NewTransaction(ctx context.Context, gasLimit uint64, pk *ecdsa.PrivateKey, client *ethclient.Client) (*bind.TransactOpts, error) {
-	address := crypto.PubkeyToAddress(pk.PublicKey)
-
-	nonce, err := client.PendingNonceAt(ctx, address)
-	if err != nil {
-		return nil, fmt.Errorf("PendingNonceAt: %w", err)
+		return nil, fmt.Errorf("extract private key: %w", err)
 	}
 
 	chainID, err := client.ChainID(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("ChainID: %w", err)
+		return nil, fmt.Errorf("capture chain id: %w", err)
 	}
 
-	gasPrice, err := client.SuggestGasPrice(ctx)
+	sc := SmartContract{
+		Network: network,
+		Account: crypto.PubkeyToAddress(privateKey.PublicKey),
+		Client:  client,
+
+		privateKey: privateKey,
+		chainID:    chainID,
+	}
+
+	return &sc, nil
+}
+
+// NewTransaction constructs a new TransactOpts which is the collection of
+// authorization data required to create a valid Ethereum transaction.
+func (sc *SmartContract) NewTransactOpts(ctx context.Context, gasLimit uint64, valueGwei uint64) (*bind.TransactOpts, error) {
+	nonce, err := sc.Client.PendingNonceAt(ctx, sc.Account)
 	if err != nil {
-		return nil, fmt.Errorf("SuggestGasPrice: %w", err)
+		return nil, fmt.Errorf("retrieving next nonce: %w", err)
 	}
 
-	tran, err := bind.NewKeyedTransactorWithChainID(pk, chainID)
+	gasPrice, err := sc.Client.SuggestGasPrice(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("NewKeyedTransactorWithChainID: %w", err)
+		return nil, fmt.Errorf("retrieving suggested gas price: %w", err)
 	}
 
-	tran.Nonce = big.NewInt(int64(nonce))
-	tran.Value = big.NewInt(0) // in wei
-	tran.GasLimit = gasLimit   // The maximum amount of Gas a user can consume to conduct this transaction.
-	tran.GasPrice = gasPrice   // What you are willing to pay per unit to complete this transaction.
+	tranOpts, err := bind.NewKeyedTransactorWithChainID(sc.privateKey, sc.chainID)
+	if err != nil {
+		return nil, fmt.Errorf("keying transaction: %w", err)
+	}
 
-	return tran, nil
+	// The value must be converted from Gwei to Wei.
+	valueWei := big.NewInt(0).Mul(big.NewInt(int64(valueGwei)), GWeiConv)
+
+	tranOpts.Nonce = big.NewInt(int64(nonce))
+	tranOpts.Value = valueWei
+	tranOpts.GasLimit = gasLimit // The maximum amount of Gas you are willing to pay for.
+	tranOpts.GasPrice = gasPrice // What you will agree to pay per unit of gas.
+
+	return tranOpts, nil
 }
 
 // WaitMined will wait for the transaction to be minded and return a receipt.
-func WaitMined(ctx context.Context, tx *types.Transaction, fromAddress common.Address, client *ethclient.Client) (*types.Receipt, error) {
-	fmt.Println("\nwaiting for transaction to be mined...")
-
-	receipt, err := bind.WaitMined(ctx, client, tx)
+func (sc *SmartContract) WaitMined(ctx context.Context, tx *types.Transaction) (*types.Receipt, error) {
+	receipt, err := bind.WaitMined(ctx, sc.Client, tx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("waiting for tx to be mined: %w", err)
 	}
 
 	if receipt.Status == 0 {
-		err := ExtractError(client, tx, fromAddress)
-		return nil, err
+		err := sc.extractError(ctx, tx)
+		return nil, fmt.Errorf("extracting tx error: %w", err)
 	}
 
 	return receipt, nil
 }
 
-// ExtractError checks the failed transaction for the error message.
-func ExtractError(client *ethclient.Client, tx *types.Transaction, fromAddress common.Address) error {
+// BaseFee calculates the base fee from the block for this receipt.
+func (sc *SmartContract) BaseFee(receipt *types.Receipt) *big.Int {
+	block, err := sc.Client.BlockByNumber(context.Background(), receipt.BlockNumber)
+	if err != nil {
+		return big.NewInt(0)
+	}
+	return block.BaseFee()
+}
+
+// CurrentBalance retrieves the current balance for the account.
+func (sc *SmartContract) CurrentBalance(ctx context.Context) (*big.Int, error) {
+	balance, err := sc.Client.BalanceAt(ctx, sc.Account, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return balance, nil
+}
+
+// =============================================================================
+
+// extractError checks the failed transaction for the error message.
+func (sc *SmartContract) extractError(ctx context.Context, tx *types.Transaction) error {
 	msg := ethereum.CallMsg{
-		From:     fromAddress,
+		From:     sc.Account,
 		To:       tx.To(),
 		Gas:      tx.Gas(),
 		GasPrice: tx.GasPrice(),
@@ -108,99 +147,13 @@ func ExtractError(client *ethclient.Client, tx *types.Transaction, fromAddress c
 		Data:     tx.Data(),
 	}
 
-	_, err := client.CallContract(context.Background(), msg, nil)
+	_, err := sc.Client.CallContract(ctx, msg, nil)
 	return err
 }
 
-// PrintTransaction outputs the transaction details.
-func PrintTransaction(tx *types.Transaction) {
-	fmt.Println("\nTransaction Details")
-	fmt.Println("----------------------------------------------------")
-	fmt.Println("tx sent            :", tx.Hash().Hex())
-	fmt.Println("tx gas offer price :", Wei2GWei(tx.GasPrice()), "GWei")
-	fmt.Println("tx gas limit       :", tx.Gas())
-	fmt.Println("tx value           :", Wei2GWei(tx.Value()), "GWei")
-	fmt.Println("tx max price       :", Wei2GWei(tx.Cost()), "GWei", "(Gas Offer Price * Max Gas Allowed)")
-	fmt.Println("tx max price       :", Wei2USD(tx.Cost()), "USD")
-}
-
-// PrintTransactionReceipt outputs the transaction receipt.
-func PrintTransactionReceipt(receipt *types.Receipt, tx *types.Transaction) {
-	cost := big.NewInt(0).Mul(big.NewInt(int64(receipt.GasUsed)), tx.GasPrice())
-
-	fmt.Println("\nReceipt Details")
-	fmt.Println("----------------------------------------------------")
-	fmt.Println("re status          :", receipt.Status)
-	fmt.Println("re gas used        :", receipt.GasUsed)
-	fmt.Println("final cost         :", Wei2GWei(cost), "GWei", "(Gas Offer Price * Gas Used)")
-	fmt.Println("final cost         :", Wei2USD(cost), "USD")
-
-	topic := crypto.Keccak256Hash([]byte("Log(string)"))
-	if len(receipt.Logs) > 0 {
-		fmt.Println("\nLogs")
-		fmt.Println("----------------------------------------------------")
-		for _, v := range receipt.Logs {
-			if v.Topics[0] == topic {
-				l := v.Data[63]
-				fmt.Println(string(v.Data[64 : 64+l]))
-			}
-		}
-	}
-}
-
-// PrintBalanceDiff outputs the start and ending balances with difference.
-func PrintBalanceDiff(ctx context.Context, startingBalance *big.Int, fromAddress common.Address, client *ethclient.Client) error {
-	endingBalance, err := client.BalanceAt(ctx, fromAddress, nil)
-	if err != nil {
-		return err
-	}
-	cost := big.NewInt(0).Sub(startingBalance, endingBalance)
-
-	fmt.Println("\nBalance")
-	fmt.Println("----------------------------------------------------")
-	fmt.Println("balance before     :", Wei2GWei(startingBalance), "GWei")
-	fmt.Println("balance after      :", Wei2GWei(endingBalance), "GWei")
-	fmt.Println("balance diff price :", Wei2GWei(cost), "GWei")
-	fmt.Println("balance diff price :", Wei2USD(cost), "USD")
-
-	return nil
-}
-
-// BaseFee calculates the base fee from the block for this receipt.
-func BaseFee(receipt *types.Receipt, client *ethclient.Client) *big.Int {
-	block, err := client.BlockByNumber(context.Background(), receipt.BlockNumber)
-	if err != nil {
-		return big.NewInt(0)
-	}
-	return block.BaseFee()
-}
-
-// Wei2USD converts Wei to USD.
-func Wei2USD(amount *big.Int) string {
-
-	// Convert the amount in wei to gwei.
-	gWei := big.NewInt(0)
-	reminder := big.NewInt(0)
-	gWei.QuoRem(amount, GWeiConv, reminder)
-	gWeiAmount := new(big.Float).SetInt(gWei)
-
-	// Multiple the current price of GWei to the USD.
-	cost := big.NewFloat(0).Mul(gWeiAmount, GWeiPrice)
-	costFloat, _ := cost.Float64()
-	return fmt.Sprintf("%.8f", costFloat)
-}
-
-// Wei2GWei converts the wei unit into a GWei for display.
-func Wei2GWei(amount *big.Int) string {
-	compact_amount := big.NewInt(0)
-	reminder := big.NewInt(0)
-	divisor := big.NewInt(1e9)
-	compact_amount.QuoRem(amount, divisor, reminder)
-	return fmt.Sprintf("%s.%s", compact_amount.String(), reminder.String())
-}
-
-func privateKey() (*ecdsa.PrivateKey, error) {
-	data, err := ioutil.ReadFile(primaryAccount)
+// privateKeyByKeyFile opens a key file for the private key.
+func privateKeyByKeyFile(keyPath string, passPhrase string) (*ecdsa.PrivateKey, error) {
+	data, err := ioutil.ReadFile(keyPath)
 	if err != nil {
 		return nil, err
 	}

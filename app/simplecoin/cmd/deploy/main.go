@@ -7,8 +7,6 @@ import (
 	"math/big"
 	"os"
 
-	"github.com/ethereum/go-ethereum/crypto"
-
 	"github.com/ardanlabs/smartcontract/app/simplecoin/contracts/scoin"
 	"github.com/ardanlabs/smartcontract/business/smart"
 )
@@ -22,26 +20,26 @@ func main() {
 func run() error {
 	ctx := context.Background()
 
-	client, privateKey, err := smart.Connect(smart.NetworkLocalhost)
+	sc, err := smart.Connect(ctx, smart.NetworkLocalhost, smart.PrimaryKeyPath, smart.PrimaryPassPhrase)
 	if err != nil {
 		return err
 	}
 
-	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
-	fmt.Println("fromAddress:", fromAddress)
+	fmt.Println("fromAddress:", sc.Account)
 
 	// =========================================================================
 
-	startingBalance, err := client.BalanceAt(ctx, fromAddress, nil)
+	startingBalance, err := sc.CurrentBalance(ctx)
 	if err != nil {
 		return err
 	}
-	defer smart.PrintBalanceDiff(ctx, startingBalance, fromAddress, client)
+	defer smart.DisplayBalanceSheet(ctx, sc, startingBalance)
 
 	// =========================================================================
 
 	const gasLimit = 3000000
-	tran, err := smart.NewTransaction(ctx, gasLimit, privateKey, client)
+	const valueGwei = 0
+	tranOpts, err := sc.NewTransactOpts(ctx, gasLimit, valueGwei)
 	if err != nil {
 		return err
 	}
@@ -49,21 +47,21 @@ func run() error {
 	// =========================================================================
 
 	// Start the contract by giving the account deploying 10k smart coins.
-	address, tx, _, err := scoin.DeployScoin(tran, client, big.NewInt(10000))
+	address, tx, _, err := scoin.DeployScoin(tranOpts, sc.Client, big.NewInt(10000))
 	if err != nil {
 		return err
 	}
-	smart.PrintTransaction(tx)
+	smart.DisplayTransaction(tx)
 
-	if err := os.WriteFile("contract.env", []byte(address.Hex()), 0666); err != nil {
+	if err := os.WriteFile("zarf/smart/scoin.env", []byte(address.Hex()), 0666); err != nil {
 		log.Fatal("cannot write 'contract.env' ERROR: ", err)
 	}
 
-	receipt, err := smart.WaitMined(ctx, tx, fromAddress, client)
+	receipt, err := sc.WaitMined(ctx, tx)
 	if err != nil {
 		return err
 	}
-	smart.PrintTransactionReceipt(receipt, tx)
+	smart.DisplayTransactionReceipt(receipt, tx)
 
 	return nil
 }

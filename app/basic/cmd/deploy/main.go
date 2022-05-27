@@ -6,8 +6,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/ethereum/go-ethereum/crypto"
-
 	"github.com/ardanlabs/smartcontract/app/basic/contracts/store"
 	"github.com/ardanlabs/smartcontract/business/smart"
 )
@@ -21,47 +19,47 @@ func main() {
 func run() error {
 	ctx := context.Background()
 
-	client, privateKey, err := smart.Connect(smart.NetworkLocalhost)
+	sc, err := smart.Connect(ctx, smart.NetworkLocalhost, smart.PrimaryKeyPath, smart.PrimaryPassPhrase)
 	if err != nil {
 		return err
 	}
 
-	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
-	fmt.Println("fromAddress:", fromAddress)
+	fmt.Println("fromAddress:", sc.Account)
 
 	// =========================================================================
 
-	startingBalance, err := client.BalanceAt(ctx, fromAddress, nil)
+	startingBalance, err := sc.CurrentBalance(ctx)
 	if err != nil {
 		return err
 	}
-	defer smart.PrintBalanceDiff(ctx, startingBalance, fromAddress, client)
+	defer smart.DisplayBalanceSheet(ctx, sc, startingBalance)
 
 	// =========================================================================
 
 	const gasLimit = 300000
-	tranOpts, err := smart.NewTransaction(ctx, gasLimit, privateKey, client)
+	const valueGwei = 0
+	tranOpts, err := sc.NewTransactOpts(ctx, gasLimit, valueGwei)
 	if err != nil {
 		return err
 	}
 
 	// =========================================================================
 
-	address, tx, _, err := store.DeployStore(tranOpts, client)
+	address, tx, _, err := store.DeployStore(tranOpts, sc.Client)
 	if err != nil {
 		return err
 	}
-	smart.PrintTransaction(tx)
+	smart.DisplayTransaction(tx)
 
-	if err := os.WriteFile("contract.env", []byte(address.Hex()), 0666); err != nil {
+	if err := os.WriteFile("zarf/smart/basic.env", []byte(address.Hex()), 0666); err != nil {
 		return err
 	}
 
-	receipt, err := smart.WaitMined(ctx, tx, fromAddress, client)
+	receipt, err := sc.WaitMined(ctx, tx)
 	if err != nil {
 		return err
 	}
-	smart.PrintTransactionReceipt(receipt, tx)
+	smart.DisplayTransactionReceipt(receipt, tx)
 
 	return nil
 }

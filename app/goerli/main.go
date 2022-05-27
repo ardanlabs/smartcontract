@@ -6,7 +6,6 @@ import (
 	"log"
 
 	"github.com/ardanlabs/smartcontract/business/smart"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 func main() {
@@ -19,17 +18,19 @@ func main() {
 func run() error {
 	ctx := context.Background()
 
-	client, _, err := smart.Connect(smart.NetworkGoerli)
+	sc, err := smart.Connect(ctx, smart.NetworkLocalhost, smart.PrimaryKeyPath, smart.PrimaryPassPhrase)
 	if err != nil {
 		return err
 	}
 
-	balance, err := client.BalanceAt(ctx, common.HexToAddress("0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd"), nil)
+	fmt.Println("fromAddress:", sc.Account)
+
+	balance, err := sc.CurrentBalance(ctx)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("balance before :", smart.Wei2GWei(balance), "GWei")
+	fmt.Println("balance :", smart.Wei2GWei(balance), "GWei")
 
 	return nil
 }
