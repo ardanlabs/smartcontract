@@ -30,4 +30,5 @@ func DisplayTransaction(tx *types.Transaction) {
 func DisplayTransactionReceipt(receipt *types.Receipt, tx *types.Transaction) {
 	rcd := CalculateReceiptCostDetails(receipt, tx)
 	PrintReceiptCostDetails(rcd)
+	PrintLogs(ExtractLogs(receipt))
 }
