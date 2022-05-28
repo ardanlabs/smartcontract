@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/ardanlabs/smartcontract/app/simplecoin/contracts/scoin"
-	"github.com/ardanlabs/smartcontract/business/smart"
+	"github.com/ardanlabs/smartcontract/foundation/smartcontract/smart"
 )
 
 func main() {
@@ -20,26 +20,26 @@ func main() {
 func run() error {
 	ctx := context.Background()
 
-	sc, err := smart.Connect(ctx, smart.NetworkLocalhost, smart.PrimaryKeyPath, smart.PrimaryPassPhrase)
+	client, err := smart.Connect(ctx, smart.NetworkLocalhost, smart.PrimaryKeyPath, smart.PrimaryPassPhrase)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("fromAddress:", sc.Account)
+	fmt.Println("fromAddress:", client.Account)
 
 	// =========================================================================
 
-	startingBalance, err := sc.CurrentBalance(ctx)
+	startingBalance, err := client.CurrentBalance(ctx)
 	if err != nil {
 		return err
 	}
-	defer smart.DisplayBalanceSheet(ctx, sc, startingBalance)
+	defer client.DisplayBalanceSheet(ctx, startingBalance)
 
 	// =========================================================================
 
 	const gasLimit = 3000000
 	const valueGwei = 0
-	tranOpts, err := sc.NewTransactOpts(ctx, gasLimit, valueGwei)
+	tranOpts, err := client.NewTransactOpts(ctx, gasLimit, valueGwei)
 	if err != nil {
 		return err
 	}
@@ -47,21 +47,21 @@ func run() error {
 	// =========================================================================
 
 	// Start the contract by giving the account deploying 10k smart coins.
-	address, tx, _, err := scoin.DeployScoin(tranOpts, sc.Client, big.NewInt(10000))
+	address, tx, _, err := scoin.DeployScoin(tranOpts, client.ContractBackend(), big.NewInt(10000))
 	if err != nil {
 		return err
 	}
-	smart.DisplayTransaction(tx)
+	client.DisplayTransaction(tx)
 
 	if err := os.WriteFile("zarf/smart/scoin.env", []byte(address.Hex()), 0666); err != nil {
 		log.Fatal("cannot write 'contract.env' ERROR: ", err)
 	}
 
-	receipt, err := sc.WaitMined(ctx, tx)
+	receipt, err := client.WaitMined(ctx, tx)
 	if err != nil {
 		return err
 	}
-	smart.DisplayTransactionReceipt(receipt, tx)
+	client.DisplayTransactionReceipt(receipt, tx)
 
 	return nil
 }

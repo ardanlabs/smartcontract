@@ -8,8 +8,8 @@ import (
 )
 
 // DisplayBalanceSheet is a convenience function for application level support.
-func DisplayBalanceSheet(ctx context.Context, sc *SmartContract, startingBalance *big.Int) {
-	endingBalance, err := sc.CurrentBalance(ctx)
+func (c *Client) DisplayBalanceSheet(ctx context.Context, startingBalance *big.Int) {
+	endingBalance, err := c.CurrentBalance(ctx)
 	if err != nil {
 		return
 	}
@@ -21,13 +21,13 @@ func DisplayBalanceSheet(ctx context.Context, sc *SmartContract, startingBalance
 }
 
 // DisplayTransaction is a convenience function for application level support.
-func DisplayTransaction(tx *types.Transaction) {
+func (c *Client) DisplayTransaction(tx *types.Transaction) {
 	tcd := CalculateTranCostDetails(tx)
 	PrintTranCostDetails(tcd)
 }
 
 // DisplayTransactionReceipt is a convenience function for application level support.
-func DisplayTransactionReceipt(receipt *types.Receipt, tx *types.Transaction) {
+func (c *Client) DisplayTransactionReceipt(receipt *types.Receipt, tx *types.Transaction) {
 	rcd := CalculateReceiptCostDetails(receipt, tx)
 	PrintReceiptCostDetails(rcd)
 	PrintLogs(ExtractLogs(receipt))

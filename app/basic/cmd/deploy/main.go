@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/ardanlabs/smartcontract/app/basic/contracts/store"
-	"github.com/ardanlabs/smartcontract/business/smart"
+	"github.com/ardanlabs/smartcontract/foundation/smartcontract/smart"
 )
 
 func main() {
@@ -19,47 +19,47 @@ func main() {
 func run() error {
 	ctx := context.Background()
 
-	sc, err := smart.Connect(ctx, smart.NetworkLocalhost, smart.PrimaryKeyPath, smart.PrimaryPassPhrase)
+	client, err := smart.Connect(ctx, smart.NetworkLocalhost, smart.PrimaryKeyPath, smart.PrimaryPassPhrase)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("fromAddress:", sc.Account)
+	fmt.Println("fromAddress:", client.Account)
 
 	// =========================================================================
 
-	startingBalance, err := sc.CurrentBalance(ctx)
+	startingBalance, err := client.CurrentBalance(ctx)
 	if err != nil {
 		return err
 	}
-	defer smart.DisplayBalanceSheet(ctx, sc, startingBalance)
+	defer client.DisplayBalanceSheet(ctx, startingBalance)
 
 	// =========================================================================
 
 	const gasLimit = 300000
 	const valueGwei = 0
-	tranOpts, err := sc.NewTransactOpts(ctx, gasLimit, valueGwei)
+	tranOpts, err := client.NewTransactOpts(ctx, gasLimit, valueGwei)
 	if err != nil {
 		return err
 	}
 
 	// =========================================================================
 
-	address, tx, _, err := store.DeployStore(tranOpts, sc.Client)
+	address, tx, _, err := store.DeployStore(tranOpts, client.ContractBackend())
 	if err != nil {
 		return err
 	}
-	smart.DisplayTransaction(tx)
+	client.DisplayTransaction(tx)
 
 	if err := os.WriteFile("zarf/smart/basic.env", []byte(address.Hex()), 0666); err != nil {
 		return err
 	}
 
-	receipt, err := sc.WaitMined(ctx, tx)
+	receipt, err := client.WaitMined(ctx, tx)
 	if err != nil {
 		return err
 	}
-	smart.DisplayTransactionReceipt(receipt, tx)
+	client.DisplayTransactionReceipt(receipt, tx)
 
 	return nil
 }

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/ardanlabs/smartcontract/business/smart"
+	"github.com/ardanlabs/smartcontract/foundation/smartcontract/smart"
 )
 
 func main() {
@@ -18,14 +18,14 @@ func main() {
 func run() error {
 	ctx := context.Background()
 
-	sc, err := smart.Connect(ctx, smart.NetworkLocalhost, smart.PrimaryKeyPath, smart.PrimaryPassPhrase)
+	client, err := smart.Connect(ctx, smart.NetworkLocalhost, smart.PrimaryKeyPath, smart.PrimaryPassPhrase)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("fromAddress:", sc.Account)
+	fmt.Println("fromAddress:", client.Account)
 
-	balance, err := sc.CurrentBalance(ctx)
+	balance, err := client.CurrentBalance(ctx)
 	if err != nil {
 		return err
 	}

@@ -1,3 +1,4 @@
+// Package smart provides smart contract support.
 package smart
 
 import (
@@ -31,20 +32,20 @@ const (
 
 // =============================================================================
 
-// SmartContract provides an API for working with smart contracts.
-type SmartContract struct {
+// Client provides an API for working with smart contracts.
+type Client struct {
 	Network string
 	Account common.Address
-	Client  *ethclient.Client
 
+	ethClient  *ethclient.Client
 	privateKey *ecdsa.PrivateKey
 	chainID    *big.Int
 }
 
 // Connect provides boilerplate for connecting to the geth service using
 // an IPC socket created by the geth service on startup.
-func Connect(ctx context.Context, network string, keyPath string, passPhrase string) (*SmartContract, error) {
-	client, err := ethclient.Dial(network)
+func Connect(ctx context.Context, network string, keyPath string, passPhrase string) (*Client, error) {
+	ethClient, err := ethclient.Dial(network)
 	if err != nil {
 		return nil, fmt.Errorf("dial network: %w", err)
 	}
@@ -54,37 +55,37 @@ func Connect(ctx context.Context, network string, keyPath string, passPhrase str
 		return nil, fmt.Errorf("extract private key: %w", err)
 	}
 
-	chainID, err := client.ChainID(ctx)
+	chainID, err := ethClient.ChainID(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("capture chain id: %w", err)
 	}
 
-	sc := SmartContract{
+	c := Client{
 		Network: network,
 		Account: crypto.PubkeyToAddress(privateKey.PublicKey),
-		Client:  client,
 
+		ethClient:  ethClient,
 		privateKey: privateKey,
 		chainID:    chainID,
 	}
 
-	return &sc, nil
+	return &c, nil
 }
 
 // NewTransaction constructs a new TransactOpts which is the collection of
 // authorization data required to create a valid Ethereum transaction.
-func (sc *SmartContract) NewTransactOpts(ctx context.Context, gasLimit uint64, valueGwei uint64) (*bind.TransactOpts, error) {
-	nonce, err := sc.Client.PendingNonceAt(ctx, sc.Account)
+func (c *Client) NewTransactOpts(ctx context.Context, gasLimit uint64, valueGwei uint64) (*bind.TransactOpts, error) {
+	nonce, err := c.ethClient.PendingNonceAt(ctx, c.Account)
 	if err != nil {
 		return nil, fmt.Errorf("retrieving next nonce: %w", err)
 	}
 
-	gasPrice, err := sc.Client.SuggestGasPrice(ctx)
+	gasPrice, err := c.ethClient.SuggestGasPrice(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("retrieving suggested gas price: %w", err)
 	}
 
-	tranOpts, err := bind.NewKeyedTransactorWithChainID(sc.privateKey, sc.chainID)
+	tranOpts, err := bind.NewKeyedTransactorWithChainID(c.privateKey, c.chainID)
 	if err != nil {
 		return nil, fmt.Errorf("keying transaction: %w", err)
 	}
@@ -101,14 +102,14 @@ func (sc *SmartContract) NewTransactOpts(ctx context.Context, gasLimit uint64, v
 }
 
 // WaitMined will wait for the transaction to be minded and return a receipt.
-func (sc *SmartContract) WaitMined(ctx context.Context, tx *types.Transaction) (*types.Receipt, error) {
-	receipt, err := bind.WaitMined(ctx, sc.Client, tx)
+func (c *Client) WaitMined(ctx context.Context, tx *types.Transaction) (*types.Receipt, error) {
+	receipt, err := bind.WaitMined(ctx, c.ethClient, tx)
 	if err != nil {
 		return nil, fmt.Errorf("waiting for tx to be mined: %w", err)
 	}
 
 	if receipt.Status == 0 {
-		err := sc.extractError(ctx, tx)
+		err := c.extractError(ctx, tx)
 		return nil, fmt.Errorf("extracting tx error: %w", err)
 	}
 
@@ -116,8 +117,8 @@ func (sc *SmartContract) WaitMined(ctx context.Context, tx *types.Transaction) (
 }
 
 // BaseFee calculates the base fee from the block for this receipt.
-func (sc *SmartContract) BaseFee(receipt *types.Receipt) *big.Int {
-	block, err := sc.Client.BlockByNumber(context.Background(), receipt.BlockNumber)
+func (c *Client) BaseFee(receipt *types.Receipt) *big.Int {
+	block, err := c.ethClient.BlockByNumber(context.Background(), receipt.BlockNumber)
 	if err != nil {
 		return big.NewInt(0)
 	}
@@ -125,8 +126,8 @@ func (sc *SmartContract) BaseFee(receipt *types.Receipt) *big.Int {
 }
 
 // CurrentBalance retrieves the current balance for the account.
-func (sc *SmartContract) CurrentBalance(ctx context.Context) (*big.Int, error) {
-	balance, err := sc.Client.BalanceAt(ctx, sc.Account, nil)
+func (c *Client) CurrentBalance(ctx context.Context) (*big.Int, error) {
+	balance, err := c.ethClient.BalanceAt(ctx, c.Account, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -134,12 +135,18 @@ func (sc *SmartContract) CurrentBalance(ctx context.Context) (*big.Int, error) {
 	return balance, nil
 }
 
+// ContractBackend returns the ethereum client. This is needed for smart
+// contract creation and other calls.
+func (c *Client) ContractBackend() *ethclient.Client {
+	return c.ethClient
+}
+
 // =============================================================================
 
 // extractError checks the failed transaction for the error message.
-func (sc *SmartContract) extractError(ctx context.Context, tx *types.Transaction) error {
+func (c *Client) extractError(ctx context.Context, tx *types.Transaction) error {
 	msg := ethereum.CallMsg{
-		From:     sc.Account,
+		From:     c.Account,
 		To:       tx.To(),
 		Gas:      tx.Gas(),
 		GasPrice: tx.GasPrice(),
@@ -147,7 +154,7 @@ func (sc *SmartContract) extractError(ctx context.Context, tx *types.Transaction
 		Data:     tx.Data(),
 	}
 
-	_, err := sc.Client.CallContract(ctx, msg, nil)
+	_, err := c.ethClient.CallContract(ctx, msg, nil)
 	return err
 }
 

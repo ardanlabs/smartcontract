@@ -12,8 +12,8 @@ import (
 // TranCostDetails provides details about a transaction and it's cost.
 type TranCostDetails struct {
 	Hash              string
-	GasOfferPriceGWei string
 	GasLimit          uint64
+	GasOfferPriceGWei string
 	Value             string
 	MaxGasPriceGWei   string
 	MaxGasPriceUSD    string
@@ -23,8 +23,8 @@ type TranCostDetails struct {
 func CalculateTranCostDetails(tx *types.Transaction) TranCostDetails {
 	return TranCostDetails{
 		Hash:              tx.Hash().Hex(),
-		GasOfferPriceGWei: Wei2GWei(tx.GasPrice()),
 		GasLimit:          tx.Gas(),
+		GasOfferPriceGWei: Wei2GWei(tx.GasPrice()),
 		Value:             Wei2GWei(tx.Value()),
 		MaxGasPriceGWei:   Wei2GWei(tx.Cost()),
 		MaxGasPriceUSD:    Wei2USD(tx.Cost()),
@@ -35,12 +35,12 @@ func CalculateTranCostDetails(tx *types.Transaction) TranCostDetails {
 func PrintTranCostDetails(tcd TranCostDetails) {
 	fmt.Println("\nTransaction Details")
 	fmt.Println("----------------------------------------------------")
-	fmt.Println("tx sent            :", tcd.Hash)
-	fmt.Println("tx gas offer price :", tcd.GasOfferPriceGWei, "GWei")
-	fmt.Println("tx gas limit       :", tcd.GasLimit)
-	fmt.Println("tx value           :", tcd.Value, "GWei")
-	fmt.Println("tx max price       :", tcd.MaxGasPriceGWei, "GWei", "(Gas Offer Price * Max Gas Allowed)")
-	fmt.Println("tx max price       :", tcd.MaxGasPriceUSD, "USD")
+	fmt.Println("sent            :", tcd.Hash)
+	fmt.Println("gas limit       :", tcd.GasLimit)
+	fmt.Println("gas offer price :", tcd.GasOfferPriceGWei, "GWei")
+	fmt.Println("value           :", tcd.Value, "GWei")
+	fmt.Println("max gas price   :", tcd.MaxGasPriceGWei, "GWei")
+	fmt.Println("max gas price   :", tcd.MaxGasPriceUSD, "USD")
 }
 
 // =============================================================================
@@ -49,6 +49,7 @@ func PrintTranCostDetails(tcd TranCostDetails) {
 type ReceiptCostDetails struct {
 	Status        uint64
 	GasUsed       uint64
+	GasPrice      string
 	FinalCostGWei string
 	FinalCostUSD  string
 }
@@ -60,6 +61,7 @@ func CalculateReceiptCostDetails(receipt *types.Receipt, tx *types.Transaction) 
 	return ReceiptCostDetails{
 		Status:        receipt.Status,
 		GasUsed:       receipt.GasUsed,
+		GasPrice:      Wei2GWei(tx.GasPrice()),
 		FinalCostGWei: Wei2GWei(cost),
 		FinalCostUSD:  Wei2USD(cost),
 	}
@@ -69,10 +71,11 @@ func CalculateReceiptCostDetails(receipt *types.Receipt, tx *types.Transaction) 
 func PrintReceiptCostDetails(rcd ReceiptCostDetails) {
 	fmt.Println("\nReceipt Details")
 	fmt.Println("----------------------------------------------------")
-	fmt.Println("re status          :", rcd.Status)
-	fmt.Println("re gas used        :", rcd.GasUsed)
-	fmt.Println("final cost         :", rcd.FinalCostGWei, "GWei", "(Gas Offer Price * Gas Used)")
-	fmt.Println("final cost         :", rcd.FinalCostUSD, "USD")
+	fmt.Println("status          :", rcd.Status)
+	fmt.Println("gas used        :", rcd.GasUsed)
+	fmt.Println("gas price       :", rcd.GasPrice)
+	fmt.Println("final gas cost  :", rcd.FinalCostGWei, "GWei")
+	fmt.Println("final gas cost  :", rcd.FinalCostUSD, "USD")
 }
 
 // =============================================================================
@@ -134,10 +137,10 @@ func CalculateBalanceDiff(ctx context.Context, startingBalance *big.Int, endingB
 func PrintBalanceDiff(bd BalanceDiff) error {
 	fmt.Println("\nBalance")
 	fmt.Println("----------------------------------------------------")
-	fmt.Println("balance before     :", bd.BeforeGWei, "GWei")
-	fmt.Println("balance after      :", bd.AfterGWei, "GWei")
-	fmt.Println("balance diff price :", bd.DiffGWei, "GWei")
-	fmt.Println("balance diff price :", bd.DiffUSD, "USD")
+	fmt.Println("balance before  :", bd.BeforeGWei, "GWei")
+	fmt.Println("balance after   :", bd.AfterGWei, "GWei")
+	fmt.Println("balance diff    :", bd.DiffGWei, "GWei")
+	fmt.Println("balance diff    :", bd.DiffUSD, "USD")
 
 	return nil
 }
