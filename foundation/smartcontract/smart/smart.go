@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	"os"
 
+	"github.com/ardanlabs/smartcontract/foundation/smartcontract/etherscan"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -37,9 +39,10 @@ type Client struct {
 	Network string
 	Account common.Address
 
-	ethClient  *ethclient.Client
 	privateKey *ecdsa.PrivateKey
 	chainID    *big.Int
+	ethClient  *ethclient.Client
+	etherscan  *etherscan.Etherscan
 }
 
 // Connect provides boilerplate for connecting to the geth service using
@@ -60,13 +63,20 @@ func Connect(ctx context.Context, network string, keyPath string, passPhrase str
 		return nil, fmt.Errorf("capture chain id: %w", err)
 	}
 
+	var eth *etherscan.Etherscan
+	etherscanApiKey := os.Getenv("ETHERSCAN")
+	if etherscanApiKey != "" {
+		eth = etherscan.New(etherscanApiKey)
+	}
+
 	c := Client{
 		Network: network,
 		Account: crypto.PubkeyToAddress(privateKey.PublicKey),
 
-		ethClient:  ethClient,
 		privateKey: privateKey,
 		chainID:    chainID,
+		ethClient:  ethClient,
+		etherscan:  eth,
 	}
 
 	return &c, nil

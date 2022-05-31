@@ -1,7 +1,8 @@
 zarf/ethereum/geth
 zarf/smart
-history
+etherscan.env
 geth.ipc
+history
 
 # Binaries for programs and plugins
 *.exe

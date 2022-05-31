@@ -40,6 +40,13 @@
 # Endpoint: https://rpc.goerli.mudit.blog/
 
 # ==============================================================================
+# Source the Etherscan key to the environment. You will need to get your own
+# key after registering on the site. https://docs.etherscan.io/
+# This source command needs to be run manually.
+etherscan:
+	source etherscan.env
+
+# ==============================================================================
 # These commands build, deploy, and run the basic smart contract.
 
 # This will compile the smart contract and produce the binary code. Then with the
@@ -78,12 +85,6 @@ scoin-transfer:
 
 scoin-trancheck:
 	go run app/simplecoin/cmd/trancheck/main.go
-
-# ==============================================================================
-# These commands test access to the goerli testnet.
-
-goerli-balance:
-	go run app/goerli/main.go
 
 # ==============================================================================
 # These commands start the Ethereum node and provide examples of attaching

@@ -182,7 +182,6 @@ func (eth *Etherscan) GasTracker(ctx context.Context) (Gas, error) {
 // send performs the actual execution of a request against the specified network.
 func (eth *Etherscan) send(ctx context.Context, module string, action string, response interface{}) error {
 	url := fmt.Sprintf("https://%s/api?module=%s&action=%s&apikey=%s", eth.network, module, action, eth.apiKey)
-	fmt.Println(url)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
 	if err != nil {

@@ -51,6 +51,7 @@ func run() error {
 	}
 	client.DisplayTransaction(tx)
 
+	os.MkdirAll("zarf/smart/", 0755)
 	if err := os.WriteFile("zarf/smart/basic.env", []byte(address.Hex()), 0666); err != nil {
 		return err
 	}
