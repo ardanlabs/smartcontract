@@ -38,6 +38,18 @@
 # Goerli Testnet Faucet
 # https://goerlifaucet.com/
 # Endpoint: https://rpc.goerli.mudit.blog/
+#
+# Visibility Quantifiers
+# external − External functions are meant to be called by other contracts. They cannot be used for internal call.
+# public   − Public functions/variables can be used both externally and internally. For public state variable, Solidity automatically creates a getter function.
+# internal − Internal functions/variables can only be used internally or by derived contracts.
+# private  − Private functions/variables can only be used internally and not even by derived contracts.
+#
+# Variable Location Options
+# Storage  - It is where all state variables are stored. Because state can be altered in a contract (for example, within a function), storage variables must be mutable. However, their location is persistent, and they are stored on the blockchain.
+# Memory   - Reserved for variables that are defined within the scope of a function. They only persist while a function is called, and thus are temporary variables that cannot be accessed outside this scope (ie anywhere else in your contract besides within that function). However, they are mutable within that function.
+# Calldata - Is an immutable, temporary location where function arguments are stored, and behaves mostly like memory.
+#
 
 # ==============================================================================
 # Source the Etherscan key to the environment. You will need to get your own
