@@ -3,10 +3,27 @@ pragma solidity ^0.8.0;
 
 contract AuthorizedToken {
 
+    // =========================================================================
+    // Constants
+    
+    uint256 public constant maxTransferLimit = 15000;
+
+    // =========================================================================
     // Enumerations
+    
     enum UserType {TokenHolder, Admin, Owner}
 
+    // =========================================================================
+    // Events
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event FrozenAccount(address target, bool frozen);
+
+    // =========================================================================
     // User defined types
+
+    // AccountInfo represents information about an account that can participate
+    // in this contract. Supports the registration of accounts.
     struct AccountInfo {
         address account;
         string firstName;
@@ -15,18 +32,25 @@ contract AuthorizedToken {
         bool exists;
     }
 
-    // State variable definitions
+    // =========================================================================
+    // State variables that hold the contract state.
+
     mapping (address => uint256) public tokenBalances;
     mapping (address => AccountInfo) public registeredAccounts;
     mapping (address => bool) public frozenAccounts;
     address public owner;
 
-    // Constants
-    uint256 public constant maxTransferLimit = 15000;
-
-    // Events
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    event FrozenAccount(address target, bool frozen);
+    // =========================================================================
+    // Constructor that is called when the contract is deployed.
+    
+    constructor(uint256 initialSupply) {
+        owner = msg.sender;
+        registerAccount(msg.sender, "owner", "owner", true);
+        mintToken(owner, initialSupply);
+    }
+    
+    // =========================================================================
+    // Modifier Functions that create pre-conditions.
 
     // onlyOwner adds a prerequisite that only the owner can execute the
     // function this is attached to.
@@ -37,14 +61,8 @@ contract AuthorizedToken {
         _;
     }
 
-    // Constructor that is called when the contract is deployed.
-    constructor(uint256 initialSupply) {
-        owner = msg.sender;
-        registerAccount(msg.sender, "owner", "owner", true);
-        mintToken(owner, initialSupply);
-    }
-
     // =========================================================================
+    // Functions
 
     // registerAccount adds the specified account to the registeredAccounts
     // map. Only registered account can be used in the system.
