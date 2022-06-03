@@ -25,11 +25,11 @@ contract AuthorizedToken {
     // AccountInfo represents information about an account that can participate
     // in this contract. Supports the registration of accounts.
     struct AccountInfo {
-        address account;
-        string firstName;
-        string lastName;
+        address  account;
+        string   firstName;
+        string   lastName;
         UserType userType;
-        bool exists;
+        bool     exists;
     }
 
     // =========================================================================
@@ -76,16 +76,14 @@ contract AuthorizedToken {
             userType = UserType.Admin;
         }
         
-        AccountInfo memory accountInfo = AccountInfo(
-            {
-                account: account,
-                firstName: firstName,
-                lastName: lastName,
-                userType: userType,
-                exists: true
-            }
-        );
-        
+        AccountInfo memory accountInfo = AccountInfo({
+            account:   account,
+            firstName: firstName,
+            lastName:  lastName,
+            userType:  userType,
+            exists:    true
+        });
+
         registeredAccounts[account] = accountInfo;
     }
 
