@@ -16,7 +16,7 @@ import (
 // These are the current networks the API works against.
 const (
 	NetworkMainnet = "api.etherscan.io"
-	NetworkGoerli  = "api-goerli.etherscan.io?"
+	NetworkGoerli  = "api-goerli.etherscan.io"
 	NetworkSepolia = "api-sepolia.etherscan.io"
 )
 
