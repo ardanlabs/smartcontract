@@ -2,6 +2,22 @@
 pragma solidity ^0.8.0;
 
 contract SimpleCoin {
+    
+    struct Error {
+        bool   isError;
+        string msg;
+    }
+
+    function newError(string memory message) internal pure returns (Error memory) {
+        return Error({isError: true, msg: message});
+    }
+
+    function noError() internal pure returns (Error memory) {
+        return Error({isError: false, msg: ""});
+    }
+
+    // =========================================================================
+    
     mapping (address => uint256) public coinBalance;
     mapping (address => mapping (address => uint256)) public allowance;
 
@@ -18,29 +34,37 @@ contract SimpleCoin {
 
     // =========================================================================
 
-    function transfer(address to, uint256 amount) external {
-
-        // Check that the sender has enough coins.
-        if (coinBalance[msg.sender] < amount) {
-            string memory resp = string(abi.encodePacked("insufficent funds  bal:", uint2str(coinBalance[msg.sender]), "  amount: ", uint2str(amount)));
-            revert(resp);
-        }
-
-        // Check the amount is not zero or the amount value caused the unsigned
-        // int to restart back to zero.
-        if (coinBalance[to]+amount <= coinBalance[to]) {
-            string memory resp = string(abi.encodePacked("invalid amount: ", uint2str(amount)));
-            revert(resp);
+    function transfer(address to, uint256 amount) public {
+        Error memory err = validateTransfer(msg.sender, to, amount);
+        if (err.isError) {
+            revert(err.msg);
         }
 
         emit Log("starting transfer");
-
-        coinBalance[msg.sender] -= amount;
-        coinBalance[to] += amount;
-
+        {
+            coinBalance[msg.sender] -= amount;
+            coinBalance[to] += amount;
+        }
         emit Log("ending transfer");
 
         emit Transfer(msg.sender, to, amount);
+    }
+
+    function transferFrom(address from, address to, uint256 amount) public {
+        Error memory err = validateTransfer(from, to, amount);
+        if (err.isError) {
+            revert(err.msg);
+        }
+
+        emit Log("starting transfer");
+        {
+            coinBalance[from] -= amount;
+            coinBalance[to] += amount;
+            allowance[from][msg.sender] -= amount;
+        }
+        emit Log("ending transfer");
+
+        emit Transfer(from, to, amount);
     }
 
     // authorize allows the sender of this call to be authorized to spend the
@@ -52,6 +76,28 @@ contract SimpleCoin {
 
     // =========================================================================
 
+    // validateTransfer validates account information for the from and to addresses.
+    function validateTransfer(address from, address to, uint256 amount) internal view returns (Error memory) {
+        
+        // Check the caller isn't sending money to address zero.
+        if (to == address(0)) {
+            return newError("can't send money to address 0x0");
+        }
+
+        // Check that the sender has enough coins.
+        if (coinBalance[from] < amount) {
+            return newError(string(abi.encodePacked("insufficent funds  bal:", uint2str(coinBalance[msg.sender]), "  amount: ", uint2str(amount))));
+        }
+
+        // Check the amount is not zero or the amount value caused the unsigned
+        // int to restart back to zero.
+        if (coinBalance[to]+amount <= coinBalance[to]) {
+            return newError(string(abi.encodePacked("invalid amount: ", uint2str(amount))));
+        }
+
+        return noError();
+    }
+ 
     function uint2str(uint i) internal pure returns (string memory) {
         if (i == 0) {
             return "0";
