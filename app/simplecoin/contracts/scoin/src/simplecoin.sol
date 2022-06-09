@@ -1,20 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
+import "./error.sol";
+
 contract SimpleCoin {
-    
-    struct Error {
-        bool   isError;
-        string msg;
-    }
-
-    function newError(string memory message) internal pure returns (Error memory) {
-        return Error({isError: true, msg: message});
-    }
-
-    function noError() internal pure returns (Error memory) {
-        return Error({isError: false, msg: ""});
-    }
 
     // =========================================================================
     
@@ -35,7 +24,7 @@ contract SimpleCoin {
     // =========================================================================
 
     function transfer(address to, uint256 amount) public {
-        Error memory err = validateTransfer(msg.sender, to, amount);
+        Error.Err memory err = validateTransfer(msg.sender, to, amount);
         if (err.isError) {
             revert(err.msg);
         }
@@ -51,7 +40,7 @@ contract SimpleCoin {
     }
 
     function transferFrom(address from, address to, uint256 amount) public {
-        Error memory err = validateTransfer(from, to, amount);
+        Error.Err memory err = validateTransfer(from, to, amount);
         if (err.isError) {
             revert(err.msg);
         }
@@ -67,8 +56,6 @@ contract SimpleCoin {
         emit Transfer(from, to, amount);
     }
 
-    // authorize allows the sender of this call to be authorized to spend the
-    // specified accounts money up to the allowance amount.
     function authorize(address authorizedAccount, uint256 allowanceAmount) public returns (bool) {
         allowance[msg.sender][authorizedAccount] = allowanceAmount;
         return true;
@@ -76,26 +63,25 @@ contract SimpleCoin {
 
     // =========================================================================
 
-    // validateTransfer validates account information for the from and to addresses.
-    function validateTransfer(address from, address to, uint256 amount) internal view returns (Error memory) {
+    function validateTransfer(address from, address to, uint256 amount) internal view returns (Error.Err memory) {
         
         // Check the caller isn't sending money to address zero.
         if (to == address(0)) {
-            return newError("can't send money to address 0x0");
+            return Error.New("can't send money to address 0x0");
         }
 
         // Check that the sender has enough coins.
         if (coinBalance[from] < amount) {
-            return newError(string(abi.encodePacked("insufficent funds  bal:", uint2str(coinBalance[msg.sender]), "  amount: ", uint2str(amount))));
+            return Error.New(string(abi.encodePacked("insufficent funds  bal:", uint2str(coinBalance[msg.sender]), "  amount: ", uint2str(amount))));
         }
 
         // Check the amount is not zero or the amount value caused the unsigned
         // int to restart back to zero.
         if (coinBalance[to]+amount <= coinBalance[to]) {
-            return newError(string(abi.encodePacked("invalid amount: ", uint2str(amount))));
+            return Error.New(string(abi.encodePacked("invalid amount: ", uint2str(amount))));
         }
 
-        return noError();
+        return Error.None();
     }
  
     function uint2str(uint i) internal pure returns (string memory) {
