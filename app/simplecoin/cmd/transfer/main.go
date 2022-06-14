@@ -59,8 +59,8 @@ func run() error {
 	// =========================================================================
 
 	if rawurl == smart.NetworkLocalhost {
-		sink := make(chan *scoin.ScoinTransfer, 100)
-		if _, err := contract.WatchTransfer(nil, sink, []common.Address{client.Account}, []common.Address{to}); err != nil {
+		sink := make(chan *scoin.ScoinEventTransfer, 100)
+		if _, err := contract.WatchEventTransfer(nil, sink, []common.Address{client.Account}, []common.Address{to}); err != nil {
 			return err
 		}
 

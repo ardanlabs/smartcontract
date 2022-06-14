@@ -64,7 +64,7 @@ func (*Client) ExtractLogs(receipt *types.Receipt) []string {
 
 		// We have a particular log event that if we find, we can separate
 		// from the rest of the events.
-		topicLog := crypto.Keccak256Hash([]byte("Log(string)"))
+		topicLog := crypto.Keccak256Hash([]byte("EventLog(string)"))
 
 		// Iterate over the logs and separate.
 		for _, v := range receipt.Logs {
