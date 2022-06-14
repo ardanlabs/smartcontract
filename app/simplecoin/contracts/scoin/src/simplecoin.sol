@@ -9,19 +9,40 @@ contract SimpleCoin {
     
     mapping (address => uint256) public coinBalance;
     mapping (address => mapping (address => uint256)) public allowance;
+    mapping (address => bool) public frozenAccount;
+    address public owner;
 
     // =========================================================================
 
     event Log(string value);
     event Transfer(address indexed from, address indexed to, uint256 value);
+    event FrozenAccount(address target, bool frozen);
 
     // =========================================================================
 
     constructor(uint256 initialSupply) {
-        coinBalance[msg.sender] = initialSupply;
+        owner = msg.sender;
+        mint(owner, initialSupply);
     }
 
     // =========================================================================
+
+    modifier onlyOwner {
+        if (msg.sender != owner) revert();
+        _;
+    }
+
+    // =========================================================================
+
+    function mint(address recipient, uint256 mintedAmount) onlyOwner public {
+        coinBalance[recipient] += mintedAmount;
+        emit Transfer(owner, recipient, mintedAmount);
+    }
+
+    function freezeAccount(address target, bool freeze) onlyOwner public {
+        frozenAccount[target] = freeze;
+        emit FrozenAccount(target, freeze);
+    }
 
     function transfer(address to, uint256 amount) public {
         Error.Err memory err = validateTransfer(msg.sender, to, amount);
