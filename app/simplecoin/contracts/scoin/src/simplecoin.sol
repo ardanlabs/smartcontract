@@ -72,13 +72,13 @@ contract SimpleCoin {
 
         // Check that the sender has enough coins.
         if (coinBalance[from] < amount) {
-            return Error.New(string(abi.encodePacked("insufficent funds  bal:", uint2str(coinBalance[msg.sender]), "  amount: ", uint2str(amount))));
+            return Error.New("insufficent funds  bal:", uint2str(coinBalance[msg.sender]), "  amount: ", uint2str(amount));
         }
 
         // Check the amount is not zero or the amount value caused the unsigned
         // int to restart back to zero.
         if (coinBalance[to]+amount <= coinBalance[to]) {
-            return Error.New(string(abi.encodePacked("invalid amount: ", uint2str(amount))));
+            return Error.New("invalid amount: ", uint2str(amount));
         }
 
         return Error.None();

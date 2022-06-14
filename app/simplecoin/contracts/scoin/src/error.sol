@@ -7,11 +7,23 @@ library Error {
         string msg;
     }
 
-    function New(string memory message) internal pure returns (Err memory) {
-        return Err({isError: true, msg: message});
-    }
-
     function None() internal pure returns (Err memory) {
         return Err({isError: false, msg: ""});
+    }
+
+    function New(string memory a, string memory b, string memory c, string memory d) internal pure returns (Err memory) {
+        return Err({isError: true, msg: string.concat(a, b, c, d)});
+    }
+
+    function New(string memory a, string memory b, string memory c) internal pure returns (Err memory) {
+        return Err({isError: true, msg: string.concat(a, b, c)});
+    }
+
+    function New(string memory a, string memory b) internal pure returns (Err memory) {
+        return Err({isError: true, msg: string.concat(a, b)});
+    }
+
+    function New(string memory a) internal pure returns (Err memory) {
+        return Err({isError: true, msg: a});
     }
 }
