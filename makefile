@@ -64,9 +64,9 @@ etherscan:
 # This will compile the smart contract and produce the binary code. Then with the
 # abi and binary code, a Go source code file can be generated for Go API access.
 basic-build:
-	solc --abi app/basic/contracts/store/src/store.sol -o app/basic/contracts/store/abi --overwrite
-	solc --bin app/basic/contracts/store/src/store.sol -o app/basic/contracts/store/bin --overwrite
-	abigen --bin=app/basic/contracts/store/bin/Store.bin --abi=app/basic/contracts/store/abi/Store.abi --pkg=store --out=app/basic/contracts/store/store.go
+	solc --abi app/basic/contracts/src/store.sol -o app/basic/contracts/abi --overwrite
+	solc --bin app/basic/contracts/src/store.sol -o app/basic/contracts/abi --overwrite
+	abigen --bin=app/basic/contracts/abi/Store.bin --abi=app/basic/contracts/abi/Store.abi --pkg=store --out=app/basic/contracts/go/store.go
 
 # This will deploy the smart contract to the locally running Ethereum environment.
 basic-deploy: basic-build
@@ -85,9 +85,9 @@ basic-read:
 # These commands build, deploy, and run the simplecoin smart contract.
 
 scoin-build:
-	solc --abi app/simplecoin/contracts/scoin/src/simplecoin.sol -o app/simplecoin/contracts/scoin/abi --overwrite
-	solc --bin app/simplecoin/contracts/scoin/src/simplecoin.sol -o app/simplecoin/contracts/scoin/bin --overwrite
-	abigen --bin=app/simplecoin/contracts/scoin/bin/SimpleCoin.bin --abi=app/simplecoin/contracts/scoin/abi/SimpleCoin.abi --pkg=scoin --out=app/simplecoin/contracts/scoin/scoin.go
+	solc --abi app/simplecoin/contracts/src/simplecoin.sol -o app/simplecoin/contracts/abi --overwrite
+	solc --bin app/simplecoin/contracts/src/simplecoin.sol -o app/simplecoin/contracts/abi --overwrite
+	abigen --bin=app/simplecoin/contracts/abi/SimpleCoin.bin --abi=app/simplecoin/contracts/abi/SimpleCoin.abi --pkg=scoin --out=app/simplecoin/contracts/go/scoin.go
 
 scoin-deploy: scoin-build
 	go run app/simplecoin/cmd/deploy/main.go

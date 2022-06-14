@@ -7,7 +7,7 @@ import (
 	"math/big"
 	"os"
 
-	"github.com/ardanlabs/smartcontract/app/simplecoin/contracts/scoin"
+	scoin "github.com/ardanlabs/smartcontract/app/simplecoin/contracts/go"
 	"github.com/ardanlabs/smartcontract/foundation/smartcontract/smart"
 )
 
