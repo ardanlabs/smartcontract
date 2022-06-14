@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	store "github.com/ardanlabs/smartcontract/app/basic/contracts/go"
+	store "github.com/ardanlabs/smartcontract/app/basic/contract/go"
 	"github.com/ardanlabs/smartcontract/foundation/smartcontract/smart"
 )
 
