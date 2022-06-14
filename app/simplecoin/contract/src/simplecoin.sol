@@ -66,7 +66,7 @@ contract SimpleCoin {
         emit EventLog("starting transfer");
         {
             CoinBalance[msg.sender] -= amount;
-            CoinBalance[to] += amount;
+            CoinBalance[to]         += amount;
         }
         emit EventLog("ending transfer");
 
@@ -83,8 +83,8 @@ contract SimpleCoin {
 
         emit EventLog("starting transfer");
         {
-            CoinBalance[from] -= amount;
-            CoinBalance[to] += amount;
+            CoinBalance[from]           -= amount;
+            CoinBalance[to]             += amount;
             Allowance[from][msg.sender] -= amount;
         }
         emit EventLog("ending transfer");
