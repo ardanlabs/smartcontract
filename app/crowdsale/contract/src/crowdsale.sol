@@ -116,9 +116,14 @@ contract SimpleCrowdsale {
             return Error.New("investment must be greater than zero dollars");
         }
 
-        // Check if this is taking place during the crowdsale funding stage.
-        if (block.timestamp >= StartTime && block.timestamp <= EndTime) {
-            return Error.New("crowdsale funding stage expired");
+        // Check if this is taking place before the start date.
+        if (block.timestamp < StartTime) {
+            return Error.New("crowdsale funding stage hasn't started");
+        }
+
+        // Check if this is taking place after the end date.
+        if (block.timestamp > EndTime) {
+            return Error.New("crowdsale funding stage ended");
         }
         
         return Error.None();
