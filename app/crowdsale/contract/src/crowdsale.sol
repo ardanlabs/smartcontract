@@ -80,7 +80,10 @@ contract SimpleCrowdsale {
     // to specify the amount of Ether being invested because it’s being sent through
     // the msg.value property.
     function Invest() public payable {
-        require(isValidInvestment(msg.value), "investment value provided is not valid");
+        Error.Err memory err = validateInvestment(msg.value);
+        if (err.isError) {
+            revert(err.msg);
+        }
 
         address investor   = msg.sender;
         uint256 investment = msg.value;
@@ -91,7 +94,7 @@ contract SimpleCrowdsale {
         assignTokens(investor, investment);
 
         emit EventInvestment(investor, investment);
-        emit EventLog(string.concat("Invest: investor: ", Error.Addrtoa(investor), " investment: ", Error.Itoa(investment)));
+        emit EventLog(string.concat("invest: investor: ", Error.Addrtoa(investor), " investment: ", Error.Itoa(investment)));
     }
 
     // Finalize allows the crowdsale organizer, who is the contract owner, to release
@@ -105,16 +108,20 @@ contract SimpleCrowdsale {
     }
 
 
-    // isValidInvestment validates the specified investment.
-    function isValidInvestment(uint256 investment) internal view returns (bool) {
+    // validateInvestment validates the specified investment.
+    function validateInvestment(uint256 investment) internal view returns (Error.Err memory) {
 
         // Checks if this is a meaningful investment.
-        bool nonZeroInvestment = investment != 0;
+        if (investment == 0) {
+            return Error.New("investment must be greater than zero dollars");
+        }
 
         // Check if this is taking place during the crowdsale funding stage.
-        bool withinCrowdsalePeriod = block.timestamp >= StartTime && block.timestamp <= EndTime;
+        if (block.timestamp >= StartTime && block.timestamp <= EndTime) {
+            return Error.New("crowdsale funding stage expired");
+        }
         
-        return nonZeroInvestment && withinCrowdsalePeriod;
+        return Error.None();
     }
 
     // assignTokens performs the token management.
