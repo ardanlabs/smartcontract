@@ -98,7 +98,7 @@ contract ReleasableSimpleCoin {
             CoinBalance[to]             += amount;
             Allowance[from][msg.sender] -= amount;
 
-            emit EventLog(string.concat("transfered from ", Error.Itoa(amount), " to ", Error.Addrtoa(to), " from ", Error.Addrtoa(from)));
+            emit EventLog(string.concat("transfered amount ", Error.Itoa(amount), " to ", Error.Addrtoa(to), " from ", Error.Addrtoa(from)));
             emit EventTransfer(from, to, amount);
         }
 

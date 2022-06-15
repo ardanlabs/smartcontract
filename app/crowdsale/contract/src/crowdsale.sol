@@ -50,6 +50,9 @@ contract SimpleCrowdsale {
     // EventTokenAssignment is an event to indicate a token was assigned.
     event EventTokenAssignment(address indexed investor, uint256 numTokens);
 
+    // EventRefund is an event to indicate a refund was provided.
+    event EventRefund(address investor, uint256 value);
+
 
     // constructor is called when the contract is deployed.
     constructor(uint256 startTime, uint256 endTime, uint256 weiTokenPrice, uint256 etherInvestmentObjective) {
@@ -67,7 +70,6 @@ contract SimpleCrowdsale {
         WeiInvestmentObjective = etherInvestmentObjective * 1000000000000000000;
         CrowdSaleToken         = new ReleasableSimpleCoin(0);
     }
-
 
     // Restricts functions to only be accessed by the owner.
     modifier onlyOwner {
@@ -94,17 +96,58 @@ contract SimpleCrowdsale {
         assignTokens(investor, investment);
 
         emit EventInvestment(investor, investment);
-        emit EventLog(string.concat("invest: investor: ", Error.Addrtoa(investor), " investment: ", Error.Itoa(investment)));
+        emit EventLog(string.concat("investor ", Error.Addrtoa(investor), " received investment of ", Error.Itoa(investment)));
     }
 
     // Finalize allows the crowdsale organizer, who is the contract owner, to release
     // tokens to the investors, in case of successful completion, and grant a bonus
     // to the development team, if applicable.
     function Finalize() onlyOwner public {
+        if (IsFinalized) {
+            revert("crowdsale is already finalized");
+        }
+        
+        // Check if the time has come to finalize the crowdsale.
+        if (block.timestamp < EndTime) {
+            revert("too early to finalize crowdsale");
+        }
+
+        // If the investment objective was met release the token, else
+        // set the flag to refund the coins.
+        if (InvestmentReceived >= WeiInvestmentObjective) {
+            CrowdSaleToken.Release();
+            emit EventLog("objective met, releasing funds");
+        } else {
+            IsRefundingAllowed = true;
+            emit EventLog("objective not met, releasing refund");
+        }
+
+        // Mark this crowdsale as finalized.
+        IsFinalized = true;
     }
 
     // Refund allows an investor to get a refund in case of unsuccessful completion.
-    function Refund() public {
+    function Refund() public payable {
+        if (!IsRefundingAllowed) {
+            revert("refund is not allowed at this time");
+        }
+
+        address investor = msg.sender;
+        uint256 investment = InvestmentAmountOf[investor];
+
+        if (investment == 0) {
+            revert("this investor has no money to refund");
+        }
+
+        InvestmentAmountOf[investor] = 0;
+        InvestmentRefunded += investment;
+        
+        emit EventRefund(investor, investment);
+        emit EventLog(string.concat("refund of ", Error.Itoa(investment), " provided to investor ", Error.Addrtoa(investor)));
+
+        if (!payable(investor).send(investment)) {
+            revert("unable to send investment to investor");
+        }
     }
 
 
