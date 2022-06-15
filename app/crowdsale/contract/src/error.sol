@@ -58,8 +58,8 @@ library Error {
         return string(bstr);
     }
 
-    // Addresstoa converts an address to a string.
-    function Addresstoa(address x) internal pure returns (string memory) {
+    // Addrtoa converts an address to a string.
+    function Addrtoa(address x) internal pure returns (string memory) {
         bytes memory s = new bytes(40);
         
         for (uint i = 0; i < 20; i++) {

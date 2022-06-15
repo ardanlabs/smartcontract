@@ -3,10 +3,13 @@ pragma solidity ^0.8.0;
 
 import "./error.sol";
 
-contract SimpleCoin {
+contract ReleasableSimpleCoin {
 
     // Owner represents the address who deployed the contract.
     address public Owner;
+
+    // Flag determining whether the token is released.
+    bool public Released = false;
 
     // CoinBalance manages the accounts and their funding.
     mapping (address => uint256) public CoinBalance;
@@ -56,6 +59,11 @@ contract SimpleCoin {
         emit EventFrozenAccount(target, freeze);
     }
 
+    // New function to release the coin.
+    function Release() onlyOwner public {
+        Released = true;
+    }
+
     // Transfer moves coins from the sender to the specified account.
     function Transfer(address to, uint256 amount) public {
         Error.Err memory err = validateTransfer(msg.sender, to, amount);
@@ -63,14 +71,18 @@ contract SimpleCoin {
             revert(err.msg);
         }
 
-        emit EventLog("starting transfer");
-        {
+        if (Released) {
             CoinBalance[msg.sender] -= amount;
             CoinBalance[to]         += amount;
-        }
-        emit EventLog("ending transfer");
 
-        emit EventTransfer(msg.sender, to, amount);
+            emit EventLog(string.concat("transfered ", Error.Itoa(amount), " to ", Error.Addrtoa(to), " from ", Error.Addrtoa(msg.sender)));
+            emit EventTransfer(msg.sender, to, amount);
+
+            return;
+        }
+
+        emit EventLog("tokens not released yet");
+        revert();
     }
 
     // TransferFrom moves coins from the specified account to the specified account.
@@ -81,15 +93,17 @@ contract SimpleCoin {
             revert(err.msg);
         }
 
-        emit EventLog("starting transfer");
-        {
+        if (Released) {
             CoinBalance[from]           -= amount;
             CoinBalance[to]             += amount;
             Allowance[from][msg.sender] -= amount;
-        }
-        emit EventLog("ending transfer");
 
-        emit EventTransfer(from, to, amount);
+            emit EventLog(string.concat("transfered from ", Error.Itoa(amount), " to ", Error.Addrtoa(to), " from ", Error.Addrtoa(from)));
+            emit EventTransfer(from, to, amount);
+        }
+
+        emit EventLog("tokens not released yet");
+        revert();
     }
 
     // Authorize provides an account an allowance of coins they are authorized

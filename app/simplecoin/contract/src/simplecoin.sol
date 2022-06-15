@@ -63,13 +63,10 @@ contract SimpleCoin {
             revert(err.msg);
         }
 
-        emit EventLog("starting transfer");
-        {
-            CoinBalance[msg.sender] -= amount;
-            CoinBalance[to]         += amount;
-        }
-        emit EventLog("ending transfer");
+        CoinBalance[msg.sender] -= amount;
+        CoinBalance[to]         += amount;
 
+        emit EventLog(string.concat("transfered ", Error.Itoa(amount), " to ", Error.Addrtoa(to), " from ", Error.Addrtoa(msg.sender)));
         emit EventTransfer(msg.sender, to, amount);
     }
 
@@ -81,14 +78,11 @@ contract SimpleCoin {
             revert(err.msg);
         }
 
-        emit EventLog("starting transfer");
-        {
-            CoinBalance[from]           -= amount;
-            CoinBalance[to]             += amount;
-            Allowance[from][msg.sender] -= amount;
-        }
-        emit EventLog("ending transfer");
+        CoinBalance[from]           -= amount;
+        CoinBalance[to]             += amount;
+        Allowance[from][msg.sender] -= amount;
 
+        emit EventLog(string.concat("transfered from ", Error.Itoa(amount), " to ", Error.Addrtoa(to), " from ", Error.Addrtoa(from)));
         emit EventTransfer(from, to, amount);
     }
 
