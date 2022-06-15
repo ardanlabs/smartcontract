@@ -38,7 +38,7 @@ contract SimpleCrowdsale {
 
 
     // CrowdSaleToken represents the contract of the token being sold.
-    SimpleCoin public CrowdSaleToken;
+    ReleasableSimpleCoin public CrowdSaleToken;
 
 
     // EventLog provides support for external logging.
@@ -65,7 +65,7 @@ contract SimpleCrowdsale {
         EndTime                = endTime;
         WeiTokenPrice          = weiTokenPrice;
         WeiInvestmentObjective = etherInvestmentObjective * 1000000000000000000;
-        CrowdSaleToken         = new SimpleCoin(0);
+        CrowdSaleToken         = new ReleasableSimpleCoin(0);
     }
 
 
@@ -91,7 +91,7 @@ contract SimpleCrowdsale {
         assignTokens(investor, investment);
 
         emit EventInvestment(investor, investment);
-        emit EventLog(string.concat("Invest: investor: ", Error.Addresstoa(investor), " investment: ", Error.Itoa(investment)));
+        emit EventLog(string.concat("Invest: investor: ", Error.Addrtoa(investor), " investment: ", Error.Itoa(investment)));
     }
 
     // Finalize allows the crowdsale organizer, who is the contract owner, to release
