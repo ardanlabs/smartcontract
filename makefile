@@ -98,6 +98,19 @@ scoin-transfer:
 scoin-trancheck:
 	go run app/simplecoin/cmd/trancheck/main.go
 
+
+# ==============================================================================
+# These commands build, deploy, and run the crowdsale smart contract.
+
+crowd-build:
+	solc --abi app/crowdsale/contract/src/crowdsale.sol -o app/crowdsale/contract/abi --overwrite
+	solc --bin app/crowdsale/contract/src/crowdsale.sol -o app/crowdsale/contract/abi --overwrite
+	abigen --bin=app/crowdsale/contract/abi/CrowdSale.bin --abi=app/crowdsale/contract/abi/CrowdSale.abi --pkg=crowd --out=app/crowdsale/contract/go/crowdsale.go
+
+crowd-deploy: crowd-build
+	go run app/crowdsale/cmd/deploy/main.go
+
+
 # ==============================================================================
 # These commands start the Ethereum node and provide examples of attaching
 # directly with potential commands to try, and creating a new account if necessary.

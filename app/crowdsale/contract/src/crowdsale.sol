@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "./simplecoin.sol";
 
-contract SimpleCrowdsale {
+contract Crowdsale {
 
     // Owner represents the address who deployed the contract.
     address public Owner;
@@ -108,9 +108,9 @@ contract SimpleCrowdsale {
         }
         
         // Check if the time has come to finalize the crowdsale.
-        if (block.timestamp < EndTime) {
-            revert("too early to finalize crowdsale");
-        }
+        // if (block.timestamp < EndTime) {
+        //     revert("too early to finalize crowdsale");
+        // }
 
         // If the investment objective was met release the token, else
         // set the flag to refund the coins.
@@ -152,7 +152,7 @@ contract SimpleCrowdsale {
 
 
     // validateInvestment validates the specified investment.
-    function validateInvestment(uint256 investment) internal view returns (Error.Err memory) {
+    function validateInvestment(uint256 investment) internal pure returns (Error.Err memory) {
 
         // Checks if this is a meaningful investment.
         if (investment == 0) {
@@ -160,14 +160,14 @@ contract SimpleCrowdsale {
         }
 
         // Check if this is taking place before the start date.
-        if (block.timestamp < StartTime) {
-            return Error.New("crowdsale funding stage hasn't started");
-        }
+        // if (block.timestamp < StartTime) {
+        //     return Error.New("crowdsale funding stage hasn't started");
+        // }
 
         // Check if this is taking place after the end date.
-        if (block.timestamp > EndTime) {
-            return Error.New("crowdsale funding stage ended");
-        }
+        // if (block.timestamp > EndTime) {
+        //     return Error.New("crowdsale funding stage ended");
+        // }
         
         return Error.None();
     }
