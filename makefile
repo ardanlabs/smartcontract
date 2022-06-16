@@ -110,6 +110,9 @@ crowd-build:
 crowd-deploy: crowd-build
 	go run app/crowdsale/cmd/deploy/main.go
 
+crowd-invest:
+	go run app/crowdsale/cmd/invest/main.go
+
 
 # ==============================================================================
 # These commands start the Ethereum node and provide examples of attaching
