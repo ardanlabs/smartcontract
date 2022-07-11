@@ -36,7 +36,7 @@ func run() error {
 
 	// =========================================================================
 
-	const gasLimit = 300000
+	const gasLimit = 3000000
 	const valueGwei = 0
 	tranOpts, err := client.NewTransactOpts(ctx, gasLimit, valueGwei)
 	if err != nil {
