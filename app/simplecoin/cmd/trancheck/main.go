@@ -30,7 +30,7 @@ func run() error {
 
 	// =========================================================================
 
-	contract, err := newContract(ctx, client)
+	contract, err := newContract(client)
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func run() error {
 }
 
 // newContract constructs a SimpleCoin contract.
-func newContract(ctx context.Context, client *smart.Client) (*scoin.Scoin, error) {
+func newContract(client *smart.Client) (*scoin.Scoin, error) {
 	data, err := os.ReadFile("zarf/smart/scoin.env")
 	if err != nil {
 		return nil, fmt.Errorf("readfile: %w", err)

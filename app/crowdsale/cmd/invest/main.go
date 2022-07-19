@@ -31,7 +31,7 @@ func run() error {
 
 	// =========================================================================
 
-	contract, err := newContract(ctx, client)
+	contract, err := newContract(client)
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func run() error {
 }
 
 // newContract constructs a Crowdsale contract.
-func newContract(ctx context.Context, client *smart.Client) (*crowd.Crowd, error) {
+func newContract(client *smart.Client) (*crowd.Crowd, error) {
 	data, err := os.ReadFile("zarf/smart/crowd.env")
 	if err != nil {
 		return nil, fmt.Errorf("readfile: %w", err)
