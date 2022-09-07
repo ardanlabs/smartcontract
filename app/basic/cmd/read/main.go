@@ -31,6 +31,8 @@ func run() error {
 		return err
 	}
 
+	fmt.Println("\nInput Values")
+	fmt.Println("----------------------------------------------------")
 	fmt.Println("fromAddress:", client.Address())
 
 	// =========================================================================
