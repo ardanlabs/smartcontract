@@ -11,16 +11,12 @@ You must install Ethereum and Solidity into your development environment. If you
 makefile
 ```
 # https://geth.ethereum.org/docs/install-and-build/installing-geth
-install-geth:
-	brew update
-	brew tap ethereum/ethereum
-	brew install ethereum
-
 # https://docs.soliditylang.org/en/v0.8.11/installing-solidity.html
-install-solc:
+
+dev.setup:
 	brew update
-	brew tap ethereum/ethereum
-	brew install solidity
+	brew list ethereum || brew install ethereum
+	brew list solidity || brew install solidity
 ```
 
 ## Running Ethereum
@@ -70,7 +66,14 @@ tx value           : 0.0 GWei
 tx max price       : 129467.39400000 GWei (Gas Offer Price * Max Gas Allowed)
 tx max price       : 0.33014085 USD
 
-waiting for transaction to be mined...
+Contract Details
+----------------------------------------------------
+contract id     : 0x531130464929826c57BBBF989e44085a02eeB120
+export CONTRACT_ID=0x531130464929826c57BBBF989e44085a02eeB120
+
+Waiting Logs
+----------------------------------------------------
+t=2022-09-07T15:58:09-0400 lvl=trce msg="Handled RPC response" reqid=2 duration=417ns
 
 Receipt Details
 ----------------------------------------------------
@@ -94,58 +97,69 @@ Each time you deploy the contract, you will get a new contract ID. Every code ch
 To validate everything is working, run the follow make command.
 
 ```
+$ export CONTRACT_ID=0x531130464929826c57BBBF989e44085a02eeB120
 $ make basic-write
 ```
 
 When you run this command, attempt to update the contracts map with the key `name` and value `brianna`. You should see the following output if everything is working correctly.
 
 ```
-address: 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd
-contractID: 0x46D9cE545007E4E694016b3959D4dC11D96F3F2b
+Input Values
+----------------------------------------------------
+fromAddress: 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd
+oneETHToUSD: 1571.4114863708066
+oneUSDToETH: 0.0006363705551812605
+contractID: 0x531130464929826c57BBBF989e44085a02eeB120
 version: 1.1
 
 Transaction Details
 ----------------------------------------------------
-tx sent            : 0x1d4581b3ec85ae60b331f8d21752e1805ad86118577d1965b06cfc2b407fcb95
-tx gas offer price : 0.431553329 GWei
-tx gas limit       : 250000
-tx value           : 0.0 GWei
-tx max price       : 107888.332250000 GWei (Gas Offer Price * Max Gas Allowed)
-tx max price       : 0.27511440 USD
-
-waiting for transaction to be mined...
+hash            : 0x270a2757da5b1e5a766dde1d3429271ca74d259c29fe0a67352859978dfcd33c
+nonce           : 2
+gas limit       : 250000
+gas offer price : 0.896428194 GWei
+value           : 0 GWei
+max gas price   : 224107.0485 GWei
+max gas price   : 0.35 USD
 
 Receipt Details
 ----------------------------------------------------
-re status          : 1
-re gas used        : 45795
-final cost         : 19762.984701555 GWei (Gas Offer Price * Gas Used)
-final cost         : 0.05039310 USD
+status          : 1
+gas used        : 25895
+gas price       : 0.896428194 GWei
+gas price       : 0.00 USD
+final gas cost  : 23213.00808 GWei
+final gas cost  : 0.04 USD
 
 Logs
 ----------------------------------------------------
 
 Balance
 ----------------------------------------------------
-balance before     : 115792089237316195423570985008687907853269984665640564039457583061619.525339160 GWei
-balance after      : 115792089237316195423570985008687907853269984665640564039457583061618.499347980 GWei
-balance diff price : 1.25991180 GWei
-balance diff price : 0.00000255 USD
+balance before  : 1.157920892e+68 GWei
+balance after   : 1.157920892e+68 GWei
+balance diff    : 17498.96476 GWei
+balance diff    : 0.03 USD
 ```
 
 To see if the value was written to the map for that key, run the follow make command.
 
 ```
+$ export CONTRACT_ID=0x531130464929826c57BBBF989e44085a02eeB120
 $ make basic-read
 ```
 
 You should see the following output if everything is working correctly.
 
 ```
-go run app/basic/cmd/read/main.go
-address: 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd
-contractID: 0x1da2185Ff21DE4291E8690407A4de5459E09de16
+Input Values
+----------------------------------------------------
+fromAddress: 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd
+contractID: 0x531130464929826c57BBBF989e44085a02eeB120
 version: 1.1
+
+Read Value
+----------------------------------------------------
 value: brianna
 ```
 

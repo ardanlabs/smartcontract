@@ -65,6 +65,8 @@ func run() error {
 		return err
 	}
 
+	fmt.Println("\nRead Value")
+	fmt.Println("----------------------------------------------------")
 	fmt.Println("value:", string(result[:]))
 
 	return nil
