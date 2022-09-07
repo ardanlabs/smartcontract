@@ -4,38 +4,63 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/big"
 	"os"
 
-	"github.com/ethereum/go-ethereum/common"
-
 	store "github.com/ardanlabs/smartcontract/app/basic/contract/go"
-	"github.com/ardanlabs/smartcontract/foundation/smartcontract/smart"
+	"github.com/ardanlabs/smartcontract/foundation/smart/contract"
+	"github.com/ardanlabs/smartcontract/foundation/smart/currency"
+	"github.com/ethereum/go-ethereum/common"
+)
+
+const (
+	keyStoreFile     = "zarf/ethereum/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd"
+	passPhrase       = "123"
+	coinMarketCapKey = "a8cd12fb-d056-423f-877b-659046af0aa5"
 )
 
 func main() {
 	if err := run(); err != nil {
-		log.Fatalln(err)
+		fmt.Println(err)
+		os.Exit(1)
 	}
 }
 
-func run() error {
+func run() (err error) {
 	ctx := context.Background()
 
-	client, err := smart.Connect(ctx, smart.NetworkLocalhost, smart.PrimaryKeyPath, smart.PrimaryPassPhrase)
+	client, err := contract.NewClient(ctx, contract.NetworkLocalhost, keyStoreFile, passPhrase)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("fromAddress:", client.Account)
+	fmt.Println("fromAddress:", client.Address())
 
 	// =========================================================================
 
-	contract, err := newContract(client)
+	converter, err := currency.NewConverter(coinMarketCapKey)
 	if err != nil {
-		return err
+		converter = currency.NewDefaultConverter()
+	}
+	oneETHToUSD, oneUSDToETH := converter.Values()
+
+	fmt.Println("oneETHToUSD:", oneETHToUSD)
+	fmt.Println("oneUSDToETH:", oneUSDToETH)
+
+	// =========================================================================
+
+	contractID := os.Getenv("CONTRACT_ID")
+	if contractID == "" {
+		return fmt.Errorf("need to export the CONTRACT_ID")
+	}
+	fmt.Println("contractID:", contractID)
+
+	storeCon, err := store.NewStore(common.HexToAddress(contractID), client.ContractBackend())
+	if err != nil {
+		return fmt.Errorf("new contract: %w", err)
 	}
 
-	version, err := contract.Version(nil)
+	version, err := storeCon.Version(nil)
 	if err != nil {
 		return err
 	}
@@ -47,13 +72,20 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer client.DisplayBalanceSheet(ctx, startingBalance)
+	defer func() {
+		endingBalance, dErr := client.CurrentBalance(ctx)
+		if dErr != nil {
+			err = dErr
+			return
+		}
+		fmt.Print(converter.FmtBalanceSheet(startingBalance, endingBalance))
+	}()
 
 	// =========================================================================
 
 	const gasLimit = 250000
 	const valueGwei = 0
-	tranOpts, err := client.NewTransactOpts(ctx, gasLimit, valueGwei)
+	tranOpts, err := client.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 	if err != nil {
 		return err
 	}
@@ -65,34 +97,17 @@ func run() error {
 	copy(key[:], []byte("name"))
 	copy(value[:], []byte("brianna"))
 
-	tx, err := contract.SetItem(tranOpts, key, value)
+	tx, err := storeCon.SetItem(tranOpts, key, value)
 	if err != nil {
 		log.Fatal("SetItem ERROR:", err)
 	}
-	client.DisplayTransaction(tx)
+	fmt.Print(converter.FmtTransaction(tx))
 
 	receipt, err := client.WaitMined(ctx, tx)
 	if err != nil {
 		return err
 	}
-	client.DisplayTransactionReceipt(receipt, tx)
+	fmt.Print(converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 
 	return nil
-}
-
-// newContract constructs a SimpleCoin contract.
-func newContract(client *smart.Client) (*store.Store, error) {
-	data, err := os.ReadFile("zarf/smart/basic.env")
-	if err != nil {
-		return nil, fmt.Errorf("readfile: %w", err)
-	}
-	contractID := string(data)
-	fmt.Println("contractID:", contractID)
-
-	contract, err := store.NewStore(common.HexToAddress(contractID), client.ContractBackend())
-	if err != nil {
-		return nil, fmt.Errorf("NewStore: %w", err)
-	}
-
-	return contract, nil
 }

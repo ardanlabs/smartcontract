@@ -3,68 +3,63 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 
-	"github.com/ethereum/go-ethereum/common"
-
 	scoin "github.com/ardanlabs/smartcontract/app/simplecoin/contract/go"
-	"github.com/ardanlabs/smartcontract/foundation/smartcontract/smart"
+	"github.com/ardanlabs/smartcontract/foundation/smart/contract"
+	"github.com/ardanlabs/smartcontract/foundation/smart/currency"
+	"github.com/ethereum/go-ethereum/common"
+)
+
+const (
+	keyStoreFile     = "zarf/ethereum/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd"
+	passPhrase       = "123"
+	coinMarketCapKey = "a8cd12fb-d056-423f-877b-659046af0aa5"
 )
 
 func main() {
 	if err := run(); err != nil {
-		log.Fatalln(err)
+		fmt.Println(err)
+		os.Exit(1)
 	}
 }
 
 func run() error {
 	ctx := context.Background()
 
-	client, err := smart.Connect(ctx, smart.NetworkLocalhost, smart.PrimaryKeyPath, smart.PrimaryPassPhrase)
+	client, err := contract.NewClient(ctx, contract.NetworkLocalhost, keyStoreFile, passPhrase)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("fromAddress:", client.Account)
+	fmt.Println("fromAddress:", client.Address())
 
 	// =========================================================================
 
-	contract, err := newContract(client)
-	if err != nil {
-		return err
+	contractID := os.Getenv("CONTRACT_ID")
+	if contractID == "" {
+		return fmt.Errorf("need to export the CONTRACT_ID")
 	}
-
-	// =========================================================================
-
-	balance, err := contract.CoinBalance(nil, common.HexToAddress("0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd"))
-	if err != nil {
-		return err
-	}
-	fmt.Println("balance 0x6327:", smart.Wei2GWei(balance), "GWei")
-
-	balance, err = contract.CoinBalance(nil, common.HexToAddress("0x8e113078adf6888b7ba84967f299f29aece24c55"))
-	if err != nil {
-		return err
-	}
-	fmt.Println("balance 0x8e11:", smart.Wei2GWei(balance), "GWei")
-
-	return nil
-}
-
-// newContract constructs a SimpleCoin contract.
-func newContract(client *smart.Client) (*scoin.Scoin, error) {
-	data, err := os.ReadFile("zarf/smart/scoin.env")
-	if err != nil {
-		return nil, fmt.Errorf("readfile: %w", err)
-	}
-	contractID := string(data)
 	fmt.Println("contractID:", contractID)
 
-	contract, err := scoin.NewScoin(common.HexToAddress(contractID), client.ContractBackend())
+	scoinCon, err := scoin.NewScoin(common.HexToAddress(contractID), client.ContractBackend())
 	if err != nil {
-		return nil, fmt.Errorf("NewScoin: %w", err)
+		return fmt.Errorf("new contract: %w", err)
 	}
 
-	return contract, nil
+	// =========================================================================
+
+	balance, err := scoinCon.CoinBalance(nil, common.HexToAddress("0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd"))
+	if err != nil {
+		return err
+	}
+	fmt.Println("balance 0x6327:", currency.Wei2GWei(balance), "GWei")
+
+	balance, err = scoinCon.CoinBalance(nil, common.HexToAddress("0x8e113078adf6888b7ba84967f299f29aece24c55"))
+	if err != nil {
+		return err
+	}
+	fmt.Println("balance 0x8e11:", currency.Wei2GWei(balance), "GWei")
+
+	return nil
 }

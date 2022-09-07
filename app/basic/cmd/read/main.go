@@ -3,39 +3,50 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 
-	"github.com/ethereum/go-ethereum/common"
-
 	store "github.com/ardanlabs/smartcontract/app/basic/contract/go"
-	"github.com/ardanlabs/smartcontract/foundation/smartcontract/smart"
+	"github.com/ardanlabs/smartcontract/foundation/smart/contract"
+	"github.com/ethereum/go-ethereum/common"
+)
+
+const (
+	keyStoreFile     = "zarf/ethereum/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd"
+	passPhrase       = "123"
+	coinMarketCapKey = "a8cd12fb-d056-423f-877b-659046af0aa5"
 )
 
 func main() {
 	if err := run(); err != nil {
-		log.Fatalln(err)
+		fmt.Println(err)
+		os.Exit(1)
 	}
 }
 
 func run() error {
 	ctx := context.Background()
 
-	client, err := smart.Connect(ctx, smart.NetworkLocalhost, smart.PrimaryKeyPath, smart.PrimaryPassPhrase)
+	client, err := contract.NewClient(ctx, contract.NetworkLocalhost, keyStoreFile, passPhrase)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("fromAddress:", client.Account)
+	fmt.Println("fromAddress:", client.Address())
 
 	// =========================================================================
 
-	contract, err := newContract(client)
+	contractID := os.Getenv("CONTRACT_ID")
+	if contractID == "" {
+		return fmt.Errorf("need to export the CONTRACT_ID")
+	}
+	fmt.Println("contractID:", contractID)
+
+	storeCon, err := store.NewStore(common.HexToAddress(contractID), client.ContractBackend())
 	if err != nil {
-		return err
+		return fmt.Errorf("new contract: %w", err)
 	}
 
-	version, err := contract.Version(nil)
+	version, err := storeCon.Version(nil)
 	if err != nil {
 		return err
 	}
@@ -47,7 +58,7 @@ func run() error {
 	copy(key[:], []byte("name"))
 
 	var result [32]byte
-	result, err = contract.Items(nil, key)
+	result, err = storeCon.Items(nil, key)
 	if err != nil {
 		return err
 	}
@@ -55,21 +66,4 @@ func run() error {
 	fmt.Println("value:", string(result[:]))
 
 	return nil
-}
-
-// newContract constructs a SimpleCoin contract.
-func newContract(client *smart.Client) (*store.Store, error) {
-	data, err := os.ReadFile("zarf/smart/basic.env")
-	if err != nil {
-		return nil, fmt.Errorf("readfile: %w", err)
-	}
-	contractID := string(data)
-	fmt.Println("contractID:", contractID)
-
-	contract, err := store.NewStore(common.HexToAddress(contractID), client.ContractBackend())
-	if err != nil {
-		return nil, fmt.Errorf("NewStore: %w", err)
-	}
-
-	return contract, nil
 }
