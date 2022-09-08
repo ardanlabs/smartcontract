@@ -7,8 +7,8 @@ import (
 	"os"
 
 	crowd "github.com/ardanlabs/smartcontract/app/crowdsale/contract/go"
-	"github.com/ardanlabs/smartcontract/foundation/smart/contract"
-	"github.com/ardanlabs/smartcontract/foundation/smart/currency"
+	"github.com/ardanlabs/smartcontract/foundation/blockchain/currency"
+	"github.com/ardanlabs/smartcontract/foundation/blockchain/ethereum"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -28,7 +28,7 @@ func main() {
 func run() error {
 	ctx := context.Background()
 
-	client, err := contract.NewClient(ctx, contract.NetworkLocalhost, keyStoreFile, passPhrase)
+	client, err := ethereum.NewClient(ctx, ethereum.NetworkLocalhost, keyStoreFile, passPhrase)
 	if err != nil {
 		return err
 	}
@@ -50,12 +50,12 @@ func run() error {
 
 	// =========================================================================
 
-	startingBalance, err := client.CurrentBalance(ctx)
+	startingBalance, err := client.Balance(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		endingBalance, dErr := client.CurrentBalance(ctx)
+		endingBalance, dErr := client.Balance(ctx)
 		if dErr != nil {
 			err = dErr
 			return
@@ -79,7 +79,7 @@ func run() error {
 	weiTokenPrice := big.NewInt(2000000000000000)
 	etherInvestmentObjective := big.NewInt(15000)
 
-	address, tx, _, err := crowd.DeployCrowd(tranOpts, client.ContractBackend(), startDate, endDate, weiTokenPrice, etherInvestmentObjective)
+	address, tx, _, err := crowd.DeployCrowd(tranOpts, client.EthClient(), startDate, endDate, weiTokenPrice, etherInvestmentObjective)
 	if err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ func run() error {
 
 	// =========================================================================
 
-	clientWait, err := contract.NewClient(ctx, contract.NetworkLocalhost, keyStoreFile, passPhrase)
+	clientWait, err := client.Copy(ctx)
 	if err != nil {
 		return err
 	}

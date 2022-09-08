@@ -8,8 +8,8 @@ import (
 	"os"
 
 	store "github.com/ardanlabs/smartcontract/app/basic/contract/go"
-	"github.com/ardanlabs/smartcontract/foundation/smart/contract"
-	"github.com/ardanlabs/smartcontract/foundation/smart/currency"
+	"github.com/ardanlabs/smartcontract/foundation/blockchain/currency"
+	"github.com/ardanlabs/smartcontract/foundation/blockchain/ethereum"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -29,7 +29,7 @@ func main() {
 func run() (err error) {
 	ctx := context.Background()
 
-	client, err := contract.NewClient(ctx, contract.NetworkLocalhost, keyStoreFile, passPhrase)
+	client, err := ethereum.NewClient(ctx, ethereum.NetworkLocalhost, keyStoreFile, passPhrase)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func run() (err error) {
 	}
 	fmt.Println("contractID:", contractID)
 
-	storeCon, err := store.NewStore(common.HexToAddress(contractID), client.ContractBackend())
+	storeCon, err := store.NewStore(common.HexToAddress(contractID), client.EthClient())
 	if err != nil {
 		return fmt.Errorf("new contract: %w", err)
 	}
@@ -70,12 +70,12 @@ func run() (err error) {
 
 	// =========================================================================
 
-	startingBalance, err := client.CurrentBalance(ctx)
+	startingBalance, err := client.Balance(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		endingBalance, dErr := client.CurrentBalance(ctx)
+		endingBalance, dErr := client.Balance(ctx)
 		if dErr != nil {
 			err = dErr
 			return
