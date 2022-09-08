@@ -28,14 +28,14 @@ func main() {
 func run() (err error) {
 	ctx := context.Background()
 
-	client, err := ethereum.NewClient(ctx, ethereum.NetworkLocalhost, keyStoreFile, passPhrase)
+	ethereum, err := ethereum.New(ctx, ethereum.NetworkLocalhost, keyStoreFile, passPhrase)
 	if err != nil {
 		return err
 	}
 
 	fmt.Println("\nInput Values")
 	fmt.Println("----------------------------------------------------")
-	fmt.Println("fromAddress:", client.Address())
+	fmt.Println("fromAddress:", ethereum.Address())
 
 	// =========================================================================
 
@@ -56,19 +56,19 @@ func run() (err error) {
 	}
 	fmt.Println("contractID:", contractID)
 
-	scoinCon, err := scoin.NewScoin(common.HexToAddress(contractID), client.EthClient())
+	scoinCon, err := scoin.NewScoin(common.HexToAddress(contractID), ethereum.RawClient())
 	if err != nil {
 		return fmt.Errorf("new contract: %w", err)
 	}
 
 	// =========================================================================
 
-	startingBalance, err := client.Balance(ctx)
+	startingBalance, err := ethereum.Balance(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		endingBalance, dErr := client.Balance(ctx)
+		endingBalance, dErr := ethereum.Balance(ctx)
 		if dErr != nil {
 			err = dErr
 			return
@@ -80,7 +80,7 @@ func run() (err error) {
 
 	const gasLimit = 300000
 	const valueGwei = 0
-	tranOpts, err := client.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+	tranOpts, err := ethereum.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func run() (err error) {
 	// =========================================================================
 
 	sink := make(chan *scoin.ScoinEventTransfer, 100)
-	if _, err := scoinCon.WatchEventTransfer(nil, sink, []common.Address{client.Address()}, []common.Address{to}); err != nil {
+	if _, err := scoinCon.WatchEventTransfer(nil, sink, []common.Address{ethereum.Address()}, []common.Address{to}); err != nil {
 		return err
 	}
 
@@ -109,7 +109,7 @@ func run() (err error) {
 	}
 	fmt.Print(converter.FmtTransaction(tx))
 
-	receipt, err := client.WaitMined(ctx, tx)
+	receipt, err := ethereum.WaitMined(ctx, tx)
 	if err != nil {
 		return err
 	}
