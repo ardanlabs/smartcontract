@@ -3,6 +3,8 @@ github.com/DeOne4eg/eth-unit-converter v0.2.0/go.mod h1:XDLXgMOeUv4n8BkGn817q9yD
 github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 h1:fLjPD/aNc3UIOA6tDi6QXUemppXK3P9BI7mr2hd6gx8=
 github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6/go.mod h1:3eOhrUMpNV+6aFIbp5/iudMxNCF27Vw2OZgy4xEx0Fg=
 github.com/VictoriaMetrics/fastcache v1.6.0 h1:C/3Oi3EiBCqufydp1neRZkqcwmEiuRT9c3fqvvgKm5o=
+github.com/ardanlabs/ethereum v0.1.0 h1:Jvbeqz9CwD4GSD+GSs9BBNrg/+0O0esaSlpk6M7Fy1E=
+github.com/ardanlabs/ethereum v0.1.0/go.mod h1:krVLeCvNbXA6esKGmrGuOgDumImyJrrLSPRPm43OnkA=
 github.com/btcsuite/btcd/btcec/v2 v2.2.0 h1:fzn1qaOt32TuLjFlkzYSsBC35Q3KUjT1SwPxiMSCF5k=
 github.com/btcsuite/btcd/btcec/v2 v2.2.0/go.mod h1:U7MHm051Al6XmscBQ0BoNydpOTsFAn707034b5nY8zU=
 github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 h1:q0rUy8C/TYNBQS1+CGKw68tLOFYSNEs0TFnxxnS9+4U=

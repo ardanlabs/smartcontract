@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ardanlabs/ethereum"
 	store "github.com/ardanlabs/smartcontract/app/basic/contract/go"
-	"github.com/ardanlabs/smartcontract/foundation/blockchain/ethereum"
 	"github.com/ethereum/go-ethereum/common"
 )
 

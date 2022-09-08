@@ -1,6 +1,6 @@
 # Smart Contract
 
-This is a work in progress to understand how to write, debug, and maintain Ethereum smart contracts. This repository is expected to have several apps that help to discover and understand the Ethereum and smart contract development. Please look at the makefile for more details and help.
+This project provides material to help you learn the basics of writing, debuging, and maintaining Ethereum smart contracts. This repository has several smart contracts of increasing complexity to showcase different aspects of smart contract development. Please look at the makefile for more details and help.
 
 The following will guide you in deploying the basic smart contract to a local Ethereum service and execute its API.
 
@@ -163,7 +163,10 @@ Read Value
 value: brianna
 ```
 
-## What's Next
+## Advanced Material
 
-Check out the `simplecoin` app which is a more complext smart contract. This is a work in progress.
-The steps are similar: `scoin-build`, `scoin-deploy`, `scoin-transfer` and `scoin-trancheck`.
+[Ultimate Go: Liar's Dice](https://github.com/ardanlabs/liarsdice)  
+If you are looking for more advanced and practical material, this project implements a game of Liar's Dice where a crypto wallet is used for authentication and a smart contract is used to maintain the bank. Once a player is authenticated, they bet money for each game played and that money comes from their crypto wallet.
+
+[Ultimate Go: Advanced Engineering](https://github.com/ardanlabs/blockchain)  
+This project implements a semantically correct blockchain in Go. The implementation of the Ardan blockchain takes inspiration from both Bitcoin and Ethereum. This does not incorporate any smart contract development, but is good for advanced learning.

@@ -1,4 +1,5 @@
-// Package ethereum provides support for executing smart contract APIs.
+// Package ethereum higher level Go API's for writing applications and smart
+// contracts on the Ethereum blockchain.
 package ethereum
 
 import (

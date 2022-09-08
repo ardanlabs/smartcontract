@@ -4,6 +4,10 @@ github.com/DeOne4eg/eth-unit-converter
 # github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6
 ## explicit
 github.com/StackExchange/wmi
+# github.com/ardanlabs/ethereum v0.1.0
+## explicit; go 1.18
+github.com/ardanlabs/ethereum
+github.com/ardanlabs/ethereum/currency
 # github.com/btcsuite/btcd/btcec/v2 v2.2.0
 ## explicit; go 1.17
 github.com/btcsuite/btcd/btcec/v2

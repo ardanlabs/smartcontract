@@ -6,9 +6,9 @@ import (
 	"math/big"
 	"os"
 
+	"github.com/ardanlabs/ethereum"
+	"github.com/ardanlabs/ethereum/currency"
 	scoin "github.com/ardanlabs/smartcontract/app/simplecoin/contract/go"
-	"github.com/ardanlabs/smartcontract/foundation/blockchain/currency"
-	"github.com/ardanlabs/smartcontract/foundation/blockchain/ethereum"
 	"github.com/ethereum/go-ethereum/log"
 )
 

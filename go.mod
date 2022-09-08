@@ -3,11 +3,12 @@ module github.com/ardanlabs/smartcontract
 go 1.18
 
 require (
-	github.com/DeOne4eg/eth-unit-converter v0.2.0
+	github.com/ardanlabs/ethereum v0.1.0
 	github.com/ethereum/go-ethereum v1.10.23
 )
 
 require (
+	github.com/DeOne4eg/eth-unit-converter v0.2.0 // indirect
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect
 	github.com/deckarep/golang-set v1.8.0 // indirect
