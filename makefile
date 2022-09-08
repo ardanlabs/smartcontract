@@ -50,6 +50,8 @@
 # Memory   - Reserved for variables that are defined within the scope of a function. They only persist while a function is called, and thus are temporary variables that cannot be accessed outside this scope (ie anywhere else in your contract besides within that function). However, they are mutable within that function.
 # Calldata - Is an immutable, temporary location where function arguments are stored, and behaves mostly like memory.
 #
+# NFT ERC721 Template
+# https://github.com/OpenZeppelin/openzeppelin-contracts/tree/master/contracts/token/ERC721
 
 # ==============================================================================
 # Install dependencies
