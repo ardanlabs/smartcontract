@@ -156,7 +156,8 @@ func (eth *Ethereum) WaitMined(ctx context.Context, tx *types.Transaction) (*typ
 }
 
 // SendTransaction sends a transaction to the specified address for the
-// specified amount.
+// specified amount. The function will wait for the transaction to be mined
+// based on the timeout value specified in the context.
 func (eth *Ethereum) SendTransaction(ctx context.Context, address string, value *big.Int, gasLimit uint64) error {
 	nonce, err := eth.ethClient.PendingNonceAt(ctx, eth.address)
 	if err != nil {
