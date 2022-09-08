@@ -1,8 +1,37 @@
-# Smart Contract
+# Ultimate Go: Smart Contract
+
+Copyright 2021, 2022, Ardan Labs  
+info@ardanlabs.com
+
+## Description
 
 This project provides material to help you learn the basics of writing, debuging, and maintaining Ethereum smart contracts. This repository has several smart contracts of increasing complexity to showcase different aspects of smart contract development. Please look at the makefile for more details and help.
 
-The following will guide you in deploying the basic smart contract to a local Ethereum service and execute its API.
+## Licensing
+
+```
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+```
+
+## Learn More
+
+**Reach out about corporate training events, open enrollment live training sessions, and on-demand learning options.**
+
+Ardan Labs (www.ardanlabs.com)  
+hello@ardanlabs.com
+
+To attend any of our high-performance tranings check out this link:  
+https://www.ardanlabs.com/training  
 
 ## Installing Tooling
 
