@@ -1,7 +1,7 @@
 # Ultimate Go: Smart Contract
 
 Copyright 2021, 2022, Ardan Labs  
-info@ardanlabs.com
+hello@ardanlabs.com
 
 ## Description
 
