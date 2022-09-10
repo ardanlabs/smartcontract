@@ -47,336 +47,306 @@ Potential improvements:
     exist of locking up a predictor's funds until the expiry date.
   - Possibly allow a mediator to remove a challenger if they are being too
     adversarial with their rules proposals?
-
 */
 
-// The LongBet contract will manage individual bets.
+// LongBet contract will manage individual bets.
 contract LongBet {
 
-  struct Participant {
-    // The address of the participant.
-    address payable addr;
+    // ===========================================================================
+    // Structs
 
-    // The stakes put forth by the participant.
-    uint256 stakes;
+        // Participant defines a person who participates in a longbet.
+        struct Participant {
 
-    // The rules of the bet, proposed by the participant.
-    string[] proposedRules;
+        // The address of the participant.
+        address payable addr;
 
-    // The proposed mediator tip, as a percentage of total stakes.
-    uint proposedTip;
+        // The stakes put forth by the participant.
+        uint256 stakes;
 
-    // When the participant is satisfied with the stakes and terms of the bet,
-    // they will set this value to true.
-    bool seeksApproval;
-  }
+        // The rules of the bet, proposed by the participant.
+        string[] proposedRules;
 
-  // The address of the contract which owns and manages this LongBet.
-  address public owner;
+        // The proposed mediator tip, as a percentage of total stakes.
+        uint proposedTip;
 
-  // The primary basis of the bet, e.g.
-  // "Man will walk on Mars by the year 2030."
-  string public prediction;
-
-  // A series of mutually agreed-upon criteria
-  // which must be met in order to satisfy the
-  // conditions of the prediction, e.g.
-  // "A living person must walk on the surface of the planet Mars."
-  // "Must occur before 2030-01-01T00:00:00Z."
-  // "The person need not successfully return to Earth."
-  string[] public rules;
-
-  // The predictor is the one to propose the bet with the initial prediction,
-  // rules, stakes, and mediator.
-  Participant public predictor;
-
-  // The challenger is the one to challenge the predictor's prediction, with
-  // a matching stake.
-  Participant public challenger;
-
-  // When the mediator has approved the stakes and rules, the bet is set and
-  // cannot be changed any further by the predictor or challenger.
-  bool public mediatorApproved;
-
-  // The date by which the bet will expire. If the terms of the bet cannot be
-  // adequately determined or the mediator does not take action by this date
-  // then the participants may trigger a refund of their stakes.
-  uint public expires;
-
-  // The tip percentage to be disbursed to the mediator in exchange for their
-  // services.
-  uint public mediatorTip;
-
-  // onlyPredictor can be used to restrict access to a function to the predictor.
-  modifier onlyPredictor {
-    if (msg.sender != predictor.addr) revert("only the predictor may call this function");
-    _;
-  }
-
-  // notPredictor prevents the predictor from accessing some functions.
-  modifier notPredictor {
-    if (msg.sender == predictor.addr) revert("the predictor may not call this function");
-    _;
-  }
-
-  // onlyChallenger can be used to restrict access to a function to the challenger.
-  modifier onlyChallenger {
-    if (msg.sender != challenger.addr) revert("only the challenger may call this function");
-    _;
-  }
-
-  // onlyOwner can be used to restrict access to a function to the owning contract,
-  // which is itself managed by a team of mediators.
-  modifier onlyOwner {
-    if (msg.sender != owner) revert("only the mediator may call this function");
-    _;
-  }
-
-  // onlyBeforeMediatorApproved can be used to restrict functions to the "setup"
-  // stages of the betting process, before the mediator has approved the final
-  // terms.
-  modifier onlyBeforeMediatorApproval {
-    if (mediatorApproved) revert("this function may only be called prior to mediator approval");
-    _;
-  }
-
-  // Prevents the mediator from performing certain actions before the bet is
-  // appropriately agreed-upon by predictor and challenger.
-  modifier onlyAfterMediatorApproval {
-    if (!mediatorApproved) revert("this function may only be called after mediator approval");
-    _;
-  }
-
-  modifier matchingStakes {
-    if (predictor.stakes != challenger.stakes) revert("this function may only be called when predictor and challenger have matching stakes");
-    _;
-  }
-  modifier matchingRules {
-    // Comparing hashes is more gas-efficient than walking the arrays and
-    // comparing individual entries.
-    if(keccak256(abi.encode(predictor.proposedRules)) != keccak256(abi.encode(challenger.proposedRules))) revert("this function may only be called when predictor and challenger have matching rules");
-    _;
-  }
-  modifier matchingTips {
-    if(predictor.proposedTip != challenger.proposedTip) revert("the participants do not have matching proposed tip percentages");
-    _;
-  }
-  modifier matchingApprovals {
-    if (!predictor.seeksApproval || !challenger.seeksApproval) revert("this function may only be called when predictor and challenger are both seeking mediator approval");
-    _;
-  }
-
-  // onlyAfterExpired can be used to restrict a function to be callable only
-  // after the bet has expired.
-  modifier onlyAfterExpired {
-    if (block.timestamp < expires) revert("the bet has not yet expired");
-    _;
-  }
-
-  constructor (address _owner, address payable _predictor,
-               string memory _prediction, string[] memory _rules,
-               uint _expires) {
-    owner = _owner;
-    predictor = Participant(_predictor, 0, _rules, 1, false);
-    prediction = _prediction;
-    expires = _expires;
-  }
-
-  // ==========================================================================
-  // Manage stakes
-
-  // Allow the predictor to add stakes. Newly added stakes are automatically
-  // stored in the contract's balance. May be called multiple times, as raising
-  // stakes may be necessary to attract a challenger.
-  function predictorAddStakes() onlyPredictor onlyBeforeMediatorApproval payable public {
-    if (challenger.stakes > 0) revert("predictor may not raise stakes after a challenger has appeared");
-    predictor.stakes += msg.value;
-  }
-
-  // Allow a challenger to participate by adding their stakes. Newly added
-  // stakes are automatically stored in the contract's balance.
-  function challengePrediction() notPredictor onlyBeforeMediatorApproval payable public {
-    if (msg.value != predictor.stakes) revert("challenger must match predictor stakes");
-    if (challenger.addr != address(0)) revert("this prediction already has a challenger");
-    string[] memory _rules;
-    challenger = Participant(payable(msg.sender), msg.value, _rules, 1, false);
-  }
-
-  // View total pool
-  function getPool() public view returns (uint256) {
-    return address(this).balance;
-  }
-
-  // ==========================================================================
-  // Manage rules
-
-  function predictorProposeRules(string[] calldata _rules) onlyPredictor onlyBeforeMediatorApproval public {
-    predictor.proposedRules = _rules;
-  }
-
-  function challengerProposeRules(string[] calldata _rules) onlyChallenger onlyBeforeMediatorApproval public {
-    challenger.proposedRules = _rules;
-  }
-
-  // ==========================================================================
-  // Manage tips
-
-  function predictorProposeTip(uint _tip) onlyPredictor onlyBeforeMediatorApproval public {
-    predictor.proposedTip = _tip;
-  }
-
-  function challengerProposeTip(uint _tip) onlyChallenger onlyBeforeMediatorApproval public {
-    challenger.proposedTip = _tip;
-  }
-
-  // ==========================================================================
-  // Seek mediator approval
-
-  function predictorSeekApproval() onlyPredictor onlyBeforeMediatorApproval matchingStakes matchingRules matchingTips public {
-    predictor.seeksApproval = true;
-  }
-
-  function challengerSeekApproval() onlyChallenger onlyBeforeMediatorApproval matchingStakes matchingRules public {
-    challenger.seeksApproval = true;
-  }
-
-  // ==========================================================================
-  // Mediator actions, may only be called externally by owner contract
-
-  function mediatorApproves(address payable _mediator) onlyOwner onlyBeforeMediatorApproval matchingStakes matchingRules matchingTips matchingApprovals external {
-    mediatorApproved = true;
-    rules = predictor.proposedRules;
-    mediatorTip = predictor.proposedTip;
-
-    // Mediator gets their tip.
-    _mediator.transfer(address(this).balance * (100 / mediatorTip));
-  }
-
-  function mediatorRulesPredictionTrue(address payable _mediator) onlyOwner onlyAfterMediatorApproval external {
-    // Mediator gets their tip first.
-    _mediator.transfer(address(this).balance * (100 / mediatorTip));
-    predictor.addr.transfer(address(this).balance);
-  }
-
-  function mediatorRulesPredictionFalse(address payable _mediator) onlyOwner onlyAfterMediatorApproval external {
-    // Mediator gets their tip first.
-    _mediator.transfer(address(this).balance * (100 / mediatorTip));
-    challenger.addr.transfer(address(this).balance);
-  }
-
-  // ==========================================================================
-  // Post-expiry refund requests
-
-  function predictorRequestRefund() onlyPredictor onlyAfterExpired public {
-    if (predictor.stakes == 0) revert("predictor has already refunded stakes");
-    if (challenger.stakes == 0) {
-      // Challenger has already refunded, predictor gets remaining balance.
-      predictor.addr.transfer(address(this).balance);
-    } else {
-      // Challenger has not refunded, predictor gets half of balance.
-      predictor.addr.transfer(address(this).balance / 2);
+        // When the participant is satisfied with the stakes and terms of the bet,
+        // they will set this value to true.
+        bool seeksApproval;
     }
-    predictor.stakes = 0;
-  }
 
-  function challengerRequestRefund() onlyChallenger onlyAfterExpired public {
-    if (challenger.stakes == 0) revert("challenger has already refunded stakes");
-    if (predictor.stakes == 0) {
-      // Predictor has already refunded, challenger gets remaining balance.
-      challenger.addr.transfer(address(this).balance);
-    } else {
-      // Predictor has not refunded, challenger gets half of balance.
-      challenger.addr.transfer(address(this).balance / 2);
+    // ===========================================================================
+    // Contract Level Variables
+
+    // The address of the contract which owns and manages this LongBet.
+    address public owner;
+
+    // The primary basis of the bet, e.g.
+    // "Man will walk on Mars by the year 2030."
+    string public prediction;
+
+    // A series of mutually agreed-upon criteria which must be met in order to
+    // satisfy the conditions of the prediction, e.g.
+    // "A living person must walk on the surface of the planet Mars."
+    // "Must occur before 2030-01-01T00:00:00Z."
+    // "The person need not successfully return to Earth."
+    string[] public rules;
+
+    // The predictor is the one to propose the bet with the initial prediction,
+    // rules, stakes, and mediator.
+    Participant public predictor;
+
+    // The challenger is the one to challenge the predictor's prediction, with
+    // a matching stake.
+    Participant public challenger;
+
+    // When the mediator has approved the stakes and rules, the bet is set and
+    // cannot be altered any further by the predictor or challenger.
+    bool public mediatorApproved;
+
+    // The date by which the bet will expire. If the terms of the bet cannot be
+    // adequately determined or the mediator does not take action by this date
+    // then the participants may trigger a refund of their stakes.
+    uint public expires;
+
+    // The tip percentage to be disbursed to the mediator in exchange for their
+    // services.
+    uint public mediatorTip;
+
+    // ===========================================================================
+    // Modifiers
+
+    // onlyPredictor can be used to restrict access to a function to the predictor.
+    modifier onlyPredictor {
+        if (msg.sender != predictor.addr) {
+            revert("only the predictor may call this function");
+        }
+        _;
     }
-    challenger.stakes = 0;
-  }
 
+    // notPredictor prevents the predictor from accessing some functions.
+    modifier notPredictor {
+        if (msg.sender == predictor.addr) {
+            revert("the predictor may not call this function");
+        }
+        _;
+    }
+
+    // onlyChallenger can be used to restrict access to a function to the challenger.
+    modifier onlyChallenger {
+        if (msg.sender != challenger.addr) {
+            revert("only the challenger may call this function");
+        }
+        _;
+    }
+
+    // onlyOwner can be used to restrict access to a function to the owning contract,
+    // which is itself managed by a team of mediators.
+    modifier onlyOwner {
+        if (msg.sender != owner) {
+            revert("only the mediator may call this function");
+        }
+        _;
+    }
+
+    // onlyBeforeMediatorApproved can be used to restrict functions to the "setup"
+    // stages of the betting process, before the mediator has approved the final
+    // terms.
+    modifier onlyBeforeMediatorApproval {
+        if (mediatorApproved) {
+            revert("this function may only be called prior to mediator approval");
+        }
+        _;
+    }
+
+    // onlyAfterMediatorApproval prevents the mediator from performing certain
+    // actions before the bet is appropriately agreed-upon by predictor and challenger.
+    modifier onlyAfterMediatorApproval {
+        if (!mediatorApproved) {
+            revert("this function may only be called after mediator approval");
+        }
+        _;
+    }
+
+    modifier matchingStakes {
+        if (predictor.stakes != challenger.stakes) {
+            revert("this function may only be called when predictor and challenger have matching stakes");
+        }
+        _;
+    }
+
+    modifier matchingRules {
+
+        // Comparing hashes is more gas-efficient than walking the arrays and
+        // comparing individual entries.
+        if (keccak256(abi.encode(predictor.proposedRules)) != keccak256(abi.encode(challenger.proposedRules))) {
+            revert("this function may only be called when predictor and challenger have matching rules");
+        }
+        _;
+    }
+
+    modifier matchingTips {
+        if (predictor.proposedTip != challenger.proposedTip) {
+            revert("the participants do not have matching proposed tip percentages");
+        }
+        _;
+    }
+
+    modifier matchingApprovals {
+        if (!predictor.seeksApproval || !challenger.seeksApproval) {
+            revert("this function may only be called when predictor and challenger are both seeking mediator approval");
+        }
+        _;
+    }
+
+    // onlyAfterExpired can be used to restrict a function to be callable only
+    // after the bet has expired.
+    modifier onlyAfterExpired {
+        if (block.timestamp < expires) {
+            revert("the bet has not yet expired");
+        }
+        _;
+    }
+
+    // ===========================================================================
+    // Constructor
+
+    constructor(address _owner, address payable _predictor, string memory _prediction, string[] memory _rules, uint _expires) {
+        owner = _owner;
+        predictor = Participant(_predictor, 0, _rules, 1, false);
+        prediction = _prediction;
+        expires = _expires;
+    }
+
+    // ===========================================================================
+    // Manage stakes
+
+    // predictorAddStakes allows the predictor to add stakes. Newly added stakes
+    // are automatically stored in the contract's balance. May be called multiple
+    // times, as raising stakes may be necessary to attract a challenger.
+    function predictorAddStakes() onlyPredictor onlyBeforeMediatorApproval payable public {
+        if (challenger.stakes > 0) {
+            revert("predictor may not raise stakes after a challenger has appeared");
+        }
+        predictor.stakes += msg.value;
+    }
+
+    // challengePrediction allows a challenger to participate by adding their
+    // stakes. Newly added stakes are automatically stored in the contract's balance.
+    function challengePrediction() notPredictor onlyBeforeMediatorApproval payable public {
+        if (msg.value != predictor.stakes) {
+            revert("challenger must match predictor stakes");
+        }
+
+        if (challenger.addr != address(0)) {
+            revert("this prediction already has a challenger");
+        }
+        
+        string[] memory _rules;
+        challenger = Participant(payable(msg.sender), msg.value, _rules, 1, false);
+    }
+
+    // getPool allows a view if the total pool.
+    function getPool() public view returns (uint256) {
+        return address(this).balance;
+    }
+
+    // ===========================================================================
+    // Manage rules
+
+    function predictorProposeRules(string[] calldata _rules) onlyPredictor onlyBeforeMediatorApproval public {
+        predictor.proposedRules = _rules;
+    }
+
+    function challengerProposeRules(string[] calldata _rules) onlyChallenger onlyBeforeMediatorApproval public {
+        challenger.proposedRules = _rules;
+    }
+
+    // ===========================================================================
+    // Manage tips
+
+    function predictorProposeTip(uint _tip) onlyPredictor onlyBeforeMediatorApproval public {
+        predictor.proposedTip = _tip;
+    }
+
+    function challengerProposeTip(uint _tip) onlyChallenger onlyBeforeMediatorApproval public {
+        challenger.proposedTip = _tip;
+    }
+
+    // ===========================================================================
+    // Seek mediator approval
+
+    function predictorSeekApproval() onlyPredictor onlyBeforeMediatorApproval matchingStakes matchingRules matchingTips public {
+        predictor.seeksApproval = true;
+    }
+
+    function challengerSeekApproval() onlyChallenger onlyBeforeMediatorApproval matchingStakes matchingRules public {
+        challenger.seeksApproval = true;
+    }
+
+    // ===========================================================================
+    // Mediator actions, may only be called externally by owner contract
+
+    function mediatorApproves(address payable _mediator) onlyOwner onlyBeforeMediatorApproval matchingStakes matchingRules matchingTips matchingApprovals external {
+        mediatorApproved = true;
+        rules = predictor.proposedRules;
+        mediatorTip = predictor.proposedTip;
+
+        // Mediator gets their tip.
+        _mediator.transfer(address(this).balance * (100 / mediatorTip));
+    }
+
+    function mediatorRulesPredictionTrue(address payable _mediator) onlyOwner onlyAfterMediatorApproval external {
+
+        // Mediator gets their tip first.
+        _mediator.transfer(address(this).balance * (100 / mediatorTip));
+        predictor.addr.transfer(address(this).balance);
+    }
+
+    function mediatorRulesPredictionFalse(address payable _mediator) onlyOwner onlyAfterMediatorApproval external {
+
+        // Mediator gets their tip first.
+        _mediator.transfer(address(this).balance * (100 / mediatorTip));
+        challenger.addr.transfer(address(this).balance);
+    }
+
+    // ==========================================================================
+    // Post-expiry refund requests
+
+    function predictorRequestRefund() onlyPredictor onlyAfterExpired public {
+        if (predictor.stakes == 0) {
+            revert("predictor has already refunded stakes");
+        }
+
+        if (challenger.stakes == 0) {
+            
+            // Challenger has already refunded, predictor gets remaining balance.
+            predictor.addr.transfer(address(this).balance);
+        } else {
+            
+            // Challenger has not refunded, predictor gets half of balance.
+            predictor.addr.transfer(address(this).balance / 2);
+        }
+
+        predictor.stakes = 0;
+    }
+
+    function challengerRequestRefund() onlyChallenger onlyAfterExpired public {
+        if (challenger.stakes == 0) {
+            revert("challenger has already refunded stakes");
+        }
+
+        if (predictor.stakes == 0) {
+            
+            // Predictor has already refunded, challenger gets remaining balance.
+            challenger.addr.transfer(address(this).balance);
+        } else {
+            
+            // Predictor has not refunded, challenger gets half of balance.
+            challenger.addr.transfer(address(this).balance / 2);
+        }
+
+        challenger.stakes = 0;
+    }
 }
 
-// The LongBets contract will track, deploy, and mediate all bets.
-// Mediators may approve the addition of new mediators with a majority vote.
-// Mediators may approve the removal of other mediators with a majority vote.
-contract LongBets {
-  // A mapping of all known LongBet contracts managed by this contract.
-  mapping (uint => LongBet) public deployedBets;
-  uint public numBets;
-
-  // A mapping of all approved mediators.
-  mapping (address => bool) public mediators;
-  uint public numMediators;
-
-  // A mapping of newly proposed mediators and their vote counts.
-  mapping (address => uint) public proposedMediators;
-
-  // A mapping of votes in favor of approving a new proposed mediator.
-  // [proposedMediator][mediator][vote]
-  mapping (address => mapping(address => bool)) public proposedMediatorVotes;
-  mapping (address => uint) public totalProposedMediatorVotes;
-
-  // A mapping of proposed mediator removals and their vote counts.
-  mapping (address => mapping(address => bool)) public proposedMediatorRemovals;
-  mapping (address => uint) public totalProposedMediatorRemovalVotes;
-
-  modifier mediatorOnly {
-    if (!mediators[msg.sender]) revert("must be a mediator");
-    _;
-  }
-
-  constructor(address _creator) {
-    // Add the creator of this contract as the initial mediator.
-    mediators[_creator] = true;
-  }
-
-  // Creates a new LongBet contract.
-  function bet(string calldata _prediction, string[] calldata _rules) public returns (address, uint) {
-    deployedBets[numBets] = new LongBet(address(this), payable(msg.sender), _prediction, _rules, block.timestamp + (2 * 365 days));
-    numBets++;
-    return (address(deployedBets[numBets-1]), numBets-1);
-  }
-
-  function proposeMediator(address _mediator) mediatorOnly public {
-    if (proposedMediatorVotes[_mediator][msg.sender] == true) revert("you have already voted in favor of this mediator");
-
-    proposedMediatorVotes[_mediator][msg.sender] = true;
-    totalProposedMediatorVotes[_mediator]++;
-
-    // If more than half of existing mediators have approved of the new mediator,
-    // add them to the mediators mapping.
-    if (totalProposedMediatorVotes[_mediator] > numMediators/2) {
-      mediators[_mediator] = true;
-      numMediators++;
-      // TODO: Resolve error with below line
-      // delete proposedMediatorVotes[_mediator];
-      totalProposedMediatorVotes[_mediator] = 0;
-    }
-  }
-
-  function proposeMediatorRemoval(address _mediator) mediatorOnly public {
-    if (proposedMediatorRemovals[_mediator][msg.sender] == true) revert("you have already voted to remove this mediator");
-
-    proposedMediatorRemovals[_mediator][msg.sender] = true;
-    totalProposedMediatorRemovalVotes[_mediator]++;
-
-    // If more than half of existing mediators have approved of the removal of a
-    // mediator, remove them from the mediators mapping.
-    if (totalProposedMediatorRemovalVotes[_mediator] > numMediators/2) {
-      delete mediators[_mediator];
-      numMediators--;
-      // TODO: Resolve error with below line.
-      // delete proposedMediatorRemovals[_mediator];
-      totalProposedMediatorVotes[_mediator] = 0;
-    }
-  }
-
-  function approveLongBet(uint betId) mediatorOnly public {
-    deployedBets[betId].mediatorApproves(payable(msg.sender));
-  }
-
-  function ruleLongBetTrue(uint betId) mediatorOnly public {
-    deployedBets[betId].mediatorRulesPredictionTrue(payable(msg.sender));
-  }
-
-  function ruleLongBetFalse(uint betId) mediatorOnly public {
-    deployedBets[betId].mediatorRulesPredictionFalse(payable(msg.sender));
-  }
-}
