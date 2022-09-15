@@ -13,8 +13,11 @@ import (
 )
 
 const (
-	keyStoreFile     = "zarf/ethereum/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd"
-	passPhrase       = "123"
+	ownerStoreFile    = "zarf/ethereum/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd"
+	account1StoreFile = "zarf/ethereum/keystore/UTC--2022-05-13T16-57-20.203544000Z--8e113078adf6888b7ba84967f299f29aece24c55"
+	account2StoreFile = "zarf/ethereum/keystore/UTC--2022-05-13T16-59-42.277071000Z--0070742ff6003c3e809e78d524f0fe5dcc5ba7f7"
+
+	passPhrase       = "123" // All three accounts use the same passphrase
 	coinMarketCapKey = "a8cd12fb-d056-423f-877b-659046af0aa5"
 )
 
@@ -28,7 +31,20 @@ func main() {
 func run() (err error) {
 	ctx := context.Background()
 
-	ethereum, err := ethereum.New(ctx, ethereum.NetworkLocalhost, keyStoreFile, passPhrase)
+	ethAccount := ""
+	target := os.Getenv("DEPOSIT_TARGET")
+	switch target {
+	case "owner":
+		ethAccount = ownerStoreFile
+	case "account1":
+		ethAccount = account2StoreFile
+	case "account2":
+		ethAccount = account3StoreFile
+	default:
+		return fmt.Errorf("invalid DEPOSIT_TARGET, must be one of: owner, account1, account2")
+	}
+
+	ethereum, err := ethereum.New(ctx, ethereum.NetworkLocalhost, ethAccount, passPhrase)
 	if err != nil {
 		return err
 	}
