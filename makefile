@@ -180,11 +180,10 @@ bank-proxy-upgrade-v3: bank-proxy-build
 
 # Calls Bank Proxy Deposit function
 bank-proxy-deposit: bank-proxy-build
-	go run app/bank/proxy/cmd/deposit/main.go
-
+    go run app/bank/proxy/cmd/deposit/main.go
 # Calls Bank Proxy Withdraw function
 bank-proxy-withdraw: bank-proxy-build
-	go run app/bank/proxy/cmd/withdraw/main.go
+    go run app/bank/proxy/cmd/withdraw/main.go
 
 # ==============================================================================
 # These commands start the Ethereum node and provide examples of attaching
