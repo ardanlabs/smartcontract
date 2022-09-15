@@ -81,7 +81,7 @@ storage, possibly corrupting the data.
 ## Initial Setup
 
 The make commands below are to be run from the repository root. They will
-assume you have already followed the [repository instructions](README.md) to
+assume you have already followed the [repository instructions](../../../README.md) to
 install the appropriate tooling and run a local geth instance.
 
 ## Building the Bank Proxy and APIs
