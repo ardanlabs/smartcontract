@@ -178,6 +178,13 @@ bank-proxy-upgrade-v2: bank-proxy-build
 bank-proxy-upgrade-v3: bank-proxy-build
 	TARGET_VERSION=$(BANK_API_V3_CONTRACT_ID) go run app/bank/proxy/cmd/upgrade/main.go
 
+# Calls Bank Proxy Deposit function
+bank-proxy-deposit: bank-proxy-build
+    go run app/bank/proxy/cmd/deposit/main.go
+# Calls Bank Proxy Withdraw function
+bank-proxy-withdraw: bank-proxy-build
+    go run app/bank/proxy/cmd/withdraw/main.go
+
 # ==============================================================================
 # These commands start the Ethereum node and provide examples of attaching
 # directly with potential commands to try, and creating a new account if necessary.
