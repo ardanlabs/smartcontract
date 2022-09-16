@@ -82,7 +82,8 @@ storage, possibly corrupting the data.
 
 The make commands below are to be run from the repository root. They will
 assume you have already followed the [repository instructions](../../../README.md) to
-install the appropriate tooling and run a local geth instance.
+install the appropriate tooling and run a local geth instance. This also assumes
+you have run `make geth-deposit` to load the geth accounts with Eth.
 
 ## Building the Bank Proxy and APIs
 
@@ -167,3 +168,28 @@ upgrade[eb380d740ec33adf803abe0d6b14ee29ae6194a9]
 
 A successful upgrade will log the address of the new API contract, as shown
 above.
+
+## Loading the Bank's Account Balances
+
+The makefile includes a target to load the bank's account with some various
+balances.
+
+```
+$ make bank-proxy-load
+```
+
+## Checking the Bank's Account Balances
+
+The makefile includes a target to check the balances of all of the accounts.
+
+```
+$ make bank-proxy-balances
+```
+
+## Reconciling Winner/Losers
+
+The makefile includes a target to perform the Reconcile.
+
+```
+$ make bank-proxy-reconcile
+```
