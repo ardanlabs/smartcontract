@@ -24,7 +24,8 @@ contract Bank {
     // =========================================================================
     // Owner Only Calls
 
-    // onlyOwner can be used to restrict access to a function for only the owner.
+    // onlyOwner can be used to restrict access to a function for only the
+    // owner.
     modifier onlyOwner {
         if (msg.sender != Owner) revert();
         _;
@@ -40,7 +41,7 @@ contract Bank {
             if (accountBalances[losers[i]] < anteWei) {
                 emit EventLog(string.concat("account balance ", Error.Itoa(accountBalances[losers[i]]), " is less than ante ", Error.Itoa(anteWei)));
                 pot += accountBalances[losers[i]];
-                accountBalances[losers[i]] = 0;                
+                accountBalances[losers[i]] = 0;
             } else {
                 pot += anteWei;
                 accountBalances[losers[i]] -= anteWei;

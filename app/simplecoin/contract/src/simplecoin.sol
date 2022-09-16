@@ -17,6 +17,7 @@ contract SimpleCoin {
     // FrozenAccount represents accounts who can't spend any longer.
     mapping (address => bool) public FrozenAccount;
 
+    // =========================================================================
 
     // EventLog provides support for external logging.
     event EventLog(string value);
@@ -24,9 +25,11 @@ contract SimpleCoin {
     // EventTransfer is an event to indicate a transfer was performed.
     event EventTransfer(address indexed from, address indexed to, uint256 value);
 
-    // EventFrozenAccount is an event to indicate an account was frozen or unfrozen.
+    // EventFrozenAccount is an event to indicate an account was frozen or
+    // unfrozen.
     event EventFrozenAccount(address target, bool frozen);
 
+    // =========================================================================
 
     // constructor is called when the contract is deployed.
     constructor(uint256 initialSupply) {
@@ -34,13 +37,15 @@ contract SimpleCoin {
         Mint(Owner, initialSupply);
     }
 
+    // =========================================================================
+    // Owner Only Calls
 
-    // onlyOwner can be used to restrict access to a function for only the owner.
+    // onlyOwner can be used to restrict access to a function for only the
+    // owner.
     modifier onlyOwner {
         if (msg.sender != Owner) revert();
         _;
     }
-
 
     // Mint grants the recipient an amount of new coins. This can only be called
     // by the owner of the contract.
@@ -56,6 +61,9 @@ contract SimpleCoin {
         emit EventFrozenAccount(target, freeze);
     }
 
+    // =========================================================================
+    // General Public Calls
+
     // Transfer moves coins from the sender to the specified account.
     function Transfer(address to, uint256 amount) public {
         Error.Err memory err = validateTransfer(msg.sender, to, amount);
@@ -70,7 +78,8 @@ contract SimpleCoin {
         emit EventTransfer(msg.sender, to, amount);
     }
 
-    // TransferFrom moves coins from the specified account to the specified account.
+    // TransferFrom moves coins from the specified account to the specified
+    // account.
     // The from account must have an allowance for doing this.
     function TransferFrom(address from, address to, uint256 amount) public {
         Error.Err memory err = validateTransfer(from, to, amount);
@@ -93,10 +102,12 @@ contract SimpleCoin {
         return true;
     }
 
+    // =========================================================================
+    // Internal Only Calls
 
     // validateTransfer performs checks for transfer operations.
     function validateTransfer(address from, address to, uint256 amount) internal view returns (Error.Err memory) {
-        
+
         // Check the caller isn't sending money to address zero.
         if (to == address(0)) {
             return Error.New("can't send money to address 0x0");

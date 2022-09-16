@@ -28,7 +28,8 @@ contract BankProxy {
     // =========================================================================
     // Owner Only Calls
 
-    // onlyOwner can be used to restrict access to a function for only the owner.
+    // onlyOwner can be used to restrict access to a function for only the
+    // owner.
     modifier onlyOwner {
         if (msg.sender != Owner) revert();
         _;
@@ -43,7 +44,8 @@ contract BankProxy {
         emit EventLog(string.concat("reconcile[", Error.Booltoa(success), "]"));
     }
 
-    // UpgradeAPI upgrades the API to a new version, or rollback to a previous one.
+    // UpgradeAPI upgrades the API to a new version, or rollback to a previous
+    // one.
     function UpgradeAPI(address api) onlyOwner public {
         API = api;
         emit EventLog(string.concat("upgrade[",Error.Addrtoa(api),"]"));
@@ -77,7 +79,7 @@ contract BankProxy {
         }
 
         uint256 amount = accountBalances[msg.sender];
-        account.transfer(amount);        
+        account.transfer(amount);
         accountBalances[msg.sender] = 0;
 
         emit EventLog(string.concat("withdraw[", Error.Addrtoa(msg.sender), "] amount[", Error.Itoa(amount), "]"));
