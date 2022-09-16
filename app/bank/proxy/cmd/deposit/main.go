@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"strconv"
 
 	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/ethereum/currency"
@@ -31,15 +32,18 @@ func main() {
 func run() (err error) {
 	ctx := context.Background()
 
-	ethAccount := ""
-	target := os.Getenv("DEPOSIT_TARGET")
-	switch target {
+	depositAmount := os.Getenv("DEPOSIT_AMOUNT")
+	depositTarget := os.Getenv("DEPOSIT_TARGET")
+	var ethAccount string
+
+	// Validate the deposit target is valid.
+	switch depositTarget {
 	case "owner":
 		ethAccount = ownerStoreFile
 	case "account1":
-		ethAccount = account2StoreFile
+		ethAccount = account1StoreFile
 	case "account2":
-		ethAccount = account3StoreFile
+		ethAccount = account2StoreFile
 	default:
 		return fmt.Errorf("invalid DEPOSIT_TARGET, must be one of: owner, account1, account2")
 	}
@@ -81,8 +85,12 @@ func run() (err error) {
 
 	// =========================================================================
 
+	valueGwei, err := strconv.ParseFloat(depositAmount, 64)
+	if err != nil {
+		return fmt.Errorf("converting deposit amount to float: %v", err)
+	}
+
 	const gasLimit = 1600000
-	const valueGwei = 120.0
 	tranOpts, err := ethereum.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 	if err != nil {
 		return err
