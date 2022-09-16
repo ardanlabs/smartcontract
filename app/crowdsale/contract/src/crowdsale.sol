@@ -106,7 +106,7 @@ contract Crowdsale {
         if (IsFinalized) {
             revert("crowdsale is already finalized");
         }
-        
+
         // Check if the time has come to finalize the crowdsale.
         // if (block.timestamp < EndTime) {
         //     revert("too early to finalize crowdsale");
@@ -141,7 +141,7 @@ contract Crowdsale {
 
         InvestmentAmountOf[investor] = 0;
         InvestmentRefunded += investment;
-        
+
         emit EventRefund(investor, investment);
         emit EventLog(string.concat("refund of ", Error.Itoa(investment), " provided to investor ", Error.Addrtoa(investor)));
 
@@ -168,7 +168,7 @@ contract Crowdsale {
         // if (block.timestamp > EndTime) {
         //     return Error.New("crowdsale funding stage ended");
         // }
-        
+
         return Error.None();
     }
 

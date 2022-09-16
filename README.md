@@ -5,7 +5,7 @@ hello@ardanlabs.com
 
 ## Description
 
-This project provides material to help you learn the basics of writing, debuging, and maintaining Ethereum smart contracts. This repository has several smart contracts of increasing complexity to showcase different aspects of smart contract development. Please look at the makefile for more details and help.
+This project provides material to help you learn the basics of writing, debuging, and maintaining Ethereum smart contracts. This repository has several smart contracts of increasing complexity to showcase different aspects of smart contract development. Please look at the [wiki](https://github.com/ardanlabs/smartcontract/wiki) for more details.
 
 ## Licensing
 
@@ -33,169 +33,145 @@ hello@ardanlabs.com
 To attend any of our high-performance tranings check out this link:  
 https://www.ardanlabs.com/training  
 
-## Installing Tooling
+## Index
 
-You must install Ethereum and Solidity into your development environment. If you are using MacOS or Linux, the makefile has brew commands to help you with this. If you can't use brew, there are links to documents in the makefile.
+* [Purchase Video](https://github.com/ardanlabs/smartcontract#purchase-video)
+* [Experience](https://github.com/ardanlabs/smartcontract#our-experience)
+* [Teacher](https://github.com/ardanlabs/smartcontract#our-teacher)
+* [Minimal Qualified Student](https://github.com/ardanlabs/smartcontract#minimal-qualified-student)
+* [Before You Come To Class](https://github.com/ardanlabs/smartcontract#before-you-come-to-class)
 
-makefile
-```
-# https://geth.ethereum.org/docs/install-and-build/installing-geth
-# https://docs.soliditylang.org/en/v0.8.11/installing-solidity.html
+## Purchase Video
 
-dev.setup:
-	brew update
-	brew list ethereum || brew install ethereum
-	brew list solidity || brew install solidity
-```
+We have not yet produced the video for this class, but to see other Go related classes check out this link.
 
-## Running Ethereum
+[education.ardanlabs.com](https://education.ardanlabs.com)
 
-Ethereum is configured to run in a developer mode that will allow for the deployment and execution of smart contracts. Use the following `make` command to start the Ethereum service. Make sure you start Ethereum in a dedicated terminal session.
+## Our Experience
 
-```
-$ make geth-up
-```
+We have taught Go to thousands of developers all around the world since 2014. There is no other company that has been doing it longer and our material has proven to help jump-start developers 6 to 12 months ahead of their knowledge of Go. We know what knowledge developers need in order to be productive and efficient when writing software in Go.
 
-To stop the Ethereum service, use the down command.
+Our classes are perfect for intermediate-level developers who have at least a few months to years of experience writing code in Go. Our classes provide a very deep knowledge of the programming langauge with a big push on language mechanics, design philosophies and guidelines. We focus on teaching how to write code with a priority on consistency, integrity, readability and simplicity. We cover a lot about “if performance matters” with a focus on mechanical sympathy, data oriented design, decoupling and writing/debugging production software.
 
-```
-$ make geth-down
-```
+## Our Teacher
 
-## Building Smart Contract
+### William Kennedy ([@goinggodotnet](https://twitter.com/goinggodotnet))  
+_William Kennedy is a managing partner at Ardan Labs in Miami, Florida, a mobile, web, and systems development company. Bill has written extensively on the Ardan Labs blog, has written two books, and has trained thousands of developers worldwide in Go. Bill is also a founding member of GoBridge, which is working to increase Go adoption through diversity._
 
-The smart contract can be found in `app/basic/contracts/src/store.sol` and is a smart contract written in the Ethereum programming language called Solidity. It will be helpful to install the Solidity extension by Juan Blanco. To compile and build the smart contract, run the following make command.
+_**Video Training**_  
+[Ultimate Go Video](https://education.ardanlabs.com)  
+[Ardan Labs YouTube Channel](http://youtube.ardanlabs.com/)
 
-```
-$ make basic-build
-```
+_**Blog**_  
+[Going Go](https://www.ardanlabs.com/blog/)    
 
-That will produce an `abi`, `bin`, and `go` file inside the `app/basic/contracts/store` directory. Any time code for the smart contract is changed, it must be built again for the Go applications.
+_**Writing**_  
+[Running MongoDB Queries Concurrently With Go](http://blog.mongodb.org/post/80579086742/running-mongodb-queries-concurrently-with-go)    
+[Go In Action](https://www.manning.com/books/go-in-action)  
 
-## Deploying Smart Contract
+_**Articles**_  
+[IT World Canada](http://www.itworldcanada.com/article/nascent-google-development-language-shows-promise-for-more-productive-coding/387449)
 
-With the Ethereum service up and running, run the following make command to deploy the smart contract.
+_**Video**_  
+[GopherCon Europe (2022) - Practical Memory Profiling](https://www.youtube.com/watch?v=6qAfkJGWsns)  
+[Dgrpah Day (2021) - Getting Started With Dgraph and GraphQL](https://www.youtube.com/watch?v=5L4PUbDqSEo)  
+[GDN Event #1 (2021) - GoBridge Needs Your Help](https://www.youtube.com/watch?v=Tst0oI97cvQ&t=2s)  
+[Training Within The Go Community (2019)](https://www.youtube.com/watch?v=PSR1twjzzAM&feature=youtu.be)  
+[GopherCon Australia (2019) - Modules](https://www.youtube.com/watch?v=MVxbVR_6Tac)  
+[Golab (2019) - You Want To Build a Web Service?](https://www.youtube.com/watch?v=IV0wrVb31Pg)  
+[GopherCon Singapore (2019) - Garbage Collection Semantics](https://www.youtube.com/watch?v=q4HoWwdZUHs)  
+[GopherCon India (2019) - Channel Semantics](https://www.youtube.com/watch?v=AHAf1Xfr_HE)  
+[GoWayFest Minsk (2018) - Profiling Web Apps](https://www.youtube.com/watch?v=-GBMFPegqgw)  
+[GopherChina (2018) - Composition In Go William](https://www.youtube.com/watch?v=pvLUO9ZManM&feature=youtu.be)  
+[GopherCon Singapore (2018) - Optimizing For Correctness](https://engineers.sg/video/optimize-for-correctness-gopherconsg-2018--2610)  
+[GopherCon India (2018) - What is the Legacy You Are Leaving Behind](https://www.youtube.com/watch?v=j3zCUc06OXo&t=0s&index=11&list=PLhJxE57Cki63cElK2kmt3_vi8j2eIHTqZ)  
+[Code::Dive (2017) - Optimizing For Correctness](https://www.youtube.com/watch?v=OTLjN8NQDyo)  
+[Code::Dive (2017) - Go: Concurrency Design](https://www.youtube.com/watch?v=OrctYMf4btA)  
+[dotGo (2017) - Behavior Of Channels](https://www.youtube.com/watch?v=zDCKZn4-dck)  
+[GopherCon Singapore (2017) - Escape Analysis](https://engineers.sg/video/escape-analysis-and-memory-profiling-gophercon-sg-2017--1746)  
+[Capital Go (2017) - Concurrency Design](https://www.youtube.com/watch?v=yGOOUCrrgrE&index=10&list=PLeGxIOPLk9EKdl-h_Y-sbLhLoP-ia7CJ5)  
+[GopherCon India (2017) - Package Oriented Design](https://www.youtube.com/watch?v=spKM5CyBwJA#t=0m56s)  
+[GopherCon India (2015) - Go In Action](https://www.youtube.com/watch?v=QkPw8-Pf0SM)  
+[GolangUK (2016) - Dependency Management](https://youtu.be/CdhucJShJU8)  
+[GothamGo (2015) - Error Handling in Go](https://vimeo.com/115782573)  
+[GopherCon (2014) - Building an analytics engine](https://www.youtube.com/watch?v=EfJRQ1lGkUk)  
 
-```
-$ make basic-deploy
-```
+[Prague Meetup (2021) - Go Module Engineering Decisions](https://youtu.be/m8lgcXv2lhI)  
+[Practical Understanding Of Scheduler Semantics (2021)](https://www.youtube.com/watch?v=p2Cjq3Dq2Q0)  
+[Go Generics Draft Proposal (2020)](https://www.youtube.com/watch?v=gIEPspmbMHM&t=2069s)  
+[Hack Potsdam (2017) - Tech Talk with William Kennedy](https://www.youtube.com/watch?v=sBzJ-sjhgs8)  
+[Chicago Meetup (2016) - An Evening](https://vimeo.com/199832344)  
+[Vancouver Meetup (2016) - Go Talk & Ask Me Anything With William Kennedy](https://www.youtube.com/watch?v=7YcLIbG1ekM&t=91s)  
+[Vancouver Meetup (2015) - Compiler Optimizations in Go](https://www.youtube.com/watch?v=AQipeq39Aek)  
+[Bangalore Meetup (2015) - OOP in Go](https://youtu.be/gRpUfjTwSOo)  
+[GoSF Meetup - The Nature of Constants in Go](https://www.youtube.com/watch?v=ZUCHMAoOgUQ)    
+[London Meetup - Mechanical Sympathy](https://skillsmatter.com/skillscasts/8353-london-go-usergroup)    
+[Vancouver Meetup - Decoupling From Change](https://www.youtube.com/watch?v=7YcLIbG1ekM&feature=youtu.be)  
 
-If this is successful, the following output should be similar to.
+_**Podcasts**_  
+[Ardan Labs Podcast: On Going Series](https://ardanlabs.buzzsprout.com/)  
+[Mangtas Nation: A Golang Deep Dive with Bill Kennedy](https://anchor.fm/mangtasnation/episodes/A-Golang-Deep-Dive-with-Bill-Kennedy--S2-EP3-e1ij9c3)  
+[GoTime: Design Philosophy](https://changelog.com/gotime/172)  
+[GoTime: Learning and Teaching Go](https://changelog.com/gotime/72)  
+[GoTime: Bill Kennedy on Mechanical Sympathy](https://changelog.com/gotime/6)  
+[GoTime: Discussing Imposter Syndrome](https://changelog.com/gotime/30)  
+[HelloTechPros: Your Tech Interviews are Scaring Away Brilliant People](http://hellotechpros.com/william-kennedy-people)    
+[HelloTechPros: The 4 Cornerstones of Writing Software](http://hellotechpros.com/bill-kennedy-productivity)  
 
-```
-go run app/basic/cmd/deploy/main.go
-fromAddress: 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd
+## Minimal Qualified Student
 
-Transaction Details
-----------------------------------------------------
-tx sent            : 0xafc894991575d94d1cbc004784e6d6bd4201e56fedfbe417e250f2b0a9c624ef
-tx gas offer price : 0.431556798 GWei
-tx gas limit       : 300000
-tx value           : 0.0 GWei
-tx max price       : 129467.39400000 GWei (Gas Offer Price * Max Gas Allowed)
-tx max price       : 0.33014085 USD
+The material has been designed to be taught in a classroom environment. The code is well commented but missing some contextual concepts and ideas that will be covered in class. Students with the following minimal background will get the most out of the class.
 
-Contract Details
-----------------------------------------------------
-contract id     : 0x531130464929826c57BBBF989e44085a02eeB120
-export CONTRACT_ID=0x531130464929826c57BBBF989e44085a02eeB120
+* Studied CS in school or has a minimum of two years of experience programming full time professionally.
+* Familiar with structural and object oriented programming styles.
+* Has worked with arrays, lists, queues and stacks.
+* Understands processes, threads and synchronization at a high level.
+* Operating Systems
+	* Has worked with a command shell.
+	* Knows how to maneuver around the file system.
+	* Understands what environment variables are.
 
-Waiting Logs
-----------------------------------------------------
-t=2022-09-07T15:58:09-0400 lvl=trce msg="Handled RPC response" reqid=2 duration=417ns
+**You will get the most out of this class if you have taken the Ultimate Go bundle of classes first.**
 
-Receipt Details
-----------------------------------------------------
-re status          : 1
-re gas used        : 299044
-final cost         : 129054.471101112 GWei (Gas Offer Price * Gas Used)
-final cost         : 0.32908770 USD
+[Ultimate Go Classes](https://www.ardanlabs.com/ultimate-go/#tabpanel)  
+[Scholarship](https://docs.google.com/forms/d/e/1FAIpQLSchEz6zg1fseR2XiIZgNB8Qm2a5JDB7n3EOWX5GeIP18OstaQ/viewform)  
 
-Balance
-----------------------------------------------------
-balance before     : 115792089237316195423570985008687907853269984665640564039457583061627.121056760 GWei
-balance after      : 115792089237316195423570985008687907853269984665640564039457583061619.525339160 GWei
-balance diff price : 7.595717600 GWei
-balance diff price : 0.00001785 USD
-```
+**This is a free and great class to learning concepts behind blockchains.**
 
-Each time you deploy the contract, you will get a new contract ID. Every code change needs to be mined into a new block and therefore the API moves. Be aware what version of the API you are using.
+[Blockchain Class](https://cryptocurrencyclass.github.io/) - Patrick McCorry  
 
-## Executing Smart Contract API
+## Before You Come To Class
 
-To validate everything is working, run the follow make command.
+The following is a set of tasks that can be done prior to showing up for class.  We will also do this in class if anyone has not completed it.  However, the more attendees that complete this ahead of time the more time we have to cover additional training material.
 
-```
-$ export CONTRACT_ID=0x531130464929826c57BBBF989e44085a02eeB120
-$ make basic-write
-```
+### Prep Work
 
-When you run this command, attempt to update the contracts map with the key `name` and value `brianna`. You should see the following output if everything is working correctly.
+[Ultimate Go Classes](https://www.ardanlabs.com/ultimate-go)  
+[Scholarship](https://docs.google.com/forms/d/e/1FAIpQLSchEz6zg1fseR2XiIZgNB8Qm2a5JDB7n3EOWX5GeIP18OstaQ/viewform)  
 
-```
-Input Values
-----------------------------------------------------
-fromAddress: 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd
-oneETHToUSD: 1571.4114863708066
-oneUSDToETH: 0.0006363705551812605
-contractID: 0x531130464929826c57BBBF989e44085a02eeB120
-version: 1.1
+This is a free and great class to learning concepts behind blockchains. Watch videos 1, 2, 6 and 8 for sure.  
+[Blockchain Class](https://cryptocurrencyclass.github.io/) - Patrick McCorry  
 
-Transaction Details
-----------------------------------------------------
-hash            : 0x270a2757da5b1e5a766dde1d3429271ca74d259c29fe0a67352859978dfcd33c
-nonce           : 2
-gas limit       : 250000
-gas offer price : 0.896428194 GWei
-value           : 0 GWei
-max gas price   : 224107.0485 GWei
-max gas price   : 0.35 USD
+### Joining the Go Slack Community
 
-Receipt Details
-----------------------------------------------------
-status          : 1
-gas used        : 25895
-gas price       : 0.896428194 GWei
-gas price       : 0.00 USD
-final gas cost  : 23213.00808 GWei
-final gas cost  : 0.04 USD
+We use a Slack channel to share links, code, and examples during the training.  This is free.  This is also the same Slack community you will use after training to ask for help and interact with may Go experts around the world in the community.
 
-Logs
-----------------------------------------------------
+1. Using the following link, fill out your name and email address: https://gophersinvite.herokuapp.com/
+1. Check your email, and follow the link to the slack application.
+1. Join the training channel by clicking on this link: https://gophers.slack.com/messages/training/
+1. Click the “Join Channel” button at the bottom of the screen.
 
-Balance
-----------------------------------------------------
-balance before  : 1.157920892e+68 GWei
-balance after   : 1.157920892e+68 GWei
-balance diff    : 17498.96476 GWei
-balance diff    : 0.03 USD
-```
+### Installing the Training Material
 
-To see if the value was written to the map for that key, run the follow make command.
+While many of the examples can be done using the online playground (http://play.golang.org), some may find it easier to complete them with their local editor.  To do so, you will want to load the training material locally to your machine.  From a command prompt, issue the following commands:
 
 ```
-$ export CONTRACT_ID=0x531130464929826c57BBBF989e44085a02eeB120
-$ make basic-read
+$ cd $HOME
+$ mkdir code
+$ cd code
+$ git clone https://github.com/ardanlabs/smartcontract
+$ cd smartcontract
 ```
 
-You should see the following output if everything is working correctly.
-
-```
-Input Values
-----------------------------------------------------
-fromAddress: 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd
-contractID: 0x531130464929826c57BBBF989e44085a02eeB120
-version: 1.1
-
-Read Value
-----------------------------------------------------
-value: brianna
-```
-
-## Advanced Material
-
-[Ultimate Go: Liar's Dice](https://github.com/ardanlabs/liarsdice)  
-If you are looking for more advanced and practical material, this project implements a game of Liar's Dice where a crypto wallet is used for authentication and a smart contract is used to maintain the bank. Once a player is authenticated, they bet money for each game played and that money comes from their crypto wallet.
-
-[Ultimate Go: Advanced Engineering](https://github.com/ardanlabs/blockchain)  
-This project implements a semantically correct blockchain in Go. The implementation of the Ardan blockchain takes inspiration from both Bitcoin and Ethereum. This does not incorporate any smart contract development, but is good for advanced learning.
+___
+All material is licensed under the [Apache License Version 2.0, January 2004](http://www.apache.org/licenses/LICENSE-2.0).
