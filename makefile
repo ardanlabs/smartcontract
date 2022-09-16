@@ -194,6 +194,9 @@ bank-proxy-load: bank-proxy-build
 	DEPOSIT_TARGET="account3" DEPOSIT_AMOUNT="120000" go run app/bank/proxy/cmd/deposit/main.go
 	DEPOSIT_TARGET="account4" DEPOSIT_AMOUNT="130000" go run app/bank/proxy/cmd/deposit/main.go
 
+# Calls Bank Proxy TestDelegateCall function
+bank-proxy-test-delegate-call: bank-proxy-build
+	go run app/bank/proxy/cmd/testDelegateCall/main.go
 
 # ==============================================================================
 # These commands start the Ethereum node and provide examples of attaching
