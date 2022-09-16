@@ -36,10 +36,10 @@ contract BankProxy {
     }
 
     // Reconcile settles the accounting for a game that was played.
-    function Reconcile(address winner, address[] calldata losers, uint256 anteWei, uint256 gameFeeWei) onlyOwner public {
+    function Reconcile(address _winner, address[] memory _losers, uint256 _anteWei, uint256 _gameFeeWei) onlyOwner public {
         // Calls the API contract Reconcile function.
         (bool success,) = API.delegatecall(
-            abi.encodeWithSignature("Reconcile(address, address[] calldata, uint256, uint256)", winner, losers, anteWei, gameFeeWei)
+            abi.encodeWithSignature("Reconcile(address,address[],uint256,uint256)", _winner, _losers, _anteWei, _gameFeeWei)
         );
         emit EventLog(string.concat("reconcile[", Error.Booltoa(success), "]"));
     }

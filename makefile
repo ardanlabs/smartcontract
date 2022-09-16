@@ -198,6 +198,19 @@ bank-proxy-load: bank-proxy-build
 bank-proxy-test-delegate-call: bank-proxy-build
 	go run app/bank/proxy/cmd/testDelegateCall/main.go
 
+bank-proxy-balances: bank-proxy-build
+	BALANCE_TARGET="account1" go run app/bank/proxy/cmd/balance/main.go
+	BALANCE_TARGET="account2" go run app/bank/proxy/cmd/balance/main.go
+	BALANCE_TARGET="account3" go run app/bank/proxy/cmd/balance/main.go
+	BALANCE_TARGET="account4" go run app/bank/proxy/cmd/balance/main.go
+
+bank-proxy-reconcile: bank-proxy-build
+	RECONCILE_WINNER_ID="0x8E113078ADF6888B7ba84967F299F29AeCe24c55" \
+	RECONCILE_LOSERS_ID="0x0070742FF6003c3E809E78D524F0Fe5dcc5BA7F7,0x7FDFc99999f1760e8dBd75a480B93c7B8386B79a,0x000cF95cB5Eb168F57D0bEFcdf6A201e3E1acea9" \
+	RECONCILE_ANTE_WEI="10000" \
+	RECONCILE_GAME_FEE_WEI="1000" \
+	go run app/bank/proxy/cmd/reconcile/main.go
+
 # ==============================================================================
 # These commands start the Ethereum node and provide examples of attaching
 # directly with potential commands to try, and creating a new account if necessary.

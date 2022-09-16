@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "../../error.sol";
 
 contract BankAPI {
+
     // Owner represents the address who deployed the contract.
     address public Owner;
 
@@ -24,7 +25,7 @@ contract BankAPI {
     }
 
     // Reconcile settles the accounting for a game that was played.
-    function Reconcile(address winner, address[] calldata losers, uint256 anteWei, uint256 gameFeeWei) public {
+    function Reconcile(address winner, address[] memory losers, uint256 anteWei, uint256 gameFeeWei) public {
         // Add the ante for each player to the pot. The initialization is
         // for the winner's ante.
         uint256 pot = anteWei;
@@ -32,7 +33,7 @@ contract BankAPI {
             if (accountBalances[losers[i]] < anteWei) {
                 emit EventLog(string.concat("account balance ", Error.Itoa(accountBalances[losers[i]]), " is less than ante ", Error.Itoa(anteWei)));
                 pot += accountBalances[losers[i]];
-                accountBalances[losers[i]] = 0;                
+                accountBalances[losers[i]] = 0;
             } else {
                 pot += anteWei;
                 accountBalances[losers[i]] -= anteWei;

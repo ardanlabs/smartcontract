@@ -3,11 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/ethereum/currency"
 	proxy "github.com/ardanlabs/smartcontract/app/bank/proxy/contract/go/proxy"
 	"github.com/ethereum/go-ethereum/common"
-	"os"
 )
 
 const (
@@ -31,11 +32,11 @@ func main() {
 func run() (err error) {
 	ctx := context.Background()
 
-	depositTarget := os.Getenv("DEPOSIT_TARGET")
+	balanceTarget := os.Getenv("BALANCE_TARGET")
 	var ethAccount string
 
 	// Validate the deposit target is valid.
-	switch depositTarget {
+	switch balanceTarget {
 	case "owner":
 		ethAccount = ownerStoreFile
 	case "account1":

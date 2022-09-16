@@ -9,8 +9,8 @@ import (
 	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/ethereum/currency"
 	proxy "github.com/ardanlabs/smartcontract/app/bank/proxy/contract/go/proxy"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 const (
@@ -66,7 +66,7 @@ func run() (err error) {
 
 	// =========================================================================
 
-	const gasLimit = 1600000
+	const gasLimit = 3000000
 	const valueGwei = 0.0
 	tranOpts, err := ethereum.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 	if err != nil {
@@ -80,7 +80,7 @@ func run() (err error) {
 	}
 	fmt.Println("bankApiContractID:", bankApiContractID)
 
-    bankApiAddress := common.HexToAddress(bankApiContractID)
+	bankApiAddress := common.HexToAddress(bankApiContractID)
 
 	address, tx, _, err := proxy.DeployBankproxy(tranOpts, ethereum.RawClient(), bankApiAddress)
 	if err != nil {
