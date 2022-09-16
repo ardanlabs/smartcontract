@@ -187,6 +187,14 @@ bank-proxy-deposit: bank-proxy-build
 bank-proxy-withdraw: bank-proxy-build
 	WITHDRAW_TARGET="account1" go run app/bank/proxy/cmd/withdraw/main.go
 
+# Loads the Bank Proxy account balance with values from various accounts
+bank-proxy-load: bank-proxy-build
+	DEPOSIT_TARGET="account1" DEPOSIT_AMOUNT="100000" go run app/bank/proxy/cmd/deposit/main.go
+	DEPOSIT_TARGET="account2" DEPOSIT_AMOUNT="110000" go run app/bank/proxy/cmd/deposit/main.go
+	DEPOSIT_TARGET="account3" DEPOSIT_AMOUNT="120000" go run app/bank/proxy/cmd/deposit/main.go
+	DEPOSIT_TARGET="account4" DEPOSIT_AMOUNT="130000" go run app/bank/proxy/cmd/deposit/main.go
+
+
 # ==============================================================================
 # These commands start the Ethereum node and provide examples of attaching
 # directly with potential commands to try, and creating a new account if necessary.
