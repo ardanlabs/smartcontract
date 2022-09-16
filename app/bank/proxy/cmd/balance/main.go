@@ -11,7 +11,12 @@ import (
 )
 
 const (
-	ownerStoreFile   = "zarf/ethereum/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd"
+	ownerStoreFile    = "zarf/ethereum/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd"
+	account1StoreFile = "zarf/ethereum/keystore/UTC--2022-05-13T16-57-20.203544000Z--8e113078adf6888b7ba84967f299f29aece24c55"
+	account2StoreFile = "zarf/ethereum/keystore/UTC--2022-05-13T16-59-42.277071000Z--0070742ff6003c3e809e78d524f0fe5dcc5ba7f7"
+	account3StoreFile = "zarf/ethereum/keystore/UTC--2022-09-16T16-13-42.375710134Z--7fdfc99999f1760e8dbd75a480b93c7b8386b79a"
+	account4StoreFile = "zarf/ethereum/keystore/UTC--2022-09-16T16-13-55.707637523Z--000cf95cb5eb168f57d0befcdf6a201e3e1acea9"
+
 	passPhrase       = "123" // All three accounts use the same passphrase
 	coinMarketCapKey = "a8cd12fb-d056-423f-877b-659046af0aa5"
 )
@@ -26,7 +31,26 @@ func main() {
 func run() (err error) {
 	ctx := context.Background()
 
-	ethereum, err := ethereum.New(ctx, ethereum.NetworkLocalhost, ownerStoreFile, passPhrase)
+	depositTarget := os.Getenv("DEPOSIT_TARGET")
+	var ethAccount string
+
+	// Validate the deposit target is valid.
+	switch depositTarget {
+	case "owner":
+		ethAccount = ownerStoreFile
+	case "account1":
+		ethAccount = account1StoreFile
+	case "account2":
+		ethAccount = account2StoreFile
+	case "account3":
+		ethAccount = account3StoreFile
+	case "account4":
+		ethAccount = account4StoreFile
+	default:
+		ethAccount = account1StoreFile
+	}
+
+	ethereum, err := ethereum.New(ctx, ethereum.NetworkLocalhost, ethAccount, passPhrase)
 	if err != nil {
 		return err
 	}
@@ -63,7 +87,7 @@ func run() (err error) {
 
 	// =========================================================================
 
-	tranOpts, err := ethereum.NewCallOpts(ctx)
+	callOpts, err := ethereum.NewCallOpts(ctx)
 	if err != nil {
 		return err
 	}
@@ -81,7 +105,7 @@ func run() (err error) {
 		return fmt.Errorf("new proxy connection: %w", err)
 	}
 
-	balance, err := proxyContract.Balance(tranOpts)
+	balance, err := proxyContract.Balance(callOpts)
 	if err != nil {
 		return err
 	}
