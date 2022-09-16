@@ -187,6 +187,14 @@ bank-proxy-deposit: bank-proxy-build
 bank-proxy-withdraw: bank-proxy-build
 	WITHDRAW_TARGET="account1" go run app/bank/proxy/cmd/withdraw/main.go
 
+# Loads the Bank Proxy account balance with values from various accounts
+bank-proxy-load: bank-proxy-build
+	DEPOSIT_TARGET="account1" DEPOSIT_AMOUNT="100000" go run app/bank/proxy/cmd/deposit/main.go
+	DEPOSIT_TARGET="account2" DEPOSIT_AMOUNT="110000" go run app/bank/proxy/cmd/deposit/main.go
+	DEPOSIT_TARGET="account3" DEPOSIT_AMOUNT="120000" go run app/bank/proxy/cmd/deposit/main.go
+	DEPOSIT_TARGET="account4" DEPOSIT_AMOUNT="130000" go run app/bank/proxy/cmd/deposit/main.go
+
+
 # ==============================================================================
 # These commands start the Ethereum node and provide examples of attaching
 # directly with potential commands to try, and creating a new account if necessary.
@@ -218,6 +226,8 @@ geth-new-account:
 geth-deposit:
 	curl -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","method":"eth_sendTransaction", "params": [{"from":"0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd", "to":"0x8E113078ADF6888B7ba84967F299F29AeCe24c55", "value":"0x1000000000000000000"}], "id":1}' localhost:8545
 	curl -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","method":"eth_sendTransaction", "params": [{"from":"0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd", "to":"0x0070742FF6003c3E809E78D524F0Fe5dcc5BA7F7", "value":"0x1000000000000000000"}], "id":1}' localhost:8545
+	curl -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","method":"eth_sendTransaction", "params": [{"from":"0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd", "to":"0x7FDFc99999f1760e8dBd75a480B93c7B8386B79a", "value":"0x1000000000000000000"}], "id":1}' localhost:8545
+	curl -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","method":"eth_sendTransaction", "params": [{"from":"0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd", "to":"0x000cF95cB5Eb168F57D0bEFcdf6A201e3E1acea9", "value":"0x1000000000000000000"}], "id":1}' localhost:8545
 
 
 # ==============================================================================
