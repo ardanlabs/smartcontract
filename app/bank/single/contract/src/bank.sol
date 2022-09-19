@@ -24,8 +24,7 @@ contract Bank {
     // =========================================================================
     // Owner Only Calls
 
-    // onlyOwner can be used to restrict access to a function for only the
-    // owner.
+    // onlyOwner can be used to restrict access to a function for only the owner.
     modifier onlyOwner {
         if (msg.sender != Owner) revert();
         _;

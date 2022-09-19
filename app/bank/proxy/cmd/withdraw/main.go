@@ -8,7 +8,7 @@ import (
 
 	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/ethereum/currency"
-	proxy "github.com/ardanlabs/smartcontract/app/bank/proxy/contract/go/proxy"
+	proxy "github.com/ardanlabs/smartcontract/app/bank/proxy/contract/go"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -98,7 +98,7 @@ func run() (err error) {
 	}
 	fmt.Println("contractID:", contractID)
 
-	proxyContract, err := proxy.NewBankproxy(common.HexToAddress(contractID), ethereum.RawClient())
+	proxyContract, err := proxy.NewBank(common.HexToAddress(contractID), ethereum.RawClient())
 	if err != nil {
 		return fmt.Errorf("new proxy connection: %w", err)
 	}

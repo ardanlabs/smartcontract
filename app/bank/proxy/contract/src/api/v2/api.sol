@@ -4,11 +4,15 @@ pragma solidity ^0.8.0;
 import "../../error.sol";
 
 contract BankAPI {
-    // Owner represents the address who deployed the contract.
-    address public Owner;
-
+    
     // API represents the address of the API contract.
     address public API;
+
+    // Version is the current version of Store.
+    string public Version;
+
+    // Owner represents the address who deployed the contract.
+    address public Owner;
 
     // accountBalances represents the amount of money an account has available.
     mapping (address => uint256) private accountBalances;
@@ -20,11 +24,12 @@ contract BankAPI {
 
     // constructor is called when the contract is deployed.
     constructor() {
-        Owner = msg.sender;
+        Version = "0.2.0";
     }
 
     // Reconcile settles the accounting for a game that was played.
     function Reconcile(address winner, address[] calldata losers, uint256 anteWei, uint256 gameFeeWei) public {
+        
         // Add the ante for each player to the pot. The initialization is
         // for the winner's ante.
         uint256 pot = anteWei;

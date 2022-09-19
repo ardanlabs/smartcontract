@@ -8,7 +8,7 @@ import (
 
 	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/ethereum/currency"
-	proxy "github.com/ardanlabs/smartcontract/app/bank/proxy/contract/go/proxy"
+	proxy "github.com/ardanlabs/smartcontract/app/bank/proxy/contract/go"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -82,7 +82,7 @@ func run() (err error) {
 
 	bankApiAddress := common.HexToAddress(bankApiContractID)
 
-	address, tx, _, err := proxy.DeployBankproxy(tranOpts, ethereum.RawClient(), bankApiAddress)
+	address, tx, _, err := proxy.DeployBank(tranOpts, ethereum.RawClient(), bankApiAddress)
 	if err != nil {
 		return err
 	}

@@ -108,21 +108,6 @@ scoin-transfer:
 scoin-trancheck:
 	go run app/simplecoin/cmd/trancheck/main.go
 
-
-# ==============================================================================
-# These commands build, deploy, and run the crowdsale smart contract.
-
-crowd-build:
-	solc --abi app/crowdsale/contract/src/crowdsale.sol -o app/crowdsale/contract/abi --overwrite
-	solc --bin app/crowdsale/contract/src/crowdsale.sol -o app/crowdsale/contract/abi --overwrite
-	abigen --bin=app/crowdsale/contract/abi/Crowdsale.bin --abi=app/crowdsale/contract/abi/Crowdsale.abi --pkg=crowd --out=app/crowdsale/contract/go/crowdsale.go
-
-crowd-deploy: crowd-build
-	go run app/crowdsale/cmd/deploy/main.go
-
-crowd-invest:
-	go run app/crowdsale/cmd/invest/main.go
-
 # ==============================================================================
 # These commands build, deploy, and run the bank-single smart contract.
 
@@ -139,9 +124,9 @@ bank-single-deploy: bank-single-build
 
 bank-proxy-build:
 	# Proxy
-	solc --abi app/bank/proxy/contract/src/proxy/proxy.sol -o app/bank/proxy/contract/abi/proxy --overwrite
-	solc --bin app/bank/proxy/contract/src/proxy/proxy.sol -o app/bank/proxy/contract/abi/proxy --overwrite
-	abigen --bin=app/bank/proxy/contract/abi/proxy/BankProxy.bin --abi=app/bank/proxy/contract/abi/proxy/BankProxy.abi --pkg=bankproxy --out=app/bank/proxy/contract/go/proxy/bankproxy.go
+	solc --abi app/bank/proxy/contract/src/bank.sol -o app/bank/proxy/contract/abi --overwrite
+	solc --bin app/bank/proxy/contract/src/bank.sol -o app/bank/proxy/contract/abi --overwrite
+	abigen --bin=app/bank/proxy/contract/abi/Bank.bin --abi=app/bank/proxy/contract/abi/Bank.abi --pkg=bank --out=app/bank/proxy/contract/go/bank.go
 	# API v1
 	solc --abi app/bank/proxy/contract/src/api/v1/api.sol -o app/bank/proxy/contract/abi/api/v1 --overwrite
 	solc --bin app/bank/proxy/contract/src/api/v1/api.sol -o app/bank/proxy/contract/abi/api/v1 --overwrite
