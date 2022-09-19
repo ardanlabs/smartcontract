@@ -15,7 +15,7 @@ contract Bank {
     address public Owner;
 
     // accountBalances represents the amount of money an account has available.
-    mapping (address => uint) private accountBalances;
+    mapping (address => uint256) private accountBalances;
 
     // EventLog provides support for external logging.
     event EventLog(string value);
