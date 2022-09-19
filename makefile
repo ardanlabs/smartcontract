@@ -156,13 +156,13 @@ bank-proxy-api-v3-deploy: bank-proxy-build
 
 # Upgrade Proxy to a specific API Version
 bank-proxy-upgrade-v1: bank-proxy-build
-	TARGET_VERSION=$(BANK_API_V1_CONTRACT_ID) go run app/bank/proxy/cmd/upgrade/main.go
+	cat zarf/tmp/.BANK_API_V1_CONTRACT_ID > zarf/tmp/.TARGET_VERSION && go run app/bank/proxy/cmd/upgrade/main.go
 
 bank-proxy-upgrade-v2: bank-proxy-build
-	TARGET_VERSION=$(BANK_API_V2_CONTRACT_ID) go run app/bank/proxy/cmd/upgrade/main.go
+	cat zarf/tmp/.BANK_API_V2_CONTRACT_ID > zarf/tmp/.TARGET_VERSION && go run app/bank/proxy/cmd/upgrade/main.go
 
 bank-proxy-upgrade-v3: bank-proxy-build
-	TARGET_VERSION=$(BANK_API_V3_CONTRACT_ID) go run app/bank/proxy/cmd/upgrade/main.go
+	cat zarf/tmp/.BANK_API_V3_CONTRACT_ID > zarf/tmp/.TARGET_VERSION && go run app/bank/proxy/cmd/upgrade/main.go
 
 # Calls Bank Proxy Deposit function
 bank-proxy-deposit: bank-proxy-build

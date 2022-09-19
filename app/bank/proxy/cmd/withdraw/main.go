@@ -92,7 +92,12 @@ func run() (err error) {
 
 	// =========================================================================
 
-	contractID := os.Getenv("PROXY_CONTRACT_ID")
+	contractIDBytes, err := os.ReadFile("zarf/tmp/.PROXY_CONTRACT_ID")
+	if err != nil {
+		return fmt.Errorf("importing PROXY_CONTRACT_ID: %v\n", err)
+	}
+
+	contractID := string(contractIDBytes)
 	if contractID == "" {
 		return fmt.Errorf("need to export the PROXY_CONTRACT_ID")
 	}

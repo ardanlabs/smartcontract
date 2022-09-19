@@ -74,7 +74,12 @@ func run() (err error) {
 	}
 
 	// =========================================================================
-	bankApiContractID := os.Getenv("BANK_API_V1_CONTRACT_ID")
+	bankApiContractIDBytes, err := os.ReadFile("zarf/tmp/.BANK_API_V1_CONTRACT_ID")
+	if err != nil {
+		return fmt.Errorf("importing BANK_API_V1_CONTRACT_ID: %v\n", err)
+	}
+
+	bankApiContractID := string(bankApiContractIDBytes)
 	if bankApiContractID == "" {
 		return fmt.Errorf("need to export the BANK_API_V1_CONTRACT_ID")
 	}
@@ -91,7 +96,10 @@ func run() (err error) {
 	fmt.Println("\nContract Details")
 	fmt.Println("----------------------------------------------------")
 	fmt.Println("contract id     :", address.Hex())
-	fmt.Printf("export PROXY_CONTRACT_ID=%s\n", address.Hex())
+
+	if err := os.WriteFile("zarf/tmp/.PROXY_CONTRACT_ID", []byte(address.Hex()), 0644); err != nil {
+		return fmt.Errorf("exporting PROXY_CONTRACT_ID: %v\n", err)
+	}
 
 	// =========================================================================
 

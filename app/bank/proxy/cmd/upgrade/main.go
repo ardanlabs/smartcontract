@@ -74,7 +74,12 @@ func run() (err error) {
 
 	// =========================================================================
 
-	contractID := os.Getenv("PROXY_CONTRACT_ID")
+	contractIDBytes, err := os.ReadFile("zarf/tmp/.PROXY_CONTRACT_ID")
+	if err != nil {
+		return fmt.Errorf("importing PROXY_CONTRACT_ID: %v\n", err)
+	}
+
+	contractID := string(contractIDBytes)
 	if contractID == "" {
 		return fmt.Errorf("need to export the PROXY_CONTRACT_ID")
 	}
@@ -85,7 +90,11 @@ func run() (err error) {
 		return fmt.Errorf("new proxy connection: %w", err)
 	}
 
-	apiAddress := os.Getenv("TARGET_VERSION")
+	apiAddressBytes, err := os.ReadFile("zarf/tmp/.TARGET_VERSION")
+	if err != nil {
+		return fmt.Errorf("importing TARGET_VERSION: %v\n", err)
+	}
+	apiAddress := string(apiAddressBytes)
 	if apiAddress == "" {
 		return fmt.Errorf("need to export the TARGET_VERSION")
 	}
