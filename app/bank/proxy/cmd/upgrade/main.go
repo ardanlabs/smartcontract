@@ -74,7 +74,7 @@ func run() (err error) {
 
 	// =========================================================================
 
-	contractIDBytes, err := os.ReadFile("zarf/tmp/.BANK_CID")
+	contractIDBytes, err := os.ReadFile("zarf/tmp/bank-proxy/BANK_CID")
 	if err != nil {
 		return fmt.Errorf("importing BANK_CID: %v\n", err)
 	}
@@ -90,7 +90,7 @@ func run() (err error) {
 		return fmt.Errorf("new proxy connection: %w", err)
 	}
 
-	apiAddressBytes, err := os.ReadFile("zarf/tmp/.BANK_API_CID")
+	apiAddressBytes, err := os.ReadFile("zarf/tmp/bank-proxy/BANK_API_CID")
 	if err != nil {
 		return fmt.Errorf("importing BANK_API_CID: %v\n", err)
 	}

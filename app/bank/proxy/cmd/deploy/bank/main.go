@@ -8,7 +8,7 @@ import (
 
 	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/ethereum/currency"
-	proxy "github.com/ardanlabs/smartcontract/app/bank/proxy/contract/go"
+	bank "github.com/ardanlabs/smartcontract/app/bank/proxy/contract/go"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -74,7 +74,7 @@ func run() (err error) {
 	}
 
 	// =========================================================================
-	bankApiContractIDBytes, err := os.ReadFile("zarf/tmp/.BANK_API_CID")
+	bankApiContractIDBytes, err := os.ReadFile("zarf/tmp/bank-proxy/BANK_API_CID")
 	if err != nil {
 		return fmt.Errorf("importing BANK_API_CID: %v\n", err)
 	}
@@ -87,7 +87,7 @@ func run() (err error) {
 
 	bankApiAddress := common.HexToAddress(bankApiContractID)
 
-	address, tx, _, err := proxy.DeployBank(tranOpts, ethereum.RawClient(), bankApiAddress)
+	address, tx, _, err := bank.DeployBank(tranOpts, ethereum.RawClient(), bankApiAddress)
 	if err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func run() (err error) {
 	fmt.Println("----------------------------------------------------")
 	fmt.Println("contract id     :", address.Hex())
 
-	if err := os.WriteFile("zarf/tmp/.BANK_CID", []byte(address.Hex()), 0644); err != nil {
+	if err := os.WriteFile("zarf/tmp/bank-proxy/BANK_CID", []byte(address.Hex()), 0644); err != nil {
 		return fmt.Errorf("exporting BANK_CID: %v\n", err)
 	}
 

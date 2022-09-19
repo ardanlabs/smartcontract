@@ -122,7 +122,11 @@ bank-single-deploy: bank-single-build
 # ==============================================================================
 # These commands build, deploy, and run the bank-proxy smart contract.
 
-bank-proxy-build:
+# Ensure the tmp folder exists for storing deployed Contract IDs
+zarf/tmp/bank-proxy:
+	mkdir -p zarf/tmp/bank-proxy
+
+bank-proxy-build: zarf/tmp/bank-proxy
 	# Proxy
 	solc --abi app/bank/proxy/contract/src/bank.sol -o app/bank/proxy/contract/abi --overwrite
 	solc --bin app/bank/proxy/contract/src/bank.sol -o app/bank/proxy/contract/abi --overwrite
@@ -140,50 +144,49 @@ bank-proxy-build:
 	solc --bin app/bank/proxy/contract/src/api/v3/api.sol -o app/bank/proxy/contract/abi/api/v3 --overwrite
 	abigen --bin=app/bank/proxy/contract/abi/api/v3/BankAPI.bin --abi=app/bank/proxy/contract/abi/api/v3/BankAPI.abi --pkg=bankapi --out=app/bank/proxy/contract/go/api/v3/bankapi.go
 
-# Deploy Proxy
-bank-proxy-proxy-deploy: bank-proxy-build
-	go run app/bank/proxy/cmd/deploy/proxy/main.go
+# Deploy API v1 and Proxy
+bank-proxy-deploy: bank-proxy-build
+	go run app/bank/proxy/cmd/deploy/api/v1/main.go
+	go run app/bank/proxy/cmd/deploy/bank/main.go
 
 # Deploy APIs
-bank-proxy-api-v1-deploy: bank-proxy-build
+bank-proxy-api-v1-deploy:
 	go run app/bank/proxy/cmd/deploy/api/v1/main.go
 
-bank-proxy-api-v2-deploy: bank-proxy-build
+bank-proxy-api-v2-deploy:
 	go run app/bank/proxy/cmd/deploy/api/v2/main.go
 
-bank-proxy-api-v3-deploy: bank-proxy-build
+bank-proxy-api-v3-deploy:
 	go run app/bank/proxy/cmd/deploy/api/v3/main.go
 
 # Upgrade Proxy to a specific API Version
-bank-proxy-upgrade: bank-proxy-build
+bank-proxy-upgrade:
 	go run app/bank/proxy/cmd/upgrade/main.go
 
 # Calls Bank Proxy Deposit function
-bank-proxy-deposit: bank-proxy-build
+bank-proxy-deposit:
 	DEPOSIT_TARGET="account1" DEPOSIT_AMOUNT="120000" go run app/bank/proxy/cmd/deposit/main.go
 
 # Calls Bank Proxy Withdraw function
-bank-proxy-withdraw: bank-proxy-build
+bank-proxy-withdraw:
 	WITHDRAW_TARGET="account1" go run app/bank/proxy/cmd/withdraw/main.go
 
 # Loads the Bank Proxy account balance with values from various accounts
-bank-proxy-load: bank-proxy-build
+bank-proxy-load:
 	DEPOSIT_TARGET="account1" DEPOSIT_AMOUNT="100000" go run app/bank/proxy/cmd/deposit/main.go
 	DEPOSIT_TARGET="account2" DEPOSIT_AMOUNT="110000" go run app/bank/proxy/cmd/deposit/main.go
 	DEPOSIT_TARGET="account3" DEPOSIT_AMOUNT="120000" go run app/bank/proxy/cmd/deposit/main.go
 	DEPOSIT_TARGET="account4" DEPOSIT_AMOUNT="130000" go run app/bank/proxy/cmd/deposit/main.go
 
-# Calls Bank Proxy TestDelegateCall function
-bank-proxy-test-delegate-call: bank-proxy-build
-	go run app/bank/proxy/cmd/testDelegateCall/main.go
-
-bank-proxy-balances: bank-proxy-build
+# Reads all account balances
+bank-proxy-balances:
 	BALANCE_TARGET="account1" go run app/bank/proxy/cmd/balance/main.go
 	BALANCE_TARGET="account2" go run app/bank/proxy/cmd/balance/main.go
 	BALANCE_TARGET="account3" go run app/bank/proxy/cmd/balance/main.go
 	BALANCE_TARGET="account4" go run app/bank/proxy/cmd/balance/main.go
 
-bank-proxy-reconcile: bank-proxy-build
+# Reconciles the results of a game
+bank-proxy-reconcile:
 	RECONCILE_WINNER_ID="0x8E113078ADF6888B7ba84967F299F29AeCe24c55" \
 	RECONCILE_LOSERS_ID="0x0070742FF6003c3E809E78D524F0Fe5dcc5BA7F7,0x7FDFc99999f1760e8dBd75a480B93c7B8386B79a,0x000cF95cB5Eb168F57D0bEFcdf6A201e3E1acea9" \
 	RECONCILE_ANTE_WEI="10000" \
