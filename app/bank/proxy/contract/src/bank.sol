@@ -15,7 +15,7 @@ contract Bank {
     address public Owner;
 
     // accountBalances represents the amount of money an account has available.
-    mapping (address => uint256) private accountBalances;
+    mapping (address => uint) private accountBalances;
 
     // EventLog provides support for external logging.
     event EventLog(string value);
@@ -50,7 +50,7 @@ contract Bank {
 
     // Reconcile settles the accounting for a game that was played.
     function Reconcile(address winner, address[] memory losers, uint256 anteWei, uint256 gameFeeWei) onlyOwner public {
-        
+
         // Calls the API contract's Reconcile function.
         // Notice the string represents the function call with the declared
         // parameters followed by the parameters to pass. You can't have spaces
@@ -59,7 +59,7 @@ contract Bank {
             abi.encodeWithSignature("Reconcile(address,address[],uint256,uint256)", winner, losers, anteWei, gameFeeWei)
         );
 
-        emit EventLog(string.concat("reconcile[", Error.Booltoa(success), "]"));
+        emit EventLog(string.concat("success[", Error.Booltoa(success), "]"));
     }
 
     // AccountBalance returns the current account's balance.
@@ -77,22 +77,19 @@ contract Bank {
 
     // Deposit the given amount to the account balance.
     function Deposit() payable public {
-        accountBalances[msg.sender] += msg.value;
-        emit EventLog(string.concat("deposit[", Error.Addrtoa(msg.sender), "] balance[", Error.Itoa(accountBalances[msg.sender]), "]"));
+        (bool success,) = API.delegatecall(
+            abi.encodeWithSignature("Deposit()")
+        );
+
+        emit EventLog(string.concat("success[", Error.Booltoa(success), "]"));
     }
 
     // Withdraw the given amount from the account balance.
     function Withdraw() payable public {
-        address payable account = payable(msg.sender);
+        (bool success,) = API.delegatecall(
+            abi.encodeWithSignature("Withdraw()")
+        );
 
-        if (accountBalances[msg.sender] == 0) {
-            revert("not enough balance");
-        }
-
-        uint256 amount = accountBalances[msg.sender];
-        account.transfer(amount);
-        accountBalances[msg.sender] = 0;
-
-        emit EventLog(string.concat("withdraw[", Error.Addrtoa(msg.sender), "] amount[", Error.Itoa(amount), "]"));
+        emit EventLog(string.concat("success[", Error.Booltoa(success), "]"));
     }
 }

@@ -29,7 +29,7 @@ contract BankAPI {
 
     // Reconcile settles the accounting for a game that was played.
     function Reconcile(address winner, address[] memory losers, uint256 anteWei, uint256 gameFeeWei) public {
-        
+
         // Add the ante for each player to the pot. The initialization is
         // for the winner's ante.
         uint256 pot = anteWei;
@@ -66,5 +66,26 @@ contract BankAPI {
         accountBalances[winner] += pot;
         accountBalances[Owner] += gameFeeWei;
         emit EventLog(string.concat("winner[", Error.Itoa(pot), "] owner[", Error.Itoa(gameFeeWei), "]"));
+    }
+
+    // Deposit the given amount to the account balance.
+    function Deposit() payable public {
+        accountBalances[msg.sender] += msg.value;
+        emit EventLog(string.concat("deposit[", Error.Addrtoa(msg.sender), "] balance[", Error.Itoa(accountBalances[msg.sender]), "]"));
+    }
+
+    // Withdraw the given amount from the account balance.
+    function Withdraw() payable public {
+        address payable account = payable(msg.sender);
+
+        if (accountBalances[msg.sender] == 0) {
+            revert("not enough balance");
+        }
+
+        uint256 amount = accountBalances[msg.sender];
+        account.transfer(amount);
+        accountBalances[msg.sender] = 0;
+
+        emit EventLog(string.concat("withdraw[", Error.Addrtoa(msg.sender), "] amount[", Error.Itoa(amount), "]"));
     }
 }
