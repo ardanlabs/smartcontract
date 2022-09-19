@@ -149,15 +149,18 @@ bank-proxy-deploy: bank-proxy-build
 	go run app/bank/proxy/cmd/deploy/api/v1/main.go
 	go run app/bank/proxy/cmd/deploy/bank/main.go
 
-# Deploy APIs
+# Deploy APIs and Update Bank
 bank-proxy-api-v1-deploy:
 	go run app/bank/proxy/cmd/deploy/api/v1/main.go
+	go run app/bank/proxy/cmd/upgrade/main.go
 
 bank-proxy-api-v2-deploy:
 	go run app/bank/proxy/cmd/deploy/api/v2/main.go
+	go run app/bank/proxy/cmd/upgrade/main.go
 
 bank-proxy-api-v3-deploy:
 	go run app/bank/proxy/cmd/deploy/api/v3/main.go
+	go run app/bank/proxy/cmd/upgrade/main.go
 
 # Upgrade Proxy to a specific API Version
 bank-proxy-upgrade:
