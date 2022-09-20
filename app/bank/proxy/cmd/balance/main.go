@@ -96,14 +96,14 @@ func run() (err error) {
 
 	// =========================================================================
 
-	contractIDBytes, err := os.ReadFile("zarf/tmp/bank-proxy/BANK_CID")
+	contractIDBytes, err := os.ReadFile("zarf/ethereum/bank.cid")
 	if err != nil {
-		return fmt.Errorf("importing BANK_CID file: %w", err)
+		return fmt.Errorf("importing bank.cid file: %w", err)
 	}
 
 	contractID := string(contractIDBytes)
 	if contractID == "" {
-		return errors.New("need to export the BANK_CID file")
+		return errors.New("need to export the bank.cid file")
 	}
 	fmt.Println("contractID:", contractID)
 

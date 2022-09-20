@@ -1,6 +1,6 @@
 zarf/ethereum/geth
 zarf/ethereum/geth.ipc
-zarf/tmp
+zarf/ethereum/*.cid
 source.env
 history
 

@@ -75,14 +75,14 @@ func run() (err error) {
 	}
 
 	// =========================================================================
-	bankAPIContractIDBytes, err := os.ReadFile("zarf/tmp/bank-proxy/BANK_API_CID")
+	bankAPIContractIDBytes, err := os.ReadFile("zarf/ethereum/bank_api.cid")
 	if err != nil {
-		return fmt.Errorf("importing BANK_API_CID file: %w", err)
+		return fmt.Errorf("importing bank_api.cid file: %w", err)
 	}
 
 	bankAPIContractID := string(bankAPIContractIDBytes)
 	if bankAPIContractID == "" {
-		return errors.New("need to export the BANK_API_CID file")
+		return errors.New("need to export the bank_api.cid file")
 	}
 	fmt.Println("bankAPIContractID:", bankAPIContractID)
 
@@ -98,8 +98,8 @@ func run() (err error) {
 	fmt.Println("----------------------------------------------------")
 	fmt.Println("contract id     :", address.Hex())
 
-	if err := os.WriteFile("zarf/tmp/bank-proxy/BANK_CID", []byte(address.Hex()), 0644); err != nil {
-		return fmt.Errorf("exporting BANK_CID file: %w", err)
+	if err := os.WriteFile("zarf/ethereum/bank.cid", []byte(address.Hex()), 0644); err != nil {
+		return fmt.Errorf("exporting bank.cid file: %w", err)
 	}
 
 	// =========================================================================
