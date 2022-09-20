@@ -51,9 +51,14 @@ func run() (err error) {
 
 	// =========================================================================
 
-	contractID := os.Getenv("CONTRACT_ID")
+	contractIDBytes, err := os.ReadFile("zarf/tmp/basic-store/STORE_CID")
+	if err != nil {
+		return fmt.Errorf("importing STORE_CID: %v\n", err)
+	}
+
+	contractID := string(contractIDBytes)
 	if contractID == "" {
-		return fmt.Errorf("need to export the CONTRACT_ID")
+		return fmt.Errorf("need to export the STORE_CID")
 	}
 	fmt.Println("contractID:", contractID)
 

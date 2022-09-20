@@ -50,9 +50,14 @@ func run() (err error) {
 
 	// =========================================================================
 
-	contractID := os.Getenv("CONTRACT_ID")
+	contractIDBytes, err := os.ReadFile("zarf/tmp/simplecoin/SCOIN_CID")
+	if err != nil {
+		return fmt.Errorf("importing SCOIN_CID: %v\n", err)
+	}
+
+	contractID := string(contractIDBytes)
 	if contractID == "" {
-		return fmt.Errorf("need to export the CONTRACT_ID")
+		return fmt.Errorf("need to export the SCOIN_CID")
 	}
 	fmt.Println("contractID:", contractID)
 

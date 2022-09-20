@@ -73,7 +73,12 @@ dev.update:
 
 # This will compile the smart contract and produce the binary code. Then with the
 # abi and binary code, a Go source code file can be generated for Go API access.
-basic-build:
+
+# Ensure the tmp folder exists for storing deployed Contract IDs
+zarf/tmp/basic-store:
+	mkdir -p zarf/tmp/basic-store
+
+basic-build: zarf/tmp/basic-store
 	solc --abi app/basic/contract/src/store.sol -o app/basic/contract/abi --overwrite
 	solc --bin app/basic/contract/src/store.sol -o app/basic/contract/abi --overwrite
 	abigen --bin=app/basic/contract/abi/Store.bin --abi=app/basic/contract/abi/Store.abi --pkg=store --out=app/basic/contract/go/store.go
@@ -94,7 +99,11 @@ basic-read:
 # ==============================================================================
 # These commands build, deploy, and run the simplecoin smart contract.
 
-scoin-build:
+# Ensure the tmp folder exists for storing deployed Contract IDs
+zarf/tmp/simplecoin:
+	mkdir -p zarf/tmp/simplecoin
+
+scoin-build: zarf/tmp/simplecoin
 	solc --abi app/simplecoin/contract/src/simplecoin.sol -o app/simplecoin/contract/abi --overwrite
 	solc --bin app/simplecoin/contract/src/simplecoin.sol -o app/simplecoin/contract/abi --overwrite
 	abigen --bin=app/simplecoin/contract/abi/SimpleCoin.bin --abi=app/simplecoin/contract/abi/SimpleCoin.abi --pkg=scoin --out=app/simplecoin/contract/go/scoin.go
@@ -111,7 +120,11 @@ scoin-trancheck:
 # ==============================================================================
 # These commands build, deploy, and run the bank-single smart contract.
 
-bank-single-build:
+# Ensure the tmp folder exists for storing deployed Contract IDs
+zarf/tmp/bank-single:
+	mkdir -p zarf/tmp/bank-single
+
+bank-single-build: zarf/tmp/bank-single
 	solc --abi app/bank/single/contract/src/bank.sol -o app/bank/single/contract/abi --overwrite
 	solc --bin app/bank/single/contract/src/bank.sol -o app/bank/single/contract/abi --overwrite
 	abigen --bin=app/bank/single/contract/abi/Bank.bin --abi=app/bank/single/contract/abi/Bank.abi --pkg=banksingle --out=app/bank/single/contract/go/bank.go
