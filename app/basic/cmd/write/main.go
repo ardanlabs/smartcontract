@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"math/big"
@@ -53,12 +54,12 @@ func run() (err error) {
 
 	contractIDBytes, err := os.ReadFile("zarf/tmp/basic-store/STORE_CID")
 	if err != nil {
-		return fmt.Errorf("importing STORE_CID: %v\n", err)
+		return fmt.Errorf("importing STORE_CID file: %w", err)
 	}
 
 	contractID := string(contractIDBytes)
 	if contractID == "" {
-		return fmt.Errorf("need to export the STORE_CID")
+		return errors.New("need to export the STORE_CID file")
 	}
 	fmt.Println("contractID:", contractID)
 

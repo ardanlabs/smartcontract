@@ -85,7 +85,7 @@ func run() error {
 	fmt.Println("contract id     :", address.Hex())
 
 	if err := os.WriteFile("zarf/tmp/simplecoin/SCOIN_CID", []byte(address.Hex()), 0644); err != nil {
-		return fmt.Errorf("exporting SCOIN_CID file: %v\n", err)
+		return fmt.Errorf("exporting SCOIN_CID file: %w", err)
 	}
 
 	// =========================================================================

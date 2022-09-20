@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -40,12 +41,12 @@ func run() error {
 
 	contractIDBytes, err := os.ReadFile("zarf/tmp/simplecoin/SCOIN_CID")
 	if err != nil {
-		return fmt.Errorf("importing SCOIN_CID: %v\n", err)
+		return fmt.Errorf("importing SCOIN_CID file: %w", err)
 	}
 
 	contractID := string(contractIDBytes)
 	if contractID == "" {
-		return fmt.Errorf("need to export the SCOIN_CID")
+		return errors.New("need to export the SCOIN_CID file")
 	}
 	fmt.Println("contractID:", contractID)
 

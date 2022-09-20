@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -78,12 +79,12 @@ func run() (err error) {
 
 	contractIDBytes, err := os.ReadFile("zarf/tmp/bank-proxy/BANK_CID")
 	if err != nil {
-		return fmt.Errorf("importing BANK_CID: %v\n", err)
+		return fmt.Errorf("importing BANK_CID file: %w", err)
 	}
 
 	contractID := string(contractIDBytes)
 	if contractID == "" {
-		return fmt.Errorf("need to export the BANK_CID")
+		return errors.New("need to export the BANK_CID file")
 	}
 	fmt.Println("contractID:", contractID)
 
@@ -95,14 +96,14 @@ func run() (err error) {
 	// Sets the winner ID.
 	winnerID := os.Getenv("RECONCILE_WINNER_ID")
 	if winnerID == "" {
-		return fmt.Errorf("need to export the RECONCILE_WINNER_ID")
+		return errors.New("need to export the RECONCILE_WINNER_ID")
 	}
 	fmt.Println("winnerID:", winnerID)
 
 	// Sets the losers IDs.
 	losersID := os.Getenv("RECONCILE_LOSERS_ID")
 	if losersID == "" {
-		return fmt.Errorf("need to export the RECONCILE_LOSERS_ID")
+		return errors.New("need to export the RECONCILE_LOSERS_ID")
 	}
 	fmt.Println("losersID:", losersID)
 
@@ -114,25 +115,25 @@ func run() (err error) {
 	// Sets the anteWei.
 	anteWei := os.Getenv("RECONCILE_ANTE_WEI")
 	if anteWei == "" {
-		return fmt.Errorf("need to export the RECONCILE_ANTE_WEI")
+		return errors.New("need to export the RECONCILE_ANTE_WEI")
 	}
 	fmt.Println("anteWei:", anteWei)
 
 	anteWeiInt, err := strconv.Atoi(anteWei)
 	if err != nil {
-		return fmt.Errorf("unable to parse anteWei into int: %v", err)
+		return fmt.Errorf("unable to parse anteWei into int: %w", err)
 	}
 
 	// Sets the gameFeeWei.
 	gameFeeWei := os.Getenv("RECONCILE_GAME_FEE_WEI")
 	if gameFeeWei == "" {
-		return fmt.Errorf("need to export the RECONCILE_GAME_FEE_WEI")
+		return errors.New("need to export the RECONCILE_GAME_FEE_WEI")
 	}
 	fmt.Println("gameFeeWei:", gameFeeWei)
 
 	gameFeeWeiInt, err := strconv.Atoi(gameFeeWei)
 	if err != nil {
-		return fmt.Errorf("unable to parse gameFeeWeiInt into int: %v", err)
+		return fmt.Errorf("unable to parse gameFeeWeiInt into int: %w", err)
 	}
 
 	tx, err := proxyContract.Reconcile(tranOpts, common.HexToAddress(winnerID), losers, big.NewInt(int64(anteWeiInt)), big.NewInt(int64(gameFeeWeiInt)))

@@ -85,7 +85,7 @@ func run() (err error) {
 	fmt.Println("contract id     :", address.Hex())
 
 	if err := os.WriteFile("zarf/tmp/bank-proxy/BANK_API_CID", []byte(address.Hex()), 0644); err != nil {
-		return fmt.Errorf("exporting BANK_API_CID file: %v\n", err)
+		return fmt.Errorf("exporting BANK_API_CID file: %w", err)
 	}
 
 	// =========================================================================

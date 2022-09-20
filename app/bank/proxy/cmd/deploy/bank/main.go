@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -74,20 +75,20 @@ func run() (err error) {
 	}
 
 	// =========================================================================
-	bankApiContractIDBytes, err := os.ReadFile("zarf/tmp/bank-proxy/BANK_API_CID")
+	bankAPIContractIDBytes, err := os.ReadFile("zarf/tmp/bank-proxy/BANK_API_CID")
 	if err != nil {
-		return fmt.Errorf("importing BANK_API_CID: %v\n", err)
+		return fmt.Errorf("importing BANK_API_CID file: %w", err)
 	}
 
-	bankApiContractID := string(bankApiContractIDBytes)
-	if bankApiContractID == "" {
-		return fmt.Errorf("need to export the BANK_API_CID")
+	bankAPIContractID := string(bankAPIContractIDBytes)
+	if bankAPIContractID == "" {
+		return errors.New("need to export the BANK_API_CID file")
 	}
-	fmt.Println("bankApiContractID:", bankApiContractID)
+	fmt.Println("bankAPIContractID:", bankAPIContractID)
 
-	bankApiAddress := common.HexToAddress(bankApiContractID)
+	bankAPIAddress := common.HexToAddress(bankAPIContractID)
 
-	address, tx, _, err := bank.DeployBank(tranOpts, ethereum.RawClient(), bankApiAddress)
+	address, tx, _, err := bank.DeployBank(tranOpts, ethereum.RawClient(), bankAPIAddress)
 	if err != nil {
 		return err
 	}
@@ -98,7 +99,7 @@ func run() (err error) {
 	fmt.Println("contract id     :", address.Hex())
 
 	if err := os.WriteFile("zarf/tmp/bank-proxy/BANK_CID", []byte(address.Hex()), 0644); err != nil {
-		return fmt.Errorf("exporting BANK_CID: %v\n", err)
+		return fmt.Errorf("exporting BANK_CID file: %w", err)
 	}
 
 	// =========================================================================
