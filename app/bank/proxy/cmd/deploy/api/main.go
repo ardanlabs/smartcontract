@@ -9,8 +9,8 @@ import (
 
 	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/ethereum/currency"
-	bank "github.com/ardanlabs/smartcontract/app/bank/proxy/contract/go"
-	bankapi "github.com/ardanlabs/smartcontract/app/bank/proxy/contract/go/api"
+	"github.com/ardanlabs/smartcontract/app/bank/proxy/contract/go/bank"
+	"github.com/ardanlabs/smartcontract/app/bank/proxy/contract/go/bankapi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 )

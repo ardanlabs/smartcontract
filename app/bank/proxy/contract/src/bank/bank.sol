@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "./error.sol";
+import "../error.sol";
 
 contract Bank {
 

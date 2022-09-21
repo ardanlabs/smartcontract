@@ -124,29 +124,29 @@ bank-single-deploy:
 # These commands build and deploy different version of the bank api.
 
 bank-build:
-	solc --abi app/bank/proxy/contract/src/bank.sol -o app/bank/proxy/contract/abi --overwrite
-	solc --bin app/bank/proxy/contract/src/bank.sol -o app/bank/proxy/contract/abi --overwrite
-	abigen --bin=app/bank/proxy/contract/abi/Bank.bin --abi=app/bank/proxy/contract/abi/Bank.abi --pkg=bank --out=app/bank/proxy/contract/go/bank.go
+	solc --abi app/bank/proxy/contract/src/bank/bank.sol -o app/bank/proxy/contract/abi/bank --overwrite
+	solc --bin app/bank/proxy/contract/src/bank/bank.sol -o app/bank/proxy/contract/abi/bank --overwrite
+	abigen --bin=app/bank/proxy/contract/abi/bank/Bank.bin --abi=app/bank/proxy/contract/abi/bank/Bank.abi --pkg=bank --out=app/bank/proxy/contract/go/bank/bank.go
 
-bank-v1-build:
-	solc --abi app/bank/proxy/contract/src/api/v1/api.sol -o app/bank/proxy/contract/abi/api --overwrite
-	solc --bin app/bank/proxy/contract/src/api/v1/api.sol -o app/bank/proxy/contract/abi/api --overwrite
-	abigen --bin=app/bank/proxy/contract/abi/api/BankAPI.bin --abi=app/bank/proxy/contract/abi/api/BankAPI.abi --pkg=bankapi --out=app/bank/proxy/contract/go/api/bankapi.go
+bankapi-v1-build:
+	solc --abi app/bank/proxy/contract/src/bankapi/v1/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
+	solc --bin app/bank/proxy/contract/src/bankapi/v1/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
+	abigen --bin=app/bank/proxy/contract/abi/bankapi/BankAPI.bin --abi=app/bank/proxy/contract/abi/bankapi/BankAPI.abi --pkg=bankapi --out=app/bank/proxy/contract/go/bankapi/bankapi.go
 
-bank-v2-build:
-	solc --abi app/bank/proxy/contract/src/api/v2/api.sol -o app/bank/proxy/contract/abi/api --overwrite
-	solc --bin app/bank/proxy/contract/src/api/v2/api.sol -o app/bank/proxy/contract/abi/api --overwrite
-	abigen --bin=app/bank/proxy/contract/abi/api/BankAPI.bin --abi=app/bank/proxy/contract/abi/api/BankAPI.abi --pkg=bankapi --out=app/bank/proxy/contract/go/api/bankapi.go
+bankapi-v2-build:
+	solc --abi app/bank/proxy/contract/src/bankapi/v2/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
+	solc --bin app/bank/proxy/contract/src/bankapi/v2/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
+	abigen --bin=app/bank/proxy/contract/abi/bankapi/BankAPI.bin --abi=app/bank/proxy/contract/abi/bankapi/BankAPI.abi --pkg=bankapi --out=app/bank/proxy/contract/go/bankapi/bankapi.go
 
-bank-v3-build:
-	solc --abi app/bank/proxy/contract/src/api/v3/api.sol -o app/bank/proxy/contract/abi/api --overwrite
-	solc --bin app/bank/proxy/contract/src/api/v3/api.sol -o app/bank/proxy/contract/abi/api --overwrite
-	abigen --bin=app/bank/proxy/contract/abi/api/BankAPI.bin --abi=app/bank/proxy/contract/abi/api/BankAPI.abi --pkg=bankapi --out=app/bank/proxy/contract/go/api/bankapi.go
+bankapi-v3-build:
+	solc --abi app/bank/proxy/contract/src/bankapi/v3/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
+	solc --bin app/bank/proxy/contract/src/bankapi/v3/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
+	abigen --bin=app/bank/proxy/contract/abi/bankapi/BankAPI.bin --abi=app/bank/proxy/contract/abi/bankapi/BankAPI.abi --pkg=bankapi --out=app/bank/proxy/contract/go/bankapi/bankapi.go
 
 bank-deploy:
 	go run app/bank/proxy/cmd/deploy/bank/main.go
 
-bank-api-deploy:
+bankapi-deploy:
 	go run app/bank/proxy/cmd/deploy/api/main.go
 
 # ==============================================================================

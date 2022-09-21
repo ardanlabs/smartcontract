@@ -8,7 +8,7 @@ import (
 
 	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/ethereum/currency"
-	bank "github.com/ardanlabs/smartcontract/app/bank/proxy/contract/go"
+	"github.com/ardanlabs/smartcontract/app/bank/proxy/contract/go/bank"
 	"github.com/ethereum/go-ethereum/log"
 )
 
