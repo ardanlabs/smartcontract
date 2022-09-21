@@ -80,7 +80,7 @@ basic-build:
 	abigen --bin=app/basic/contract/abi/Store.bin --abi=app/basic/contract/abi/Store.abi --pkg=store --out=app/basic/contract/go/store.go
 
 # This will deploy the smart contract to the locally running Ethereum environment.
-basic-deploy: basic-build
+basic-deploy:
 	go run app/basic/cmd/deploy/main.go
 
 # This will execute a simple program to test access to the smart contract API.
@@ -100,7 +100,7 @@ scoin-build:
 	solc --bin app/simplecoin/contract/src/simplecoin.sol -o app/simplecoin/contract/abi --overwrite
 	abigen --bin=app/simplecoin/contract/abi/SimpleCoin.bin --abi=app/simplecoin/contract/abi/SimpleCoin.abi --pkg=scoin --out=app/simplecoin/contract/go/scoin.go
 
-scoin-deploy: scoin-build
+scoin-deploy:
 	go run app/simplecoin/cmd/deploy/main.go
 
 scoin-transfer:
@@ -117,51 +117,40 @@ bank-single-build:
 	solc --bin app/bank/single/contract/src/bank.sol -o app/bank/single/contract/abi --overwrite
 	abigen --bin=app/bank/single/contract/abi/Bank.bin --abi=app/bank/single/contract/abi/Bank.abi --pkg=banksingle --out=app/bank/single/contract/go/bank.go
 
-bank-single-deploy: bank-single-build
+bank-single-deploy:
 	go run app/bank/single/cmd/deploy/main.go
 
 # ==============================================================================
-# These commands build, deploy, and run the bank-proxy smart contract.
+# These commands build and deploy different version of the bank api.
 
-bank-proxy-build:
-	# Proxy
+bank-build:
 	solc --abi app/bank/proxy/contract/src/bank.sol -o app/bank/proxy/contract/abi --overwrite
 	solc --bin app/bank/proxy/contract/src/bank.sol -o app/bank/proxy/contract/abi --overwrite
 	abigen --bin=app/bank/proxy/contract/abi/Bank.bin --abi=app/bank/proxy/contract/abi/Bank.abi --pkg=bank --out=app/bank/proxy/contract/go/bank.go
-	# API v1
-	solc --abi app/bank/proxy/contract/src/api/v1/api.sol -o app/bank/proxy/contract/abi/api/v1 --overwrite
-	solc --bin app/bank/proxy/contract/src/api/v1/api.sol -o app/bank/proxy/contract/abi/api/v1 --overwrite
-	abigen --bin=app/bank/proxy/contract/abi/api/v1/BankAPI.bin --abi=app/bank/proxy/contract/abi/api/v1/BankAPI.abi --pkg=bankapi --out=app/bank/proxy/contract/go/api/v1/bankapi.go
-	# API v2
-	solc --abi app/bank/proxy/contract/src/api/v2/api.sol -o app/bank/proxy/contract/abi/api/v2 --overwrite
-	solc --bin app/bank/proxy/contract/src/api/v2/api.sol -o app/bank/proxy/contract/abi/api/v2 --overwrite
-	abigen --bin=app/bank/proxy/contract/abi/api/v2/BankAPI.bin --abi=app/bank/proxy/contract/abi/api/v2/BankAPI.abi --pkg=bankapi --out=app/bank/proxy/contract/go/api/v2/bankapi.go
-	# API v3
-	solc --abi app/bank/proxy/contract/src/api/v3/api.sol -o app/bank/proxy/contract/abi/api/v3 --overwrite
-	solc --bin app/bank/proxy/contract/src/api/v3/api.sol -o app/bank/proxy/contract/abi/api/v3 --overwrite
-	abigen --bin=app/bank/proxy/contract/abi/api/v3/BankAPI.bin --abi=app/bank/proxy/contract/abi/api/v3/BankAPI.abi --pkg=bankapi --out=app/bank/proxy/contract/go/api/v3/bankapi.go
 
-# Deploy API v1 and Proxy
-bank-proxy-deploy: bank-proxy-build
-	go run app/bank/proxy/cmd/deploy/api/v1/main.go
+bank-v1-build:
+	solc --abi app/bank/proxy/contract/src/api/v1/api.sol -o app/bank/proxy/contract/abi/api --overwrite
+	solc --bin app/bank/proxy/contract/src/api/v1/api.sol -o app/bank/proxy/contract/abi/api --overwrite
+	abigen --bin=app/bank/proxy/contract/abi/api/BankAPI.bin --abi=app/bank/proxy/contract/abi/api/BankAPI.abi --pkg=bankapi --out=app/bank/proxy/contract/go/api/bankapi.go
+
+bank-v2-build:
+	solc --abi app/bank/proxy/contract/src/api/v2/api.sol -o app/bank/proxy/contract/abi/api --overwrite
+	solc --bin app/bank/proxy/contract/src/api/v2/api.sol -o app/bank/proxy/contract/abi/api --overwrite
+	abigen --bin=app/bank/proxy/contract/abi/api/BankAPI.bin --abi=app/bank/proxy/contract/abi/api/BankAPI.abi --pkg=bankapi --out=app/bank/proxy/contract/go/api/bankapi.go
+
+bank-v3-build:
+	solc --abi app/bank/proxy/contract/src/api/v3/api.sol -o app/bank/proxy/contract/abi/api --overwrite
+	solc --bin app/bank/proxy/contract/src/api/v3/api.sol -o app/bank/proxy/contract/abi/api --overwrite
+	abigen --bin=app/bank/proxy/contract/abi/api/BankAPI.bin --abi=app/bank/proxy/contract/abi/api/BankAPI.abi --pkg=bankapi --out=app/bank/proxy/contract/go/api/bankapi.go
+
+bank-deploy:
 	go run app/bank/proxy/cmd/deploy/bank/main.go
 
-# Deploy APIs and Update Bank
-bank-proxy-api-v1-deploy:
-	go run app/bank/proxy/cmd/deploy/api/v1/main.go
-	go run app/bank/proxy/cmd/upgrade/main.go
+bank-api-deploy:
+	go run app/bank/proxy/cmd/deploy/api/main.go
 
-bank-proxy-api-v2-deploy:
-	go run app/bank/proxy/cmd/deploy/api/v2/main.go
-	go run app/bank/proxy/cmd/upgrade/main.go
-
-bank-proxy-api-v3-deploy:
-	go run app/bank/proxy/cmd/deploy/api/v3/main.go
-	go run app/bank/proxy/cmd/upgrade/main.go
-
-# Upgrade Proxy to a specific API Version
-bank-proxy-upgrade:
-	go run app/bank/proxy/cmd/upgrade/main.go
+# ==============================================================================
+# These commands execute API's against the bank smart contract.
 
 # Calls Bank Proxy Deposit function
 bank-proxy-deposit:

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -10,7 +9,6 @@ import (
 	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/ethereum/currency"
 	bank "github.com/ardanlabs/smartcontract/app/bank/proxy/contract/go"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -75,20 +73,8 @@ func run() (err error) {
 	}
 
 	// =========================================================================
-	bankAPIContractIDBytes, err := os.ReadFile("zarf/ethereum/bank_api.cid")
-	if err != nil {
-		return fmt.Errorf("importing bank_api.cid file: %w", err)
-	}
 
-	bankAPIContractID := string(bankAPIContractIDBytes)
-	if bankAPIContractID == "" {
-		return errors.New("need to export the bank_api.cid file")
-	}
-	fmt.Println("bankAPIContractID:", bankAPIContractID)
-
-	bankAPIAddress := common.HexToAddress(bankAPIContractID)
-
-	address, tx, _, err := bank.DeployBank(tranOpts, ethereum.RawClient(), bankAPIAddress)
+	address, tx, _, err := bank.DeployBank(tranOpts, ethereum.RawClient())
 	if err != nil {
 		return err
 	}

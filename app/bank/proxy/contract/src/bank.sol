@@ -5,7 +5,7 @@ import "./error.sol";
 
 contract Bank {
 
-    // API represents the address of the API contract.
+    // API represents the address of the contract to use for delagate calls.
     address public API;
 
     // Version is the current version of Store.
@@ -23,12 +23,8 @@ contract Bank {
     // =========================================================================
 
     // constructor is called when the contract is deployed.
-    constructor(address api) {
-        API = api;
+    constructor() {
         Owner = msg.sender;
-
-        (bool success, bytes memory data) = API.call(abi.encodeWithSignature("Version()"));
-        emit EventLog(string.concat("upgrade[",Error.Addrtoa(api),"] success[", Error.Booltoa(success), "] version[", string(data), "]"));
     }
 
     // =========================================================================
@@ -40,12 +36,18 @@ contract Bank {
         _;
     }
 
-    // UpgradeAPI upgrades the API to a new version, or rollback to a previous one.
-    function UpgradeAPI(address api) onlyOwner public {
-        API = api;
+    // SetContract points the bank to the contract to use for logic.
+    function SetContract(address contractAddr) onlyOwner public {
+        API = contractAddr;
 
         (bool success, bytes memory data) = API.call(abi.encodeWithSignature("Version()"));
-        emit EventLog(string.concat("upgrade[",Error.Addrtoa(api),"] success[", Error.Booltoa(success), "] version[", string(data), "]"));
+        if (success) {
+            Version = string(abi.decode(data, (string)));
+        } else {
+            Version = "unknown";
+        }
+
+        emit EventLog(string.concat("contract[",Error.Addrtoa(API),"] success[", Error.Booltoa(success), "] version[", Version, "]"));
     }
 
     // Reconcile settles the accounting for a game that was played.
