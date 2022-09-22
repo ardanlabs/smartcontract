@@ -91,53 +91,53 @@ func run() (err error) {
 
 	// =========================================================================
 
+	// The data to be signed and hashed.
+	data := []byte("hello world")
+
+	stampedData, err := stamp(data)
+	if err != nil {
+		return fmt.Errorf("stamp: %w", err)
+	}
+
+	// Convert the stamped data into a 32-byte array for input into the smart contract.
+	hashedMessage := [32]byte{}
+	copy(hashedMessage[:], stampedData)
+
 	// Sign the message with the private key.
-	signedMessage, err := Sign([]byte("hello world"), ownerKey)
+	signedMessage, err := Sign(data, ownerKey)
 	if err != nil {
 		return fmt.Errorf("signing message: %w", err)
 	}
 
-	// Convert the []byte signedMessage into a [32]byte array for smart contract input.
-	signedHash := [32]byte{}
-	copy(signedHash[:], signedMessage)
-
 	// Retrieve the signature's v, r, s values.
 	v, r, s := toSignatureValues(signedMessage)
-
-	// Perform a local verification.
-	localFoundAddr, err := FromAddress([]byte("hello world"), v, r, s)
-	if err != nil {
-		return fmt.Errorf("from address: %w", err)
-	}
 
 	// The address we want to match the signature against.
 	matchAddress := ethereum.Address()
 
-	// Verify the signed hash in the smart contract.
-	result, err := verifyCon.VerifyMessage(callOpts, signedHash, v, r, s)
+	// Retrieve the address via ecrecover in the smart contract.
+	extracted, err := verifyCon.AddressFromMessage(callOpts, hashedMessage, v, r, s)
 	if err != nil {
-		return fmt.Errorf("verify message: %w", err)
+		return fmt.Errorf("address from message: %w", err)
+	}
+	if extracted != matchAddress {
+		return fmt.Errorf("addresses do not match, got[%s]; want[%s]", extracted, matchAddress)
 	}
 
-	// The hashed message before converting to bytes32.
-	fmt.Printf("msg:     %x\n", signedMessage)
+	// Verify that the address provided matches the hashedMessage + signature via
+	// ecrecover in the smart contract.
+	result, err := verifyCon.VerifySignature(callOpts, hashedMessage, v, r, s, matchAddress)
+	if err != nil {
+		return fmt.Errorf("verifying signature: %w", err)
+	}
+	if !result {
+		return fmt.Errorf("smart contract verification failed")
+	}
 
-	// The hashed message after converting to bytes32.
-	fmt.Printf("msg[32]: %x\n", signedHash)
-
-	// RSV signature values extracted from signedMessage.
-	fmt.Printf("r:       %x\n", r)
-	fmt.Printf("s:       %x\n", s)
-	fmt.Printf("v:       %d\n", v)
-
-	// The address we signed with and want to match.
-	fmt.Println("target: ", matchAddress)
-
-	// The address found by a local FromAddress call.
-	fmt.Println("local:  ", localFoundAddr)
-
-	// The address returned by the smart contract.
-	fmt.Println("result: ", result)
+	fmt.Println("\nResults")
+	fmt.Println("----------------------------------------------------")
+	fmt.Println("Extracted address:", extracted)
+	fmt.Println("Address verified:", result)
 
 	return nil
 }
@@ -207,41 +207,4 @@ func stamp(value any) ([]byte, error) {
 	data := crypto.Keccak256(stamp, txHash)
 
 	return data, nil
-}
-
-// FromAddress extracts the address for the account that signed the data.
-func FromAddress(value any, v uint8, r, s [32]byte) (string, error) {
-
-	// NOTE: If the same exact data for the given signature is not provided
-	// we will get the wrong from address for this transaction. There is no
-	// way to check this on the node since we don't have a copy of the public
-	// key used. The public key is being extracted from the data and signature.
-
-	// Prepare the data for public key extraction.
-	data, err := stamp(value)
-	if err != nil {
-		return "", err
-	}
-
-	// Convert the [R|S|V] format into the original 65 bytes.
-	sig := ToSignatureBytes(v, r, s)
-
-	// Capture the public key associated with this data and signature.
-	publicKey, err := crypto.SigToPub(data, sig)
-	if err != nil {
-		return "", err
-	}
-
-	// Extract the account address from the public key.
-	return crypto.PubkeyToAddress(*publicKey).String(), nil
-}
-
-// ToSignatureBytes converts the r, s, v values into a slice of bytes
-// with the removal of the ardanID.
-func ToSignatureBytes(v uint8, r, s [32]byte) []byte {
-	sig := make([]byte, crypto.SignatureLength)
-	copy(sig, r[:])
-	copy(sig[32:], s[:])
-	sig[64] = byte(v - ethID)
-	return sig
 }
