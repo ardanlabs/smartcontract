@@ -8,7 +8,7 @@ import (
 
 	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/ethereum/currency"
-	scoin "github.com/ardanlabs/smartcontract/app/simplecoin/contract/go"
+	"github.com/ardanlabs/smartcontract/app/simplecoin/contract/go/simplecoin"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -74,7 +74,7 @@ func run() error {
 
 	// =========================================================================
 
-	address, tx, _, err := scoin.DeployScoin(tranOpts, ethereum.RawClient(), big.NewInt(10000))
+	address, tx, _, err := simplecoin.DeploySimplecoin(tranOpts, ethereum.RawClient(), big.NewInt(10000))
 	if err != nil {
 		return err
 	}

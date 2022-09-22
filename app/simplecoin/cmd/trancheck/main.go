@@ -8,7 +8,7 @@ import (
 
 	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/ethereum/currency"
-	scoin "github.com/ardanlabs/smartcontract/app/simplecoin/contract/go"
+	"github.com/ardanlabs/smartcontract/app/simplecoin/contract/go/simplecoin"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -50,7 +50,7 @@ func run() error {
 	}
 	fmt.Println("contractID:", contractID)
 
-	scoinCon, err := scoin.NewScoin(common.HexToAddress(contractID), ethereum.RawClient())
+	scoinCon, err := simplecoin.NewSimplecoin(common.HexToAddress(contractID), ethereum.RawClient())
 	if err != nil {
 		return fmt.Errorf("new contract: %w", err)
 	}

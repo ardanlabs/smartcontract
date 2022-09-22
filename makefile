@@ -96,9 +96,9 @@ basic-read:
 # These commands build, deploy, and run the simplecoin smart contract.
 
 scoin-build:
-	solc --abi app/simplecoin/contract/src/simplecoin.sol -o app/simplecoin/contract/abi --overwrite
-	solc --bin app/simplecoin/contract/src/simplecoin.sol -o app/simplecoin/contract/abi --overwrite
-	abigen --bin=app/simplecoin/contract/abi/SimpleCoin.bin --abi=app/simplecoin/contract/abi/SimpleCoin.abi --pkg=scoin --out=app/simplecoin/contract/go/scoin.go
+	solc --abi app/simplecoin/contract/src/simplecoin/simplecoin.sol -o app/simplecoin/contract/abi/simplecoin --overwrite
+	solc --bin app/simplecoin/contract/src/simplecoin/simplecoin.sol -o app/simplecoin/contract/abi/simplecoin --overwrite
+	abigen --bin=app/simplecoin/contract/abi/simplecoin/SimpleCoin.bin --abi=app/simplecoin/contract/abi/simplecoin/SimpleCoin.abi --pkg=simplecoin --out=app/simplecoin/contract/go/simplecoin/simplecoin.go
 
 scoin-deploy:
 	go run app/simplecoin/cmd/deploy/main.go
