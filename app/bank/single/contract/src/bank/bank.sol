@@ -8,6 +8,9 @@ contract Bank {
     // Owner represents the address who deployed the contract.
     address public Owner;
 
+    // Version is the current version of Store.
+    string public Version;
+
     // accountBalances represents the amount of money an account has available.
     mapping (address => uint256) private accountBalances;
 
@@ -19,6 +22,7 @@ contract Bank {
     // constructor is called when the contract is deployed.
     constructor() {
         Owner = msg.sender;
+        Version = "0.1.0";
     }
 
     // =========================================================================

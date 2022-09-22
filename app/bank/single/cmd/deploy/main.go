@@ -8,7 +8,7 @@ import (
 
 	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/ethereum/currency"
-	store "github.com/ardanlabs/smartcontract/app/bank/single/contract/go"
+	"github.com/ardanlabs/smartcontract/app/bank/single/contract/go/bank"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -65,7 +65,7 @@ func run() (err error) {
 
 	// =========================================================================
 
-	const gasLimit = 1600000
+	const gasLimit = 1700000
 	const valueGwei = 0.0
 	tranOpts, err := ethereum.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 	if err != nil {
@@ -74,7 +74,7 @@ func run() (err error) {
 
 	// =========================================================================
 
-	address, tx, _, err := store.DeployBanksingle(tranOpts, ethereum.RawClient())
+	address, tx, _, err := bank.DeployBank(tranOpts, ethereum.RawClient())
 	if err != nil {
 		return err
 	}
@@ -104,6 +104,28 @@ func run() (err error) {
 		return err
 	}
 	fmt.Print(converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
+	log.Root().SetHandler(log.DiscardHandler())
+
+	// =========================================================================
+
+	bankContract, err := bank.NewBank(address, ethereum.RawClient())
+	if err != nil {
+		return fmt.Errorf("new proxy connection: %w", err)
+	}
+
+	callOpts, err := ethereum.NewCallOpts(ctx)
+	if err != nil {
+		return err
+	}
+
+	version, err := bankContract.Version(callOpts)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("\nValidate Version")
+	fmt.Println("----------------------------------------------------")
+	fmt.Println("version         :", version)
 
 	return nil
 }

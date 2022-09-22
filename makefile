@@ -113,40 +113,40 @@ scoin-trancheck:
 # These commands build, deploy, and run the bank-single smart contract.
 
 bank-single-build:
-	solc --abi app/bank/single/contract/src/bank.sol -o app/bank/single/contract/abi --overwrite
-	solc --bin app/bank/single/contract/src/bank.sol -o app/bank/single/contract/abi --overwrite
-	abigen --bin=app/bank/single/contract/abi/Bank.bin --abi=app/bank/single/contract/abi/Bank.abi --pkg=banksingle --out=app/bank/single/contract/go/bank.go
+	solc --abi app/bank/single/contract/src/bank/bank.sol -o app/bank/single/contract/abi/bank --overwrite
+	solc --bin app/bank/single/contract/src/bank/bank.sol -o app/bank/single/contract/abi/bank --overwrite
+	abigen --bin=app/bank/single/contract/abi/bank/Bank.bin --abi=app/bank/single/contract/abi/bank/Bank.abi --pkg=bank --out=app/bank/single/contract/go/bank/bank.go
 
 bank-single-deploy:
 	go run app/bank/single/cmd/deploy/main.go
 
 # ==============================================================================
-# These commands build and deploy different version of the bank api.
+# These commands build and deploy different version of the proxy bank smart contract.
 
-bank-build:
+bank-proxy-build:
 	solc --abi app/bank/proxy/contract/src/bank/bank.sol -o app/bank/proxy/contract/abi/bank --overwrite
 	solc --bin app/bank/proxy/contract/src/bank/bank.sol -o app/bank/proxy/contract/abi/bank --overwrite
 	abigen --bin=app/bank/proxy/contract/abi/bank/Bank.bin --abi=app/bank/proxy/contract/abi/bank/Bank.abi --pkg=bank --out=app/bank/proxy/contract/go/bank/bank.go
 
-bankapi-v1-build:
+bank-api-v1-build:
 	solc --abi app/bank/proxy/contract/src/bankapi/v1/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
 	solc --bin app/bank/proxy/contract/src/bankapi/v1/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
 	abigen --bin=app/bank/proxy/contract/abi/bankapi/BankAPI.bin --abi=app/bank/proxy/contract/abi/bankapi/BankAPI.abi --pkg=bankapi --out=app/bank/proxy/contract/go/bankapi/bankapi.go
 
-bankapi-v2-build:
+bank-api-v2-build:
 	solc --abi app/bank/proxy/contract/src/bankapi/v2/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
 	solc --bin app/bank/proxy/contract/src/bankapi/v2/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
 	abigen --bin=app/bank/proxy/contract/abi/bankapi/BankAPI.bin --abi=app/bank/proxy/contract/abi/bankapi/BankAPI.abi --pkg=bankapi --out=app/bank/proxy/contract/go/bankapi/bankapi.go
 
-bankapi-v3-build:
+bank-api-v3-build:
 	solc --abi app/bank/proxy/contract/src/bankapi/v3/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
 	solc --bin app/bank/proxy/contract/src/bankapi/v3/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
 	abigen --bin=app/bank/proxy/contract/abi/bankapi/BankAPI.bin --abi=app/bank/proxy/contract/abi/bankapi/BankAPI.abi --pkg=bankapi --out=app/bank/proxy/contract/go/bankapi/bankapi.go
 
-bank-deploy:
+bank-proxy-deploy:
 	go run app/bank/proxy/cmd/deploy/bank/main.go
 
-bankapi-deploy:
+bank-api-deploy:
 	go run app/bank/proxy/cmd/deploy/api/main.go
 
 # ==============================================================================
@@ -222,5 +222,11 @@ geth-deposit:
 
 # This will tidy up the Go dependencies.
 tidy:
+	go mod tidy
+	go mod vendor
+
+deps-upgrade:
+	# go get $(go list -f '{{if not (or .Main .Indirect)}}{{.Path}}{{end}}' -m all)
+	go get -u -v ./...
 	go mod tidy
 	go mod vendor
