@@ -11,7 +11,7 @@ contract Verify {
         return ecrecover(hashedMessage, v, r, s);
     }
 
-    // VerifyMessage verifies that the signature's address matches the address
+    // VerifySignature verifies that the signature's address matches the address
     // provided.
     function VerifySignature(bytes32 hashedMessage, uint8 v, bytes32 r, bytes32 s, address matches) public pure returns (bool) {
         return ecrecover(hashedMessage, v, r, s) == matches;
