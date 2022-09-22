@@ -38,14 +38,14 @@ func run() error {
 
 	// =========================================================================
 
-	contractIDBytes, err := os.ReadFile("zarf/ethereum/store.cid")
+	contractIDBytes, err := os.ReadFile("zarf/ethereum/basic.cid")
 	if err != nil {
-		return fmt.Errorf("importing store.cid file: %w", err)
+		return fmt.Errorf("importing basic.cid file: %w", err)
 	}
 
 	contractID := string(contractIDBytes)
 	if contractID == "" {
-		return errors.New("need to export the store.cid file")
+		return errors.New("need to export the basic.cid file")
 	}
 	fmt.Println("contractID:", contractID)
 

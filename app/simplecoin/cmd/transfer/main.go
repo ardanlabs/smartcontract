@@ -51,14 +51,14 @@ func run() (err error) {
 
 	// =========================================================================
 
-	contractIDBytes, err := os.ReadFile("zarf/ethereum/scoin.cid")
+	contractIDBytes, err := os.ReadFile("zarf/ethereum/simplecoin.cid")
 	if err != nil {
-		return fmt.Errorf("importing scoin.cid file: %w", err)
+		return fmt.Errorf("importing simplecoin.cid file: %w", err)
 	}
 
 	contractID := string(contractIDBytes)
 	if contractID == "" {
-		return errors.New("need to export the scoin.cid file")
+		return errors.New("need to export the simplecoin.cid file")
 	}
 	fmt.Println("contractID:", contractID)
 

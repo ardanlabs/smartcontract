@@ -84,8 +84,8 @@ func run() (err error) {
 	fmt.Println("----------------------------------------------------")
 	fmt.Println("contract id     :", address.Hex())
 
-	if err := os.WriteFile("zarf/ethereum/store.cid", []byte(address.Hex()), 0644); err != nil {
-		return fmt.Errorf("exporting store.cid file: %w", err)
+	if err := os.WriteFile("zarf/ethereum/basic.cid", []byte(address.Hex()), 0644); err != nil {
+		return fmt.Errorf("exporting basic.cid file: %w", err)
 	}
 
 	// =========================================================================
