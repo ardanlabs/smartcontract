@@ -10,7 +10,7 @@ import (
 
 	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/ethereum/currency"
-	store "github.com/ardanlabs/smartcontract/app/basic/contract/go"
+	"github.com/ardanlabs/smartcontract/app/basic/contract/go/store"
 	"github.com/ethereum/go-ethereum/common"
 )
 

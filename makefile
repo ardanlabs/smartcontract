@@ -75,9 +75,9 @@ dev.update:
 # abi and binary code, a Go source code file can be generated for Go API access.
 
 basic-build:
-	solc --abi app/basic/contract/src/store.sol -o app/basic/contract/abi --overwrite
-	solc --bin app/basic/contract/src/store.sol -o app/basic/contract/abi --overwrite
-	abigen --bin=app/basic/contract/abi/Store.bin --abi=app/basic/contract/abi/Store.abi --pkg=store --out=app/basic/contract/go/store.go
+	solc --abi app/basic/contract/src/store/store.sol -o app/basic/contract/abi/store --overwrite
+	solc --bin app/basic/contract/src/store/store.sol -o app/basic/contract/abi/store --overwrite
+	abigen --bin=app/basic/contract/abi/store/Store.bin --abi=app/basic/contract/abi/store/Store.abi --pkg=store --out=app/basic/contract/go/store/store.go
 
 # This will deploy the smart contract to the locally running Ethereum environment.
 basic-deploy:

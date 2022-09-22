@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/ardanlabs/ethereum"
-	store "github.com/ardanlabs/smartcontract/app/basic/contract/go"
+	"github.com/ardanlabs/smartcontract/app/basic/contract/go/store"
 	"github.com/ethereum/go-ethereum/common"
 )
 
