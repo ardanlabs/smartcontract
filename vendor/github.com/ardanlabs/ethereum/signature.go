@@ -42,7 +42,7 @@ func PrivateKeyByKeyFile(keyFile string, passPhrase string) (*ecdsa.PrivateKey, 
 func Sign(value any, privateKey *ecdsa.PrivateKey) ([]byte, error) {
 
 	// Prepare the data for signing.
-	data, err := stamp(value)
+	data, err := Stamp(value)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func FromAddress(value any, signature string) (string, error) {
 	// key used. The public key is being extracted from the data and signature.
 
 	// Prepare the data for public key extraction.
-	data, err := stamp(value)
+	data, err := Stamp(value)
 	if err != nil {
 		return "", err
 	}
@@ -104,6 +104,51 @@ func FromAddress(value any, signature string) (string, error) {
 
 	// Extract the account address from the public key.
 	return crypto.PubkeyToAddress(*publicKey).String(), nil
+}
+
+// Stamp returns a hash of 32 bytes that represents this data with the Ethereum
+// stamp embedded into the final hash. This is the data that is signed.
+func Stamp(value any) ([]byte, error) {
+
+	// Convert the data to bytes.
+	b, err := ValueToBytes(value)
+	if err != nil {
+		return nil, err
+	}
+
+	// Hash the data data into a 32 byte array. This will provide
+	// a data length consistency with all data.
+	txHash := crypto.Keccak256(b)
+
+	// Convert the stamp into a slice of bytes. This stamp is
+	// used so signatures we produce when signing data
+	// are always unique to the Ardan blockchain.
+	stamp := []byte("\x19Ethereum Signed Message:\n32")
+
+	// Hash the stamp and txHash together in a final 32 byte array
+	// that represents the data.
+	data := crypto.Keccak256(stamp, txHash)
+
+	return data, nil
+}
+
+// ValueToBytes converts data into bytes that can be signed.
+func ValueToBytes(value any) ([]byte, error) {
+	b, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
+}
+
+// ToSignatureValues converts the signature into the r, s, v values.
+func ToSignatureValues(sig []byte) (v uint8, r, s [32]byte) {
+	copy(r[:], sig[:32])
+	copy(s[:], sig[32:64])
+	v = uint8(sig[64])
+
+	return v, r, s
 }
 
 // =============================================================================
@@ -135,30 +180,4 @@ func verifySignature(signature string) ([]byte, error) {
 	}
 
 	return sig, nil
-}
-
-// stamp returns a hash of 32 bytes that represents this data with
-// the Ardan stamp embedded into the final hash.
-func stamp(value any) ([]byte, error) {
-
-	// Marshal the data.
-	v, err := json.Marshal(value)
-	if err != nil {
-		return nil, err
-	}
-
-	// Hash the data data into a 32 byte array. This will provide
-	// a data length consistency with all data.
-	txHash := crypto.Keccak256(v)
-
-	// Convert the stamp into a slice of bytes. This stamp is
-	// used so signatures we produce when signing data
-	// are always unique to the Ardan blockchain.
-	stamp := []byte("\x19Ethereum Signed Message:\n32")
-
-	// Hash the stamp and txHash together in a final 32 byte array
-	// that represents the data.
-	data := crypto.Keccak256(stamp, txHash)
-
-	return data, nil
 }

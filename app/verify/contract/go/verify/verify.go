@@ -30,8 +30,8 @@ var (
 
 // VerifyMetaData contains all meta data concerning the Verify contract.
 var VerifyMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"hashedMessage\",\"type\":\"bytes32\"},{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"name\":\"AddressFromMessage\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"hashedMessage\",\"type\":\"bytes32\"},{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"matches\",\"type\":\"address\"}],\"name\":\"VerifySignature\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}]",
-	Bin: "0x608060405234801561001057600080fd5b5061042d806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c8063c717bc541461003b578063fb7d53621461006b575b600080fd5b610055600480360381019061005091906101f4565b61009b565b604051610062919061029c565b60405180910390f35b610085600480360381019061008091906102e3565b6100f6565b6040516100929190610379565b60405180910390f35b6000600185858585604051600081526020016040526040516100c094939291906103b2565b6020604051602081039080840390855afa1580156100e2573d6000803e3d6000fd5b505050602060405103519050949350505050565b60008173ffffffffffffffffffffffffffffffffffffffff166001878787876040516000815260200160405260405161013294939291906103b2565b6020604051602081039080840390855afa158015610154573d6000803e3d6000fd5b5050506020604051035173ffffffffffffffffffffffffffffffffffffffff1614905095945050505050565b600080fd5b6000819050919050565b61019881610185565b81146101a357600080fd5b50565b6000813590506101b58161018f565b92915050565b600060ff82169050919050565b6101d1816101bb565b81146101dc57600080fd5b50565b6000813590506101ee816101c8565b92915050565b6000806000806080858703121561020e5761020d610180565b5b600061021c878288016101a6565b945050602061022d878288016101df565b935050604061023e878288016101a6565b925050606061024f878288016101a6565b91505092959194509250565b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b60006102868261025b565b9050919050565b6102968161027b565b82525050565b60006020820190506102b1600083018461028d565b92915050565b6102c08161027b565b81146102cb57600080fd5b50565b6000813590506102dd816102b7565b92915050565b600080600080600060a086880312156102ff576102fe610180565b5b600061030d888289016101a6565b955050602061031e888289016101df565b945050604061032f888289016101a6565b9350506060610340888289016101a6565b9250506080610351888289016102ce565b9150509295509295909350565b60008115159050919050565b6103738161035e565b82525050565b600060208201905061038e600083018461036a565b92915050565b61039d81610185565b82525050565b6103ac816101bb565b82525050565b60006080820190506103c76000830187610394565b6103d460208301866103a3565b6103e16040830185610394565b6103ee6060830184610394565b9594505050505056fea2646970667358221220312a5f43406f74a5d592b571f583caa012ff4f80e901fdace2c94015869dd30564736f6c63430008110033",
+	ABI: "[{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"name\":\"Address\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}]",
+	Bin: "0x608060405234801561001057600080fd5b5061052b806100206000396000f3fe608060405234801561001057600080fd5b506004361061002b5760003560e01c80639d4fa1b114610030575b600080fd5b61004a600480360381019061004591906102f9565b610060565b60405161005791906103bd565b60405180910390f35b6000808580519060200120905060006040518060400160405280601c81526020017f19457468657265756d205369676e6564204d6573736167653a0a3332000000008152509050600081836040516020016100bc92919061046a565b604051602081830303815290604052805190602001209050600181888888604051600081526020016040526040516100f794939291906104b0565b6020604051602081039080840390855afa158015610119573d6000803e3d6000fd5b505050602060405103519350505050949350505050565b6000604051905090565b600080fd5b600080fd5b600080fd5b600080fd5b6000601f19601f8301169050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b6101978261014e565b810181811067ffffffffffffffff821117156101b6576101b561015f565b5b80604052505050565b60006101c9610130565b90506101d5828261018e565b919050565b600067ffffffffffffffff8211156101f5576101f461015f565b5b6101fe8261014e565b9050602081019050919050565b82818337600083830152505050565b600061022d610228846101da565b6101bf565b90508281526020810184848401111561024957610248610149565b5b61025484828561020b565b509392505050565b600082601f83011261027157610270610144565b5b813561028184826020860161021a565b91505092915050565b600060ff82169050919050565b6102a08161028a565b81146102ab57600080fd5b50565b6000813590506102bd81610297565b92915050565b6000819050919050565b6102d6816102c3565b81146102e157600080fd5b50565b6000813590506102f3816102cd565b92915050565b600080600080608085870312156103135761031261013a565b5b600085013567ffffffffffffffff8111156103315761033061013f565b5b61033d8782880161025c565b945050602061034e878288016102ae565b935050604061035f878288016102e4565b9250506060610370878288016102e4565b91505092959194509250565b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b60006103a78261037c565b9050919050565b6103b78161039c565b82525050565b60006020820190506103d260008301846103ae565b92915050565b600081519050919050565b600081905092915050565b60005b8381101561040c5780820151818401526020810190506103f1565b60008484015250505050565b6000610423826103d8565b61042d81856103e3565b935061043d8185602086016103ee565b80840191505092915050565b6000819050919050565b61046461045f826102c3565b610449565b82525050565b60006104768285610418565b91506104828284610453565b6020820191508190509392505050565b61049b816102c3565b82525050565b6104aa8161028a565b82525050565b60006080820190506104c56000830187610492565b6104d260208301866104a1565b6104df6040830185610492565b6104ec6060830184610492565b9594505050505056fea2646970667358221220b46fd6fdc9076833fdae6c20e6ef223e948a13780722134224b2bdb4fbaef88e64736f6c63430008100033",
 }
 
 // VerifyABI is the input ABI used to generate the binding from.
@@ -201,12 +201,12 @@ func (_Verify *VerifyTransactorRaw) Transact(opts *bind.TransactOpts, method str
 	return _Verify.Contract.contract.Transact(opts, method, params...)
 }
 
-// AddressFromMessage is a free data retrieval call binding the contract method 0xc717bc54.
+// Address is a free data retrieval call binding the contract method 0x9d4fa1b1.
 //
-// Solidity: function AddressFromMessage(bytes32 hashedMessage, uint8 v, bytes32 r, bytes32 s) pure returns(address)
-func (_Verify *VerifyCaller) AddressFromMessage(opts *bind.CallOpts, hashedMessage [32]byte, v uint8, r [32]byte, s [32]byte) (common.Address, error) {
+// Solidity: function Address(bytes data, uint8 v, bytes32 r, bytes32 s) pure returns(address)
+func (_Verify *VerifyCaller) Address(opts *bind.CallOpts, data []byte, v uint8, r [32]byte, s [32]byte) (common.Address, error) {
 	var out []interface{}
-	err := _Verify.contract.Call(opts, &out, "AddressFromMessage", hashedMessage, v, r, s)
+	err := _Verify.contract.Call(opts, &out, "Address", data, v, r, s)
 
 	if err != nil {
 		return *new(common.Address), err
@@ -218,47 +218,16 @@ func (_Verify *VerifyCaller) AddressFromMessage(opts *bind.CallOpts, hashedMessa
 
 }
 
-// AddressFromMessage is a free data retrieval call binding the contract method 0xc717bc54.
+// Address is a free data retrieval call binding the contract method 0x9d4fa1b1.
 //
-// Solidity: function AddressFromMessage(bytes32 hashedMessage, uint8 v, bytes32 r, bytes32 s) pure returns(address)
-func (_Verify *VerifySession) AddressFromMessage(hashedMessage [32]byte, v uint8, r [32]byte, s [32]byte) (common.Address, error) {
-	return _Verify.Contract.AddressFromMessage(&_Verify.CallOpts, hashedMessage, v, r, s)
+// Solidity: function Address(bytes data, uint8 v, bytes32 r, bytes32 s) pure returns(address)
+func (_Verify *VerifySession) Address(data []byte, v uint8, r [32]byte, s [32]byte) (common.Address, error) {
+	return _Verify.Contract.Address(&_Verify.CallOpts, data, v, r, s)
 }
 
-// AddressFromMessage is a free data retrieval call binding the contract method 0xc717bc54.
+// Address is a free data retrieval call binding the contract method 0x9d4fa1b1.
 //
-// Solidity: function AddressFromMessage(bytes32 hashedMessage, uint8 v, bytes32 r, bytes32 s) pure returns(address)
-func (_Verify *VerifyCallerSession) AddressFromMessage(hashedMessage [32]byte, v uint8, r [32]byte, s [32]byte) (common.Address, error) {
-	return _Verify.Contract.AddressFromMessage(&_Verify.CallOpts, hashedMessage, v, r, s)
-}
-
-// VerifySignature is a free data retrieval call binding the contract method 0xfb7d5362.
-//
-// Solidity: function VerifySignature(bytes32 hashedMessage, uint8 v, bytes32 r, bytes32 s, address matches) pure returns(bool)
-func (_Verify *VerifyCaller) VerifySignature(opts *bind.CallOpts, hashedMessage [32]byte, v uint8, r [32]byte, s [32]byte, matches common.Address) (bool, error) {
-	var out []interface{}
-	err := _Verify.contract.Call(opts, &out, "VerifySignature", hashedMessage, v, r, s, matches)
-
-	if err != nil {
-		return *new(bool), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
-
-	return out0, err
-
-}
-
-// VerifySignature is a free data retrieval call binding the contract method 0xfb7d5362.
-//
-// Solidity: function VerifySignature(bytes32 hashedMessage, uint8 v, bytes32 r, bytes32 s, address matches) pure returns(bool)
-func (_Verify *VerifySession) VerifySignature(hashedMessage [32]byte, v uint8, r [32]byte, s [32]byte, matches common.Address) (bool, error) {
-	return _Verify.Contract.VerifySignature(&_Verify.CallOpts, hashedMessage, v, r, s, matches)
-}
-
-// VerifySignature is a free data retrieval call binding the contract method 0xfb7d5362.
-//
-// Solidity: function VerifySignature(bytes32 hashedMessage, uint8 v, bytes32 r, bytes32 s, address matches) pure returns(bool)
-func (_Verify *VerifyCallerSession) VerifySignature(hashedMessage [32]byte, v uint8, r [32]byte, s [32]byte, matches common.Address) (bool, error) {
-	return _Verify.Contract.VerifySignature(&_Verify.CallOpts, hashedMessage, v, r, s, matches)
+// Solidity: function Address(bytes data, uint8 v, bytes32 r, bytes32 s) pure returns(address)
+func (_Verify *VerifyCallerSession) Address(data []byte, v uint8, r [32]byte, s [32]byte) (common.Address, error) {
+	return _Verify.Contract.Address(&_Verify.CallOpts, data, v, r, s)
 }

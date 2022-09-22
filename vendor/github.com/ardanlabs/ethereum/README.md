@@ -4,19 +4,9 @@
 [![go.mod Go version](https://img.shields.io/github/go-mod/go-version/ardanlabs/ethereum)](https://github.com/ardanlabs/ethereum)
 
 Copyright 2022, Ardan Labs  
-info@ardanlabs.com
+hello@ardanlabs.com
 
 Ethereum provides higher level Go API's for writing applications and smart contracts on the Ethereum blockchain.
-
-## Learn More
-
-**To learn about Corporate training events, options and special pricing please contact:**
-
-William Kennedy  
-ArdanLabs (www.ardanlabs.com)  
-bill@ardanlabs.com  
-
-[Class Schedule](https://www.eventbrite.com/o/ardan-labs-7092394651)
 
 ## Licensing
 
@@ -34,15 +24,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
+## Learn More
+
+**Reach out about corporate training events, open enrollment live training sessions, and on-demand learning options.**
+
+Ardan Labs (www.ardanlabs.com)  
+hello@ardanlabs.com
+
+To attend any of our high-performance tranings check out this link:  
+https://www.ardanlabs.com/training  
+
 ## Examples
 
-To see example for using these API's check out these two projects.
+**To see example for using these API's check out these two projects.**
 
 [Ultimate Go: Smart Contract](https://github.com/ardanlabs/smartcontract)  
 This project provides material to help you learn the basics of writing, debuging, and maintaining Ethereum smart contracts. This repository has several smart contracts of increasing complexity to showcase different aspects of smart contract development.
 
 [Ultimate Go: Liar's Dice](https://github.com/ardanlabs/liarsdice)  
 This project implements a game of Liar's Dice where a crypto wallet is used for authentication and a smart contract is used to maintain the bank. Once a player is authenticated, they bet money for each game played and that money comes from their crypto wallet.
+
+**For advanced general blockchain knowledge check out this project.**
 
 [Ultimate Go: Advanced Engineering](https://github.com/ardanlabs/blockchain)  
 This project implements a semantically correct blockchain in Go. The implementation of the Ardan blockchain takes inspiration from both Bitcoin and Ethereum. This does not incorporate any smart contract development, but is good for advanced learning.

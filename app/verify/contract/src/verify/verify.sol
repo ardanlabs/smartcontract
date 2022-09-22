@@ -5,16 +5,12 @@ pragma solidity ^0.8.0;
 // provided signer.
 contract Verify {
 
-    // AddressFromMessage retrieves the signer's address from a hashed message
-    // and signature's r, s, v values.
-    function AddressFromMessage(bytes32 hashedMessage, uint8 v, bytes32 r, bytes32 s) public pure returns (address) {
-        return ecrecover(hashedMessage, v, r, s);
+    // Address retrieves the signer's address from a signature that was produced
+    // based on the provided data that was signed.
+    function Address(bytes memory data, uint8 v, bytes32 r, bytes32 s) public pure returns (address) {
+        bytes32 hashedData = keccak256(data);
+        bytes memory prefix = "\x19Ethereum Signed Message:\n32";
+        bytes32 saltedData = keccak256(abi.encodePacked(prefix, hashedData));
+        return ecrecover(saltedData, v, r, s);
     }
-
-    // VerifySignature verifies that the signature's address matches the address
-    // provided.
-    function VerifySignature(bytes32 hashedMessage, uint8 v, bytes32 r, bytes32 s, address matches) public pure returns (bool) {
-        return ecrecover(hashedMessage, v, r, s) == matches;
-    }
-
 }
