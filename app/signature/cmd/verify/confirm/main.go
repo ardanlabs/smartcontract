@@ -8,7 +8,7 @@ import (
 
 	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/ethereum/currency"
-	"github.com/ardanlabs/smartcontract/app/verify/contract/go/verify"
+	"github.com/ardanlabs/smartcontract/app/signature/contract/go/verify"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -71,7 +71,7 @@ func run() (err error) {
 	if contractID == "" {
 		return errors.New("need to export the verify.cid file")
 	}
-	fmt.Println("contractID:", contractID)
+	fmt.Println("contractID :", contractID)
 
 	verify, err := verify.NewVerify(common.HexToAddress(contractID), eth.RawClient())
 	if err != nil {
@@ -92,9 +92,6 @@ func run() (err error) {
 	// Retrieve the signature's v, r, s values.
 	v, r, s := ethereum.ToSignatureValues(signedMessage)
 
-	// The address we want to match the signature against.
-	matchAddress := eth.Address()
-
 	// =========================================================================
 
 	data, err := ethereum.ValueToBytes(value)
@@ -103,15 +100,22 @@ func run() (err error) {
 	}
 
 	// Retrieve the address via the smart contract Address call.
-	extracted, err := verify.Address(callOpts, data, v, r, s)
+	sigAddress, err := verify.Address(callOpts, data, v, r, s)
+	if err != nil {
+		return fmt.Errorf("address from message: %w", err)
+	}
+
+	// Retrieve the address via the smart contract Address call.
+	matched, err := verify.MatchSender(callOpts, data, v, r, s)
 	if err != nil {
 		return fmt.Errorf("address from message: %w", err)
 	}
 
 	fmt.Println("\nResults")
 	fmt.Println("----------------------------------------------------")
-	fmt.Println("MatchAddress address:", matchAddress)
-	fmt.Println("Extracted address   :", extracted)
+	fmt.Println("Keyfile address   :", eth.Address())
+	fmt.Println("Signature address :", sigAddress)
+	fmt.Println("Match sender      :", matched)
 
 	return nil
 }

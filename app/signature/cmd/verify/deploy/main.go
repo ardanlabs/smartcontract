@@ -8,7 +8,7 @@ import (
 
 	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/ethereum/currency"
-	"github.com/ardanlabs/smartcontract/app/verify/contract/go/verify"
+	"github.com/ardanlabs/smartcontract/app/signature/contract/go/verify"
 	"github.com/ethereum/go-ethereum/log"
 )
 

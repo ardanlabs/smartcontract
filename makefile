@@ -188,18 +188,18 @@ bank-proxy-reconcile:
 # This will compile the smart contract and produce the binary code. Then with the
 # abi and binary code, a Go source code file can be generated for Go API access.
 
-verify-build:
-	solc --abi app/verify/contract/src/verify/verify.sol -o app/verify/contract/abi/verify --overwrite
-	solc --bin app/verify/contract/src/verify/verify.sol -o app/verify/contract/abi/verify --overwrite
-	abigen --bin=app/verify/contract/abi/verify/Verify.bin --abi=app/verify/contract/abi/verify/Verify.abi --pkg=verify --out=app/verify/contract/go/verify/verify.go
+sig-verify-build:
+	solc --abi app/signature/contract/src/verify/verify.sol -o app/signature/contract/abi/verify --overwrite
+	solc --bin app/signature/contract/src/verify/verify.sol -o app/signature/contract/abi/verify --overwrite
+	abigen --bin=app/signature/contract/abi/verify/Verify.bin --abi=app/signature/contract/abi/verify/Verify.abi --pkg=verify --out=app/signature/contract/go/verify/verify.go
 
 # This will deploy the smart contract to the locally running Ethereum environment.
-verify-deploy:
-	go run app/verify/cmd/deploy/main.go
+sig-verify-deploy:
+	go run app/signature/cmd/verify/deploy/main.go
 
 # This will execute a simple program to test access to the smart contract API.
-verify-confirm:
-	go run app/verify/cmd/confirm/main.go
+sig-verify-confirm:
+	go run app/signature/cmd/verify/confirm/main.go
 
 # ==============================================================================
 # These commands start the Ethereum node and provide examples of attaching
