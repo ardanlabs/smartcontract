@@ -89,9 +89,6 @@ func run() (err error) {
 		return fmt.Errorf("signing message: %w", err)
 	}
 
-	// Retrieve the signature's v, r, s values.
-	v, r, s := ethereum.ToSignatureValues(signedMessage)
-
 	// =========================================================================
 
 	data, err := ethereum.ValueToBytes(value)
@@ -100,13 +97,13 @@ func run() (err error) {
 	}
 
 	// Retrieve the address via the smart contract Address call.
-	sigAddress, err := verify.Address(callOpts, data, v, r, s)
+	sigAddress, err := verify.Address(callOpts, data, signedMessage)
 	if err != nil {
 		return fmt.Errorf("address from message: %w", err)
 	}
 
 	// Retrieve the address via the smart contract Address call.
-	matched, err := verify.MatchSender(callOpts, data, v, r, s)
+	matched, err := verify.MatchSender(callOpts, data, signedMessage)
 	if err != nil {
 		return fmt.Errorf("address from message: %w", err)
 	}
