@@ -92,6 +92,8 @@ func run() (err error) {
 
 	// =========================================================================
 
+	// Decode the hexadecimal signature to bytes for the smart contract calls.
+	// It is easier and cheaper to do this here and not in the smart contract.
 	sig, err := hex.DecodeString(signature[2:])
 	if err != nil {
 		return fmt.Errorf("decoding signature string: %w", err)
