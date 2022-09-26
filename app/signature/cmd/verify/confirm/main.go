@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -84,26 +85,26 @@ func run() (err error) {
 	value := []byte("hello world")
 
 	// Sign the message with the private key.
-	signature, err := ethereum.Sign(value, ownerKey)
+	signature, data, err := ethereum.Sign(value, ownerKey)
 	if err != nil {
 		return fmt.Errorf("signing message: %w", err)
 	}
 
 	// =========================================================================
 
-	data, err := ethereum.ValueToBytes(value)
+	sig, err := hex.DecodeString(signature[2:])
 	if err != nil {
-		return fmt.Errorf("getting bytes: %w", err)
+		return fmt.Errorf("decoding signature string: %w", err)
 	}
 
 	// Retrieve the address via the smart contract Address call.
-	sigAddress, err := verify.Address(callOpts, data, signature)
+	sigAddress, err := verify.Address(callOpts, data, sig)
 	if err != nil {
 		return fmt.Errorf("address from message: %w", err)
 	}
 
 	// Retrieve the address via the smart contract Address call.
-	matched, err := verify.MatchSender(callOpts, data, signature)
+	matched, err := verify.MatchSender(callOpts, data, sig)
 	if err != nil {
 		return fmt.Errorf("address from message: %w", err)
 	}
