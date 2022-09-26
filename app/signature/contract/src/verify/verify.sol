@@ -21,7 +21,7 @@ contract Verify {
         return false;
     }
 
-    // signature expects the raw data that was signed and will apply the Ethereum
+    // extractAddress expects the raw data that was signed and will apply the Ethereum
     // salt value manually. This hides the underlying implementation of the salt.
     function extractAddress(bytes memory data, bytes calldata sig) private pure returns (address) {
         bytes32 hashedData = keccak256(data);
