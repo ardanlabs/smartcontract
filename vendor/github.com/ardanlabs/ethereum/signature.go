@@ -38,52 +38,60 @@ func PrivateKeyByKeyFile(keyFile string, passPhrase string) (*ecdsa.PrivateKey, 
 	return key.PrivateKey, nil
 }
 
-// Sign uses the specified private key to sign the specified value. The function
-// returns the calculated signature has a hexadecimal string, the 32 bytes of
-// the data that was produced and signed, and any error that might have occurred.
-func Sign(value any, privateKey *ecdsa.PrivateKey) (signature string, data32 [32]byte, err error) {
-
-	// Convert the value to bytes using our format.
-	b, err := json.Marshal(value)
-	if err != nil {
-		return "", [32]byte{}, err
-	}
+// SignBytes takes the specified bytes and first hashes them using Keccak256 to
+// create a 32 byte array of data. Then those bytes are salted with the Ethereum
+// stamp and signed using the specified private key. The signature is returned as
+// a hexadecimal string.
+func SignBytes(bytes []byte, privateKey *ecdsa.PrivateKey) (signature string, err error) {
 
 	// Prepare the data for signing.
-	data, err := stamp(b)
+	data, err := stamp(bytes)
 	if err != nil {
-		return "", [32]byte{}, err
+		return "", err
 	}
 
 	// Sign the hash with the private key to produce a signature.
 	sig, err := crypto.Sign(data[:], privateKey)
 	if err != nil {
-		return "", [32]byte{}, err
+		return "", err
 	}
 
 	// Extract the bytes for the original public key.
 	publicKeyOrg := privateKey.Public()
 	publicKeyECDSA, ok := publicKeyOrg.(*ecdsa.PublicKey)
 	if !ok {
-		return "", [32]byte{}, errors.New("error casting public key to ECDSA")
+		return "", errors.New("error casting public key to ECDSA")
 	}
 	publicKeyBytes := crypto.FromECDSAPub(publicKeyECDSA)
 
 	// Check the public key validates the data and signature.
 	rs := sig[:crypto.RecoveryIDOffset]
 	if !crypto.VerifySignature(publicKeyBytes, data[:], rs) {
-		return "", [32]byte{}, errors.New("invalid signature produced")
+		return "", errors.New("invalid signature produced")
 	}
 
 	// Add the Ethereum ID to the last byte represents v.
 	sig[crypto.RecoveryIDOffset] += ethID
 
-	return fmt.Sprintf("0x%s", hex.EncodeToString(sig)), data, nil
+	return fmt.Sprintf("0x%s", hex.EncodeToString(sig)), nil
 }
 
-// FromAddress extracts the address for the account that signed the data. The
-// signature must be provided as a hexadecimal string.
-func FromAddress(value any, signature string) (string, error) {
+// SignAny marshals the specified value into JSON to create an array of bytes.
+// Then the SignBytes function is used to sign the data.
+func SignAny(value any, privateKey *ecdsa.PrivateKey) (signature string, err error) {
+
+	// Convert the value to bytes using the json marshaler.
+	bytes, err := json.Marshal(value)
+	if err != nil {
+		return "", err
+	}
+
+	return SignBytes(bytes, privateKey)
+}
+
+// FromAddressBytes extracts the address for the account that signed the data.
+// The signature must be provided as a hexadecimal string.
+func FromAddressBytes(bytes []byte, signature string) (string, error) {
 
 	// Perform a basic check that the signature is formatted properly.
 	sig, err := verifySignature(signature)
@@ -91,19 +99,8 @@ func FromAddress(value any, signature string) (string, error) {
 		return "", fmt.Errorf("validating signature: %w", err)
 	}
 
-	// NOTE: If the same exact data for the given signature is not provided
-	// we will get the wrong from address for this transaction. There is no
-	// way to check this on the node since we don't have a copy of the public
-	// key used. The public key is being extracted from the data and signature.
-
-	// Convert the value to bytes using our format.
-	data, err := json.Marshal(value)
-	if err != nil {
-		return "", err
-	}
-
 	// Prepare the data for public key extraction.
-	stampData, err := stamp(data)
+	stampData, err := stamp(bytes)
 	if err != nil {
 		return "", err
 	}
@@ -119,6 +116,19 @@ func FromAddress(value any, signature string) (string, error) {
 
 	// Extract the account address from the public key.
 	return crypto.PubkeyToAddress(*publicKey).String(), nil
+}
+
+// FromAddressAny marshals the specified value into JSON to create an array of
+// bytes. Then uses FromAddressBytes function to extract the address.
+func FromAddressAny(value any, signature string) (string, error) {
+
+	// Convert the value to bytes using the json marshaler.
+	bytes, err := json.Marshal(value)
+	if err != nil {
+		return "", err
+	}
+
+	return FromAddressBytes(bytes, signature)
 }
 
 // =============================================================================

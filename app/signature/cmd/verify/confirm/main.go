@@ -5,11 +5,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
 	"os"
 
 	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/ethereum/currency"
 	"github.com/ardanlabs/smartcontract/app/signature/contract/go/verify"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -81,11 +83,19 @@ func run() (err error) {
 
 	// =========================================================================
 
-	// The data to be signed and hashed.
-	value := []byte("hello world")
+	// The data to be encoded and signed.
+	id := "asdjh1231"
+	participant := common.HexToAddress("0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd")
+	nonce := big.NewInt(1)
+
+	// Encode the data the same way the smart contract will.
+	bytes, err := encodeForSolidity(id, participant, nonce)
+	if err != nil {
+		return fmt.Errorf("encoding data: %w", err)
+	}
 
 	// Sign the message with the private key.
-	signature, data, err := ethereum.Sign(value, ownerKey)
+	signature, err := ethereum.SignBytes(bytes, ownerKey)
 	if err != nil {
 		return fmt.Errorf("signing message: %w", err)
 	}
@@ -100,13 +110,13 @@ func run() (err error) {
 	}
 
 	// Retrieve the address via the smart contract Address call.
-	sigAddress, err := verify.Address(callOpts, data, sig)
+	sigAddress, err := verify.Address(callOpts, id, participant, nonce, sig)
 	if err != nil {
 		return fmt.Errorf("address from message: %w", err)
 	}
 
 	// Retrieve the address via the smart contract Address call.
-	matched, err := verify.MatchSender(callOpts, data, sig)
+	matched, err := verify.MatchSender(callOpts, id, participant, nonce, sig)
 	if err != nil {
 		return fmt.Errorf("address from message: %w", err)
 	}
@@ -118,4 +128,31 @@ func run() (err error) {
 	fmt.Println("Match sender      :", matched)
 
 	return nil
+}
+
+// encodeForSolidity will take the arguments and pack them into a byte array that
+// conforms to the solidity abi.encode function.
+func encodeForSolidity(id string, participant common.Address, nonce *big.Int) ([]byte, error) {
+	String, _ := abi.NewType("string", "", nil)
+	Address, _ := abi.NewType("address", "", nil)
+	Uint, _ := abi.NewType("uint", "", nil)
+
+	arguments := abi.Arguments{
+		{
+			Type: String,
+		},
+		{
+			Type: Address,
+		},
+		{
+			Type: Uint,
+		},
+	}
+
+	bytes, err := arguments.Pack(id, participant, nonce)
+	if err != nil {
+		return nil, fmt.Errorf("arguments pack: %w", err)
+	}
+
+	return bytes, nil
 }

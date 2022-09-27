@@ -1,8 +1,8 @@
 github.com/DeOne4eg/eth-unit-converter v0.2.0 h1:EbizT70ocvhyTYzdtVWp92Q1njj0+0aWRFMPlsca/kE=
 github.com/DeOne4eg/eth-unit-converter v0.2.0/go.mod h1:XDLXgMOeUv4n8BkGn817q9yDoKOJxoNdnJ2MLsdkarI=
 github.com/VictoriaMetrics/fastcache v1.6.0 h1:C/3Oi3EiBCqufydp1neRZkqcwmEiuRT9c3fqvvgKm5o=
-github.com/ardanlabs/ethereum v0.4.0 h1:KIey5e/4Se7ckD4K9jgyG5Ueu3a9fmwWxoaey6nrqDU=
-github.com/ardanlabs/ethereum v0.4.0/go.mod h1:krVLeCvNbXA6esKGmrGuOgDumImyJrrLSPRPm43OnkA=
+github.com/ardanlabs/ethereum v0.5.0 h1:7crqBtwoo7LlDA/nH7JcuDSftGdSLHSPhOVuWrOxu5A=
+github.com/ardanlabs/ethereum v0.5.0/go.mod h1:krVLeCvNbXA6esKGmrGuOgDumImyJrrLSPRPm43OnkA=
 github.com/btcsuite/btcd/btcec/v2 v2.2.1 h1:xP60mv8fvp+0khmrN0zTdPC3cNm24rfeE6lh2R/Yv3E=
 github.com/btcsuite/btcd/btcec/v2 v2.2.1/go.mod h1:9/CSmJxmuvqzX9Wh2fXMWToLOHhPd11lSPuIupwTkI8=
 github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 h1:q0rUy8C/TYNBQS1+CGKw68tLOFYSNEs0TFnxxnS9+4U=
