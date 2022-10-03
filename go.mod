@@ -3,7 +3,7 @@ module github.com/ardanlabs/smartcontract
 go 1.18
 
 require (
-	github.com/ardanlabs/ethereum v0.5.0
+	github.com/ardanlabs/ethereum v0.6.0
 	github.com/ethereum/go-ethereum v1.10.25
 )
 
@@ -22,6 +22,6 @@ require (
 	github.com/tklauser/numcpus v0.5.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	golang.org/x/crypto v0.0.0-20220926161630-eccd6366d1be // indirect
-	golang.org/x/sys v0.0.0-20220926163933-8cfa568d3c25 // indirect
+	golang.org/x/sys v0.0.0-20220928140112-f11e5e49a4ec // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 )

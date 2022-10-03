@@ -95,6 +95,11 @@ func (eth *Ethereum) ChainID() int {
 	return int(eth.chainID.Int64())
 }
 
+// PrivateKey returns the private key being used.
+func (eth *Ethereum) PrivateKey() *ecdsa.PrivateKey {
+	return eth.privateKey
+}
+
 // =============================================================================
 
 // NewCallOpts constructs a new CallOpts which is used to call contract methods
