@@ -225,8 +225,9 @@ geth-up:
 	geth --dev --ipcpath zarf/ethereum/geth.ipc --http.corsdomain '*' --http --allow-insecure-unlock --rpc.allow-unprotected-txs --mine --miner.threads 1 --verbosity 5 --datadir "zarf/ethereum/" --unlock 0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd --password zarf/ethereum/password
 
 # This will signal Ethereum to shutdown.
+#	kill -INT $(shell ps -eo pid,comm | grep " geth" | awk '{print $1}')
 geth-down:
-	kill -INT $(shell ps | grep "geth " | grep -v grep | sed -n 1,1p | cut -c1-5)
+	echo $(shell ps -eo pid,comm | grep " geth" | awk '{print $$1}')
 
 # This will remove the local blockchain and let you start new.
 geth-reset:
