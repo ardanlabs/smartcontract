@@ -226,7 +226,7 @@ geth-up:
 
 # This will signal Ethereum to shutdown.
 geth-down:
-	kill -INT $(shell ps | grep "geth " | grep -v grep | sed -n 1,1p | cut -c1-5)
+	kill -INT $(shell ps -eo pid,comm | grep " geth" | awk '{print $$1}')
 
 # This will remove the local blockchain and let you start new.
 geth-reset:
