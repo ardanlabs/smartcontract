@@ -3,12 +3,10 @@ package simplecoin
 //go:generate ethier gen simplecoin.sol error.sol
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
 	"github.com/divergencetech/ethier/ethtest"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 )
 
 const (
@@ -16,9 +14,6 @@ const (
 	transferAmount  = 100
 	deployer        = iota
 	account1
-	account2
-	account3
-	account4
 	numAccounts
 )
 
@@ -34,13 +29,7 @@ func TestSimpleCoin(t *testing.T) {
 	}
 
 	t.Run("Test SimpleCoin", func(t *testing.T) {
-		callOpts := &bind.CallOpts{
-			Pending: true,
-			From:    sim.Addr(deployer),
-			Context: context.Background(),
-		}
-
-		balance, err := contract.CoinBalance(callOpts, sim.Addr(deployer))
+		balance, err := contract.CoinBalance(sim.CallFrom(deployer), sim.Addr(deployer))
 		if err != nil {
 			t.Fatalf("Error getting balance before deposit: %s", err)
 		}
@@ -54,7 +43,7 @@ func TestSimpleCoin(t *testing.T) {
 			t.Fatalf("Error setting test data: %s", err)
 		}
 
-		balance, err = contract.CoinBalance(callOpts, sim.Addr(deployer))
+		balance, err = contract.CoinBalance(sim.CallFrom(deployer), sim.Addr(deployer))
 		if err != nil {
 			t.Fatalf("Error getting balance after deposit: %s", err)
 		}
@@ -63,7 +52,7 @@ func TestSimpleCoin(t *testing.T) {
 			t.Fatalf("Deployer ending balance doesn't match: %v != %v", balance, startingBalance)
 		}
 
-		balance, err = contract.CoinBalance(callOpts, sim.Addr(account1))
+		balance, err = contract.CoinBalance(sim.CallFrom(deployer), sim.Addr(account1))
 		if err != nil {
 			t.Fatalf("Error getting balance after deposit: %s", err)
 		}

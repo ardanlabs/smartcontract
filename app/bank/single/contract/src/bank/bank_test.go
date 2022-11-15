@@ -3,12 +3,10 @@ package bank
 //go:generate ethier gen bank.sol error.sol
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
 	"github.com/divergencetech/ethier/ethtest"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 )
 
 const (
@@ -37,13 +35,7 @@ func TestBank(t *testing.T) {
 	copy(value[:], []byte("brianna"))
 
 	t.Run("Test Bank", func(t *testing.T) {
-		callOpts := &bind.CallOpts{
-			Pending: true,
-			From:    sim.Addr(deployer),
-			Context: context.Background(),
-		}
-
-		balance, err := contract.Balance(callOpts)
+		balance, err := contract.Balance(sim.CallFrom(deployer))
 		if err != nil {
 			t.Fatalf("Error getting balance before deposit: %s", err)
 		}
@@ -60,7 +52,7 @@ func TestBank(t *testing.T) {
 			t.Fatalf("Error setting test data: %s", err)
 		}
 
-		balance, err = contract.Balance(callOpts)
+		balance, err = contract.Balance(sim.CallFrom(deployer))
 		if err != nil {
 			t.Fatalf("Error getting balance after deposit: %s", err)
 		}
