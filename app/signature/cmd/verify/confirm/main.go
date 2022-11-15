@@ -76,7 +76,7 @@ func run() (err error) {
 	}
 	fmt.Println("contractID :", contractID)
 
-	verify, err := verify.NewVerify(common.HexToAddress(contractID), eth.RawClient())
+	verification, err := verify.NewVerify(common.HexToAddress(contractID), eth.RawClient())
 	if err != nil {
 		return fmt.Errorf("new contract: %w", err)
 	}
@@ -110,13 +110,13 @@ func run() (err error) {
 	}
 
 	// Retrieve the address via the smart contract Address call.
-	sigAddress, err := verify.Address(callOpts, id, participant, nonce, sig)
+	sigAddress, err := verification.Address(callOpts, id, participant, nonce, sig)
 	if err != nil {
 		return fmt.Errorf("address from message: %w", err)
 	}
 
 	// Retrieve the address via the smart contract Address call.
-	matched, err := verify.MatchSender(callOpts, id, participant, nonce, sig)
+	matched, err := verification.MatchSender(callOpts, id, participant, nonce, sig)
 	if err != nil {
 		return fmt.Errorf("address from message: %w", err)
 	}
