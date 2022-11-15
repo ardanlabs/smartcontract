@@ -28,14 +28,14 @@ func main() {
 func run() error {
 	ctx := context.Background()
 
-	ethereum, err := ethereum.New(ctx, ethereum.NetworkLocalhost, keyStoreFile, passPhrase)
+	eth, err := ethereum.New(ctx, ethereum.NetworkLocalhost, keyStoreFile, passPhrase)
 	if err != nil {
 		return err
 	}
 
 	fmt.Println("\nInput Values")
 	fmt.Println("----------------------------------------------------")
-	fmt.Println("fromAddress:", ethereum.Address())
+	fmt.Println("fromAddress:", eth.Address())
 
 	// =========================================================================
 
@@ -50,7 +50,7 @@ func run() error {
 	}
 	fmt.Println("contractID:", contractID)
 
-	scoinCon, err := simplecoin.NewSimplecoin(common.HexToAddress(contractID), ethereum.RawClient())
+	scoinCon, err := simplecoin.NewSimplecoin(common.HexToAddress(contractID), eth.RawClient())
 	if err != nil {
 		return fmt.Errorf("new contract: %w", err)
 	}
