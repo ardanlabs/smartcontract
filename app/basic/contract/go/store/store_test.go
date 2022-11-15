@@ -1,7 +1,5 @@
 package store
 
-//go:generate ethier gen store.sol
-
 import (
 	"testing"
 

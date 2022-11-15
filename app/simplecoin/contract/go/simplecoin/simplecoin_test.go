@@ -1,7 +1,5 @@
 package simplecoin
 
-//go:generate ethier gen simplecoin.sol error.sol
-
 import (
 	"math/big"
 	"testing"
@@ -23,7 +21,7 @@ func TestSimpleCoin(t *testing.T) {
 		t.Fatalf("Something went wrong settup up the simulated backend: %s", err)
 	}
 
-	_, _, contract, err := DeploySimpleCoin(sim.Acc(deployer), sim, big.NewInt(startingBalance))
+	_, _, contract, err := DeploySimplecoin(sim.Acc(deployer), sim, big.NewInt(startingBalance))
 	if err != nil {
 		t.Fatalf("DeployBank error %v", err)
 	}

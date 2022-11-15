@@ -1,7 +1,5 @@
 package bank
 
-//go:generate ethier gen bank.sol error.sol
-
 import (
 	"fmt"
 	"testing"

@@ -1,7 +1,5 @@
 package verify
 
-//go:generate ethier gen verify.sol error.sol
-
 import (
 	"encoding/hex"
 	"fmt"
@@ -9,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/ardanlabs/ethereum"
-	"github.com/ardanlabs/smartcontract/app/signature/contract/go/verify"
 	"github.com/divergencetech/ethier/ethtest"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -39,7 +36,7 @@ func TestVerify(t *testing.T) {
 			t.Fatalf("error getting private key: %s", err)
 		}
 
-		verification, err := verify.NewVerify(sim.Addr(deployer), sim)
+		verification, err := NewVerify(sim.Addr(deployer), sim)
 		if err != nil {
 			t.Fatalf("erro instatiating new verifier: %s", err)
 		}
