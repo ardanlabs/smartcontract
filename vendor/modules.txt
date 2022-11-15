@@ -38,7 +38,7 @@ github.com/deckarep/golang-set
 ## explicit; go 1.17
 github.com/decred/dcrd/dcrec/secp256k1/v4
 github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa
-# github.com/divergencetech/ethier v0.35.3
+# github.com/divergencetech/ethier v0.35.3 => github.com/ardanlabs/ethier v0.0.0-20221115210137-5c74ad1c8137
 ## explicit; go 1.18
 github.com/divergencetech/ethier/eth
 github.com/divergencetech/ethier/ethtest

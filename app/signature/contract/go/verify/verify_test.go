@@ -35,11 +35,6 @@ func TestVerify(t *testing.T) {
 		t.Fatalf("unable to create a verify: %s", err)
 	}
 
-	ownerKey, err := ethereum.PrivateKeyByKeyFile(keyStoreFile, passPhrase)
-	if err != nil {
-		t.Fatalf("error getting private key: %s", err)
-	}
-
 	id := "asdjh1231"
 	participant := sim.Addr(deployer)
 	nonce := big.NewInt(1)
@@ -49,7 +44,7 @@ func TestVerify(t *testing.T) {
 		t.Fatalf("should be able to encode data: %s", err)
 	}
 
-	signature, err := ethereum.SignBytes(bytes, ownerKey)
+	signature, err := ethereum.SignBytes(bytes, sim.PrivateKey(deployer))
 	if err != nil {
 		t.Fatalf("should be able to sign the message: %s", err)
 	}
@@ -59,13 +54,14 @@ func TestVerify(t *testing.T) {
 		t.Fatalf("should be able to decode the signature: %s", err)
 	}
 
-	if _, err = verify.MatchSender(sim.CallFrom(deployer), id, participant, nonce, sig); err != nil {
+	matched, err := verify.MatchSender(sim.CallFrom(deployer), id, participant, nonce, sig)
+	if err != nil {
 		t.Fatalf("should be able to match the sender: %s", err)
 	}
 
-	// if !matched {
-	// 	t.Fatal("Match failed!")
-	// }
+	if !matched {
+		t.Fatal("Match failed!")
+	}
 }
 
 // encodeForSolidity will take the arguments and pack them into a byte array that

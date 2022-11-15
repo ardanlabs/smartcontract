@@ -49,3 +49,5 @@ require (
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 )
+
+replace github.com/divergencetech/ethier v0.35.3 => github.com/ardanlabs/ethier v0.0.0-20221115210137-5c74ad1c8137

@@ -10,6 +10,8 @@ github.com/allegro/bigcache v1.2.1-0.20190218064605-e24eb225f156/go.mod h1:Cb/ax
 github.com/allegro/bigcache v1.2.1 h1:hg1sY1raCwic3Vnsvje6TT7/pnZba83LeFck5NrFKSc=
 github.com/ardanlabs/ethereum v0.6.0 h1:waIn9+mRFwGMDQZDiTH9kDcosLFUmbmMzKjRl+2PAKM=
 github.com/ardanlabs/ethereum v0.6.0/go.mod h1:krVLeCvNbXA6esKGmrGuOgDumImyJrrLSPRPm43OnkA=
+github.com/ardanlabs/ethier v0.0.0-20221115210137-5c74ad1c8137 h1:/9kVLxqa/zRW3cAa1DXEE6POb/yPNkGgA4gjK8ZzZOQ=
+github.com/ardanlabs/ethier v0.0.0-20221115210137-5c74ad1c8137/go.mod h1:wOph1xVI/0dmAziGJ247/KXF6tcLqVc43DyqyARd0qY=
 github.com/bazelbuild/tools_jvm_autodeps v0.0.0-20180917073602-62694dd50b91 h1:wcw0i+MQc/Yo8RgkS09xSujJnOMCzZXD6LUxhKxGhMg=
 github.com/bazelbuild/tools_jvm_autodeps v0.0.0-20180917073602-62694dd50b91/go.mod h1:V5NR740gn0ZNSM6XAl/FGpzEx0RMTOnhiF/otvqHkIY=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
@@ -57,8 +59,6 @@ github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 h1:HbphB4TFFXpv7MNrT52FGrrgVXF1
 github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0/go.mod h1:DZGJHZMqrU4JJqFAWUS2UO1+lbSKsdiOoYi9Zzey7Fc=
 github.com/decred/dcrd/lru v1.0.0/go.mod h1:mxKOwFd7lFjN2GZYsiz/ecgqR6kkYAl+0pz0tEMk218=
 github.com/dgryski/go-sip13 v0.0.0-20181026042036-e10d5fee7954/go.mod h1:vAd38F8PWV+bWy6jNmig1y/TA+kYO4g3RSRF0IAv0no=
-github.com/divergencetech/ethier v0.35.3 h1:WSJk0+OXT1IRt2fjSclmXDXuAfVyUqcPu3Bp7yah0+4=
-github.com/divergencetech/ethier v0.35.3/go.mod h1:wOph1xVI/0dmAziGJ247/KXF6tcLqVc43DyqyARd0qY=
 github.com/divergencetech/go-ethereum-hdwallet v0.0.0-20220813162312-0417b48d5b09 h1:EdzTSyco8roVTj+fDyZCWBwrlJdqC1YoR9ydkvolxAI=
 github.com/divergencetech/go-ethereum-hdwallet v0.0.0-20220813162312-0417b48d5b09/go.mod h1:97zJOwLY0Nf+kIcraZu0hFoAW0C7j6od9IFt0UGlTOk=
 github.com/dustin/go-humanize v1.0.0 h1:VSnTsYCnlFHaM2/igO1h6X3HA71jcobQuxemgkq4zYo=
