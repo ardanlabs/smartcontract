@@ -52,14 +52,14 @@ func run() (err error) {
 		ethAccount = account1StoreFile
 	}
 
-	ethereum, err := ethereum.New(ctx, ethereum.NetworkLocalhost, ethAccount, passPhrase)
+	eth, err := ethereum.New(ctx, ethereum.NetworkLocalhost, ethAccount, passPhrase)
 	if err != nil {
 		return err
 	}
 
 	fmt.Println("\nInput Values")
 	fmt.Println("----------------------------------------------------")
-	fmt.Println("fromAddress:", ethereum.Address())
+	fmt.Println("fromAddress:", eth.Address())
 
 	// =========================================================================
 
@@ -74,12 +74,12 @@ func run() (err error) {
 
 	// =========================================================================
 
-	startingBalance, err := ethereum.Balance(ctx)
+	startingBalance, err := eth.Balance(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		endingBalance, dErr := ethereum.Balance(ctx)
+		endingBalance, dErr := eth.Balance(ctx)
 		if dErr != nil {
 			err = dErr
 			return
@@ -89,7 +89,7 @@ func run() (err error) {
 
 	// =========================================================================
 
-	callOpts, err := ethereum.NewCallOpts(ctx)
+	callOpts, err := eth.NewCallOpts(ctx)
 	if err != nil {
 		return err
 	}
@@ -107,7 +107,7 @@ func run() (err error) {
 	}
 	fmt.Println("contractID:", contractID)
 
-	proxyContract, err := bank.NewBank(common.HexToAddress(contractID), ethereum.RawClient())
+	proxyContract, err := bank.NewBank(common.HexToAddress(contractID), eth.RawClient())
 	if err != nil {
 		return fmt.Errorf("new proxy connection: %w", err)
 	}
