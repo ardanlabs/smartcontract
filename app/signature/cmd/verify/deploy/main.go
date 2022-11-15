@@ -28,14 +28,14 @@ func main() {
 func run() (err error) {
 	ctx := context.Background()
 
-	ethereum, err := ethereum.New(ctx, ethereum.NetworkLocalhost, keyStoreFile, passPhrase)
+	eth, err := ethereum.New(ctx, ethereum.NetworkLocalhost, keyStoreFile, passPhrase)
 	if err != nil {
 		return err
 	}
 
 	fmt.Println("\nInput Values")
 	fmt.Println("----------------------------------------------------")
-	fmt.Println("fromAddress:", ethereum.Address())
+	fmt.Println("fromAddress:", eth.Address())
 
 	// =========================================================================
 
@@ -50,12 +50,12 @@ func run() (err error) {
 
 	// =========================================================================
 
-	startingBalance, err := ethereum.Balance(ctx)
+	startingBalance, err := eth.Balance(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		endingBalance, dErr := ethereum.Balance(ctx)
+		endingBalance, dErr := eth.Balance(ctx)
 		if dErr != nil {
 			err = dErr
 			return
@@ -67,14 +67,14 @@ func run() (err error) {
 
 	const gasLimit = 1600000
 	const valueGwei = 0.0
-	tranOpts, err := ethereum.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+	tranOpts, err := eth.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 	if err != nil {
 		return err
 	}
 
 	// =========================================================================
 
-	address, tx, _, err := verify.DeployVerify(tranOpts, ethereum.RawClient())
+	address, tx, _, err := verify.DeployVerify(tranOpts, eth.RawClient())
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func run() (err error) {
 
 	// =========================================================================
 
-	ethCopy, err := ethereum.Copy(ctx)
+	ethCopy, err := eth.Copy(ctx)
 	if err != nil {
 		return err
 	}
