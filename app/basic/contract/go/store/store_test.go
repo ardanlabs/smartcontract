@@ -15,7 +15,7 @@ func TestStore(t *testing.T) {
 		t.Fatalf("unable to create simulated backend: %s", err)
 	}
 
-	contractID, _, _, err := store.DeployStore(sim.Acc(deployer), sim /*,,, [constructor arguments]*/)
+	contractID, _, _, err := store.DeployStore(sim.Acc(deployer), sim)
 	if err != nil {
 		t.Fatalf("unable to deploy store: %s", err)
 	}
