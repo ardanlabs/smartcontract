@@ -1,61 +1,49 @@
-package bank
+package bank_test
 
 import (
-	"fmt"
+	"math/big"
 	"testing"
 
+	"github.com/ardanlabs/smartcontract/app/bank/single/contract/go/bank"
 	"github.com/divergencetech/ethier/ethtest"
 )
 
-const (
-	deployer = iota
-	account1
-	account2
-	account3
-	account4
-	numAccounts
-)
+const deployer = 0
 
 func TestBank(t *testing.T) {
-	sim, err := ethtest.NewSimulatedBackend(numAccounts)
+	sim, err := ethtest.NewSimulatedBackend(1)
 	if err != nil {
-		t.Fatalf("Something went wrong settup up the simulated backend: %s", err)
+		t.Fatalf("unable to create simulated backend: %s", err)
 	}
 
-	_, _, contract, err := DeployBank(sim.Acc(deployer), sim /*,,, [constructor arguments]*/)
+	contractID, _, _, err := bank.DeployBank(sim.Acc(deployer), sim)
 	if err != nil {
-		t.Fatalf("DeployBank error %v", err)
+		t.Fatalf("unable to deploy bank: %s", err)
 	}
 
-	var key [32]byte
-	var value [32]byte
-	copy(key[:], []byte("name"))
-	copy(value[:], []byte("brianna"))
+	bank, err := bank.NewBank(contractID, sim)
+	if err != nil {
+		t.Fatalf("unable to create a bank: %s", err)
+	}
 
-	t.Run("Test Bank", func(t *testing.T) {
-		balance, err := contract.Balance(sim.CallFrom(deployer))
-		if err != nil {
-			t.Fatalf("Error getting balance before deposit: %s", err)
-		}
+	balanceBefore, err := bank.Balance(sim.CallFrom(deployer))
+	if err != nil {
+		t.Fatalf("should get the balance: %s", err)
+	}
 
-		fmt.Printf("balance before deposit: %v\n", balance)
+	to := sim.Acc(deployer)
+	to.Value = big.NewInt(10)
+	if _, err = bank.Deposit(to); err != nil {
+		t.Fatalf("should be able to deposit money: %s", err)
+	}
 
-		// proxyContract, err := NewBank(sim.Addr(deployer), sim)
-		// if err != nil {
-		// 	t.Fatalf("new proxy connection: %s", err)
-		// }
+	expBal, err := bank.Balance(sim.CallFrom(deployer))
+	if err != nil {
+		t.Fatalf("should get balance after deposit: %s", err)
+	}
 
-		_, err = contract.Deposit(sim.Acc(deployer))
-		if err != nil {
-			t.Fatalf("Error setting test data: %s", err)
-		}
-
-		balance, err = contract.Balance(sim.CallFrom(deployer))
-		if err != nil {
-			t.Fatalf("Error getting balance after deposit: %s", err)
-		}
-
-		fmt.Printf("balance after deposit: %v\n", balance)
-
-	})
+	gotBal := balanceBefore.Add(balanceBefore, to.Value)
+	if expBal.Cmp(gotBal) != 0 {
+		t.Fatalf("wrong balance, got %v  exp %v", gotBal, expBal)
+	}
 }

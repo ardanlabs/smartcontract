@@ -1,25 +1,28 @@
-package store
+package store_test
 
 import (
 	"testing"
 
+	"github.com/ardanlabs/smartcontract/app/basic/contract/go/store"
 	"github.com/divergencetech/ethier/ethtest"
 )
 
-const (
-	deployer = iota
-	numAccounts
-)
+const deployer = 0
 
 func TestStore(t *testing.T) {
-	sim, err := ethtest.NewSimulatedBackend(numAccounts)
+	sim, err := ethtest.NewSimulatedBackend(1)
 	if err != nil {
-		t.Fatalf("Something went wrong settup up the simulated backend: %s", err)
+		t.Fatalf("unable to create simulated backend: %s", err)
 	}
 
-	_, _, contract, err := DeployStore(sim.Acc(deployer), sim /*,,, [constructor arguments]*/)
+	contractID, _, _, err := store.DeployStore(sim.Acc(deployer), sim /*,,, [constructor arguments]*/)
 	if err != nil {
-		t.Fatalf("DeployStore error %v", err)
+		t.Fatalf("unable to deploy store: %s", err)
+	}
+
+	store, err := store.NewStore(contractID, sim)
+	if err != nil {
+		t.Fatalf("error creating store: %s", err)
 	}
 
 	var key [32]byte
@@ -27,20 +30,16 @@ func TestStore(t *testing.T) {
 	copy(key[:], []byte("name"))
 	copy(value[:], []byte("brianna"))
 
-	t.Run("Test Store", func(t *testing.T) {
-		_, err := contract.SetItem(sim.Acc(deployer), key, value)
-		if err != nil {
-			t.Fatalf("Error setting test data: %s", err)
-		}
+	if _, err := store.SetItem(sim.Acc(deployer), key, value); err != nil {
+		t.Fatalf("should be able to set item: %s", err)
+	}
 
-		items, err := contract.Items(nil, key)
-		if err != nil {
-			t.Fatalf("Error getting test data: %s", err)
-		}
+	item, err := store.Items(nil, key)
+	if err != nil {
+		t.Fatalf("should be able to retrieve item: %s", err)
+	}
 
-		if items != value {
-			t.Fatalf("Expected %s, got %s", string(value[:]), string(items[:]))
-		}
-
-	})
+	if item != value {
+		t.Fatalf("wrong value, got %s  exp %s", string(item[:]), string(value[:]))
+	}
 }

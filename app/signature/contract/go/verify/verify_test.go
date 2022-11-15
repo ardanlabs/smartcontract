@@ -1,4 +1,4 @@
-package verify
+package verify_test
 
 import (
 	"encoding/hex"
@@ -7,63 +7,65 @@ import (
 	"testing"
 
 	"github.com/ardanlabs/ethereum"
+	"github.com/ardanlabs/smartcontract/app/signature/contract/go/verify"
 	"github.com/divergencetech/ethier/ethtest"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 )
 
 const (
-	deployer = iota
-	numAccounts
+	deployer     = 0
 	keyStoreFile = "../../../../../zarf/ethereum/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd"
 	passPhrase   = "123"
 )
 
 func TestVerify(t *testing.T) {
-	sim, err := ethtest.NewSimulatedBackend(numAccounts)
+	sim, err := ethtest.NewSimulatedBackend(1)
 	if err != nil {
-		t.Fatalf("Something went wrong settup up the simulated backend: %s", err)
+		t.Fatalf("unable to create simulated backend: %s", err)
 	}
 
-	_, _, contract, err := DeployVerify(sim.Acc(deployer), sim)
+	contractID, _, _, err := verify.DeployVerify(sim.Acc(deployer), sim)
 	if err != nil {
-		t.Fatalf("DeployBank error %v", err)
+		t.Fatalf("unable to deploy verify: %s", err)
 	}
 
-	t.Run("Test Verify", func(t *testing.T) {
-		ownerKey, err := ethereum.PrivateKeyByKeyFile(keyStoreFile, passPhrase)
-		if err != nil {
-			t.Fatalf("error getting private key: %s", err)
-		}
+	verify, err := verify.NewVerify(contractID, sim)
+	if err != nil {
+		t.Fatalf("unable to create a verify: %s", err)
+	}
 
-		id := "asdjh1231"
-		participant := sim.Addr(deployer)
-		nonce := big.NewInt(1)
+	ownerKey, err := ethereum.PrivateKeyByKeyFile(keyStoreFile, passPhrase)
+	if err != nil {
+		t.Fatalf("error getting private key: %s", err)
+	}
 
-		bytes, err := encodeForSolidity(id, participant, nonce)
-		if err != nil {
-			t.Fatalf("encoding data: %s", err)
-		}
+	id := "asdjh1231"
+	participant := sim.Addr(deployer)
+	nonce := big.NewInt(1)
 
-		signature, err := ethereum.SignBytes(bytes, ownerKey)
-		if err != nil {
-			t.Fatalf("signing message: %s", err)
-		}
+	bytes, err := encodeForSolidity(id, participant, nonce)
+	if err != nil {
+		t.Fatalf("should be able to encode data: %s", err)
+	}
 
-		sig, err := hex.DecodeString(signature[2:])
-		if err != nil {
-			t.Fatalf("decoding signature string: %s", err)
-		}
+	signature, err := ethereum.SignBytes(bytes, ownerKey)
+	if err != nil {
+		t.Fatalf("should be able to sign the message: %s", err)
+	}
 
-		_, err = contract.MatchSender(sim.CallFrom(deployer), id, participant, nonce, sig)
-		if err != nil {
-			t.Fatalf("address from message: %s", err)
-		}
+	sig, err := hex.DecodeString(signature[2:])
+	if err != nil {
+		t.Fatalf("should be able to decode the signature: %s", err)
+	}
 
-		// if !matched {
-		// 	t.Fatal("Match failed!")
-		// }
-	})
+	if _, err = verify.MatchSender(sim.CallFrom(deployer), id, participant, nonce, sig); err != nil {
+		t.Fatalf("should be able to match the sender: %s", err)
+	}
+
+	// if !matched {
+	// 	t.Fatal("Match failed!")
+	// }
 }
 
 // encodeForSolidity will take the arguments and pack them into a byte array that
