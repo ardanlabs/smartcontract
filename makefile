@@ -253,6 +253,9 @@ geth-deposit:
 # ==============================================================================
 # These commands provide Go related support.
 
+test:
+	CGO_ENABLED=0 go test -v ./...
+
 # This will tidy up the Go dependencies.
 tidy:
 	go mod tidy
