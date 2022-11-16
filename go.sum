@@ -8,8 +8,8 @@ github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuy
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/allegro/bigcache v1.2.1-0.20190218064605-e24eb225f156/go.mod h1:Cb/ax3seSYIx7SuZdm2G2xzfwmv3TPSk2ucNfQESPXM=
 github.com/allegro/bigcache v1.2.1 h1:hg1sY1raCwic3Vnsvje6TT7/pnZba83LeFck5NrFKSc=
-github.com/ardanlabs/ethereum v0.7.1-0.20221116002155-8f041b614f9e h1:GBedk9WVDjuTbjHdFarXFZGs2M3YqWxsAWHeKWth59Q=
-github.com/ardanlabs/ethereum v0.7.1-0.20221116002155-8f041b614f9e/go.mod h1:bh/KSzdmsOo97EjmzCaD7p43AQK+AfThUzbAHPW8uh4=
+github.com/ardanlabs/ethereum v0.7.1-0.20221116221548-9559167d3da5 h1:Tbg7R6PTYR0vnQrSSOW6nsVGM1cZW8GzQGqlccKWtKk=
+github.com/ardanlabs/ethereum v0.7.1-0.20221116221548-9559167d3da5/go.mod h1:bh/KSzdmsOo97EjmzCaD7p43AQK+AfThUzbAHPW8uh4=
 github.com/ardanlabs/ethier v0.0.0-20221115210137-5c74ad1c8137 h1:/9kVLxqa/zRW3cAa1DXEE6POb/yPNkGgA4gjK8ZzZOQ=
 github.com/ardanlabs/ethier v0.0.0-20221115210137-5c74ad1c8137/go.mod h1:wOph1xVI/0dmAziGJ247/KXF6tcLqVc43DyqyARd0qY=
 github.com/bazelbuild/tools_jvm_autodeps v0.0.0-20180917073602-62694dd50b91 h1:wcw0i+MQc/Yo8RgkS09xSujJnOMCzZXD6LUxhKxGhMg=

@@ -22,8 +22,8 @@ type SimulatedBackend struct {
 }
 
 // CreateSimulation constructs a simulated backend and a set of private keys
-// registered to the backend. You must call NewAccount to get a working
-// Ethereum value for that key.
+// registered to the backend with a balance of 100 ETH. Use these private keys
+// with the NewSimulation call to get an Ethereum API value.
 func CreateSimulation(numAccounts int, autoCommit bool) (*SimulatedBackend, error) {
 	keys := make([]*ecdsa.PrivateKey, numAccounts)
 	alloc := make(core.GenesisAlloc)

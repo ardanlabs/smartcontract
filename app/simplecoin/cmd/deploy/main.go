@@ -39,9 +39,9 @@ func run() error {
 
 	// =========================================================================
 
-	converter, err := currency.NewConverter(coinMarketCapKey)
+	converter, err := currency.NewConverter(simplecoin.SimplecoinMetaData.ABI, coinMarketCapKey)
 	if err != nil {
-		converter = currency.NewDefaultConverter()
+		converter = currency.NewDefaultConverter(simplecoin.SimplecoinMetaData.ABI)
 	}
 	oneETHToUSD, oneUSDToETH := converter.Values()
 
