@@ -20,19 +20,20 @@ func TestBank(t *testing.T) {
 
 	eth := ethereum.NewSimulation(sim, sim.PrivateKeys[0])
 
-	const (
-		gasLimit  = 1600000
-		valueGwei = 0.0
-	)
-
+	const gasLimit = 1700000
+	const valueGwei = 0.0
 	tranOpts, err := eth.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 	if err != nil {
 		t.Fatalf("unable to create transaction opts for deploy: %s", err)
 	}
 
-	contractID, _, _, err := bank.DeployBank(tranOpts, eth.ContractBackend())
+	contractID, tx, _, err := bank.DeployBank(tranOpts, eth.ContractBackend())
 	if err != nil {
 		t.Fatalf("unable to deploy bank: %s", err)
+	}
+
+	if _, err := eth.WaitMined(ctx, tx); err != nil {
+		t.Fatalf("waiting for deploy: %s", err)
 	}
 
 	testBank, err := bank.NewBank(contractID, sim)
@@ -67,6 +68,10 @@ func TestBank(t *testing.T) {
 	to.Value = big.NewInt(10)
 	if _, err = testBank.Deposit(to); err != nil {
 		t.Fatalf("should be able to deposit money: %s", err)
+	}
+
+	if _, err := eth.WaitMined(ctx, tx); err != nil {
+		t.Fatalf("waiting for deposit: %s", err)
 	}
 
 	expBal, err := testBank.Balance(callOpts)

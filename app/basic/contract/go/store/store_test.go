@@ -27,9 +27,13 @@ func TestStore(t *testing.T) {
 		t.Fatalf("unable to create transaction opts for deploy: %s", err)
 	}
 
-	contractID, _, _, err := store.DeployStore(tranOpts, eth.ContractBackend())
+	contractID, tx, _, err := store.DeployStore(tranOpts, eth.ContractBackend())
 	if err != nil {
 		t.Fatalf("unable to deploy store: %s", err)
+	}
+
+	if _, err := eth.WaitMined(ctx, tx); err != nil {
+		t.Fatalf("waiting for deploy: %s", err)
 	}
 
 	testStore, err := store.NewStore(contractID, eth.ContractBackend())
@@ -49,6 +53,10 @@ func TestStore(t *testing.T) {
 
 	if _, err := testStore.SetItem(tranOpts, key, value); err != nil {
 		t.Fatalf("should be able to set item: %s", err)
+	}
+
+	if _, err := eth.WaitMined(ctx, tx); err != nil {
+		t.Fatalf("waiting for setitem: %s", err)
 	}
 
 	item, err := testStore.Items(nil, key)
