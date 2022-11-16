@@ -60,8 +60,10 @@ func (sb *SimulatedBackend) SendTransaction(ctx context.Context, tx *types.Trans
 	if err := sb.SimulatedBackend.SendTransaction(ctx, tx); err != nil {
 		return err
 	}
+
 	if sb.AutoCommit {
-		sb.SimulatedBackend.Commit()
+		sb.Commit()
 	}
+
 	return nil
 }

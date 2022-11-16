@@ -3,7 +3,7 @@ module github.com/ardanlabs/smartcontract
 go 1.18
 
 require (
-	github.com/ardanlabs/ethereum v0.7.1-0.20221116001038-53f9c310a327
+	github.com/ardanlabs/ethereum v0.7.1-0.20221116002155-8f041b614f9e
 	github.com/divergencetech/ethier v0.35.3
 	github.com/ethereum/go-ethereum v1.10.25
 )
@@ -51,6 +51,6 @@ require (
 )
 
 replace (
-	github.com/ardanlabs/ethereum v0.6.0 => github.com/ardanlabs/ethereum v0.7.1-0.20221116001038-53f9c310a327
+	github.com/ardanlabs/ethereum v0.6.0 => github.com/ardanlabs/ethereum v0.7.1-0.20221116002155-8f041b614f9e
 	github.com/divergencetech/ethier v0.35.3 => github.com/ardanlabs/ethier v0.0.0-20221115210137-5c74ad1c8137
 )
