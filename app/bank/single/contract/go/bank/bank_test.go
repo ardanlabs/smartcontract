@@ -2,7 +2,6 @@ package bank_test
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -71,10 +70,8 @@ func TestBank(t *testing.T) {
 
 	initialBalance, err := testBank.Balance(callOpts)
 	if err != nil {
-		t.Fatalf("should get the balance: %s", err)
+		t.Fatalf("should get the initial balance: %s", err)
 	}
-
-	fmt.Printf("initial balance: %d\n", initialBalance)
 
 	depositTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 	if err != nil {
@@ -92,10 +89,8 @@ func TestBank(t *testing.T) {
 
 	postDepositBalance, err := testBank.Balance(callOpts)
 	if err != nil {
-		t.Fatalf("should get balance after deposit: %s", err)
+		t.Fatalf("unable to get balance after deposit: %s", err)
 	}
-
-	fmt.Printf("post deposit balance: %d\n", postDepositBalance)
 
 	gotBal := initialBalance.Add(initialBalance, depositTranOpts.Value)
 	if postDepositBalance.Cmp(gotBal) != 0 {
@@ -109,7 +104,7 @@ func TestBank(t *testing.T) {
 
 	withdrawTranOpts.Value = big.NewInt(10)
 	if _, err = testBank.Withdraw(withdrawTranOpts); err != nil {
-		t.Fatalf("should be able to withdraw money: %s", err)
+		t.Fatalf("unable be able to withdraw money: %s", err)
 	}
 
 	if _, err := deployer.WaitMined(ctx, tx); err != nil {
@@ -118,10 +113,8 @@ func TestBank(t *testing.T) {
 
 	postWithdrawBalance, err := testBank.Balance(callOpts)
 	if err != nil {
-		t.Fatalf("should get balance after deposit: %s", err)
+		t.Fatalf("should get balance after withdraw: %s", err)
 	}
-
-	fmt.Printf("post withdraw balance: %d\n", postWithdrawBalance)
 
 	gotBal = postDepositBalance.Sub(postDepositBalance, withdrawTranOpts.Value)
 	if postWithdrawBalance.Cmp(gotBal) != 0 {
@@ -130,7 +123,7 @@ func TestBank(t *testing.T) {
 
 	reconcileTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 	if err != nil {
-		t.Fatalf("unable to create transaction opts for withdraw: %s", err)
+		t.Fatalf("unable to create transaction opts for reconcile: %s", err)
 	}
 
 	losers := []common.Address{loser1.Address(), loser2.Address()}
@@ -143,7 +136,7 @@ func TestBank(t *testing.T) {
 	}
 
 	if _, err := deployer.WaitMined(ctx, tx); err != nil {
-		t.Fatalf("waiting for withdraw: %s", err)
+		t.Fatalf("waiting for reconcile: %s", err)
 	}
 
 	version, err := testBank.Version(callOpts)
