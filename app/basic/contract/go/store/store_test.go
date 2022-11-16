@@ -1,26 +1,43 @@
 package store_test
 
 import (
+	"context"
+	"math/big"
 	"testing"
 
+	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/smartcontract/app/basic/contract/go/store"
-	"github.com/divergencetech/ethier/ethtest"
 )
 
 const deployer = 0
 
 func TestStore(t *testing.T) {
-	sim, err := ethtest.NewSimulatedBackend(1)
+	ctx := context.Background()
+
+	sim, err := ethereum.CreateSimulation(1, true)
 	if err != nil {
 		t.Fatalf("unable to create simulated backend: %s", err)
 	}
+	defer sim.Close()
 
-	contractID, _, _, err := store.DeployStore(sim.Acc(deployer), sim)
+	ethereum := ethereum.NewSimulation(sim, sim.PrivateKeys[0])
+	if err != nil {
+		t.Fatalf("unable to create an ethereum api value: %s", err)
+	}
+
+	const gasLimit = 1600000
+	const valueGwei = 0.0
+	tranOpts, err := ethereum.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+	if err != nil {
+		t.Fatalf("unable to create transaction opts for deploy: %s", err)
+	}
+
+	contractID, _, _, err := store.DeployStore(tranOpts, ethereum.ContractBackend())
 	if err != nil {
 		t.Fatalf("unable to deploy store: %s", err)
 	}
 
-	store, err := store.NewStore(contractID, sim)
+	store, err := store.NewStore(contractID, ethereum.ContractBackend())
 	if err != nil {
 		t.Fatalf("error creating store: %s", err)
 	}
@@ -30,7 +47,12 @@ func TestStore(t *testing.T) {
 	copy(key[:], []byte("name"))
 	copy(value[:], []byte("brianna"))
 
-	if _, err := store.SetItem(sim.Acc(deployer), key, value); err != nil {
+	tranOpts, err = ethereum.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+	if err != nil {
+		t.Fatalf("unable to create transaction opts for setitem: %s", err)
+	}
+
+	if _, err := store.SetItem(tranOpts, key, value); err != nil {
 		t.Fatalf("should be able to set item: %s", err)
 	}
 

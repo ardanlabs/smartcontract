@@ -137,18 +137,14 @@ func FromAddressAny(value any, signature string) (string, error) {
 // stamp embedded into the final hash. This is the data that is signed.
 func stamp(b []byte) ([32]byte, error) {
 
-	// Hash the data data into a 32 byte array. This will provide
-	// a data length consistency with all data.
-	txHash := crypto.Keccak256(b)
-
 	// Convert the stamp into a slice of bytes. This stamp is
 	// used so signatures we produce when signing data
-	// are always unique to the Ardan blockchain.
-	stamp := []byte("\x19Ethereum Signed Message:\n32")
+	// are always unique to the Ethereum blockchain.
+	stamp := []byte(fmt.Sprintf("\x19Ethereum Signed Message:\n%d", len(b)))
 
 	// Hash the stamp and txHash together in a final 32 byte array
 	// that represents the data.
-	data := crypto.Keccak256(stamp, txHash)
+	data := crypto.Keccak256(stamp, b)
 
 	// The final data to be signed will always be a 32 byte array and
 	// it's best to return it as such to make this obvious.

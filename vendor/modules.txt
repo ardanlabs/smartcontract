@@ -4,7 +4,7 @@ github.com/DeOne4eg/eth-unit-converter
 # github.com/VictoriaMetrics/fastcache v1.10.0
 ## explicit; go 1.13
 github.com/VictoriaMetrics/fastcache
-# github.com/ardanlabs/ethereum v0.6.0
+# github.com/ardanlabs/ethereum v0.7.1-0.20221116001038-53f9c310a327
 ## explicit; go 1.18
 github.com/ardanlabs/ethereum
 github.com/ardanlabs/ethereum/currency
@@ -250,3 +250,4 @@ google.golang.org/protobuf/runtime/protoimpl
 # gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
 ## explicit
 gopkg.in/natefinch/npipe.v2
+# github.com/ardanlabs/ethereum v0.6.0 => github.com/ardanlabs/ethereum v0.7.1-0.20221116001038-53f9c310a327
