@@ -18,21 +18,21 @@ func TestStore(t *testing.T) {
 	}
 	defer sim.Close()
 
-	ethereum := ethereum.NewSimulation(sim, sim.PrivateKeys[0])
+	eth := ethereum.NewSimulation(sim, sim.PrivateKeys[0])
 
 	const gasLimit = 1600000
 	const valueGwei = 0.0
-	tranOpts, err := ethereum.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+	tranOpts, err := eth.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 	if err != nil {
 		t.Fatalf("unable to create transaction opts for deploy: %s", err)
 	}
 
-	contractID, _, _, err := store.DeployStore(tranOpts, ethereum.ContractBackend())
+	contractID, _, _, err := store.DeployStore(tranOpts, eth.ContractBackend())
 	if err != nil {
 		t.Fatalf("unable to deploy store: %s", err)
 	}
 
-	store, err := store.NewStore(contractID, ethereum.ContractBackend())
+	testStore, err := store.NewStore(contractID, eth.ContractBackend())
 	if err != nil {
 		t.Fatalf("error creating store: %s", err)
 	}
@@ -42,16 +42,16 @@ func TestStore(t *testing.T) {
 	copy(key[:], []byte("name"))
 	copy(value[:], []byte("brianna"))
 
-	tranOpts, err = ethereum.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+	tranOpts, err = eth.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 	if err != nil {
 		t.Fatalf("unable to create transaction opts for setitem: %s", err)
 	}
 
-	if _, err := store.SetItem(tranOpts, key, value); err != nil {
+	if _, err := testStore.SetItem(tranOpts, key, value); err != nil {
 		t.Fatalf("should be able to set item: %s", err)
 	}
 
-	item, err := store.Items(nil, key)
+	item, err := testStore.Items(nil, key)
 	if err != nil {
 		t.Fatalf("should be able to retrieve item: %s", err)
 	}
