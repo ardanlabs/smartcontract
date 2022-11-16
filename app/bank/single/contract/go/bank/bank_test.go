@@ -2,37 +2,51 @@ package bank_test
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/smartcontract/app/bank/single/contract/go/bank"
+	"github.com/ethereum/go-ethereum/common"
+)
+
+const (
+	delpoyerAcc = iota
+	winnerAcc
+	loser1Acc
+	loser2Acc
+	numAccounts
 )
 
 func TestBank(t *testing.T) {
 	ctx := context.Background()
 
-	sim, err := ethereum.CreateSimulation(1, true)
+	sim, err := ethereum.CreateSimulation(numAccounts, true)
 	if err != nil {
 		t.Fatalf("unable to create simulated backend: %s", err)
 	}
 	defer sim.Close()
 
-	eth := ethereum.NewSimulation(sim, sim.PrivateKeys[0])
+	deployer := ethereum.NewSimulation(sim, sim.PrivateKeys[delpoyerAcc])
+	winner := ethereum.NewSimulation(sim, sim.PrivateKeys[winnerAcc])
+	loser1 := ethereum.NewSimulation(sim, sim.PrivateKeys[loser1Acc])
+	loser2 := ethereum.NewSimulation(sim, sim.PrivateKeys[loser2Acc])
 
 	const gasLimit = 1700000
 	const valueGwei = 0.0
-	tranOpts, err := eth.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+
+	deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 	if err != nil {
 		t.Fatalf("unable to create transaction opts for deploy: %s", err)
 	}
 
-	contractID, tx, _, err := bank.DeployBank(tranOpts, eth.ContractBackend())
+	contractID, tx, _, err := bank.DeployBank(deployTranOpts, deployer.ContractBackend())
 	if err != nil {
 		t.Fatalf("unable to deploy bank: %s", err)
 	}
 
-	if _, err := eth.WaitMined(ctx, tx); err != nil {
+	if _, err := deployer.WaitMined(ctx, tx); err != nil {
 		t.Fatalf("waiting for deploy: %s", err)
 	}
 
@@ -41,9 +55,9 @@ func TestBank(t *testing.T) {
 		t.Fatalf("unable to create a bank: %s", err)
 	}
 
-	callOpts, err := eth.NewCallOpts(ctx)
+	callOpts, err := deployer.NewCallOpts(ctx)
 	if err != nil {
-		t.Fatalf("unable to create call opts for owner: %s", err)
+		t.Fatalf("unable to create call opts: %s", err)
 	}
 
 	owner, err := testBank.Owner(callOpts)
@@ -51,36 +65,94 @@ func TestBank(t *testing.T) {
 		t.Fatalf("unable to get account owner: %s", err)
 	}
 
-	if owner != eth.Address() {
-		t.Fatalf("Retrieved owner doesn't match expectations: %v != %v", owner, eth.Address())
+	if owner != deployer.Address() {
+		t.Fatalf("Retrieved owner doesn't match expectations: %v != %v", owner, deployer.Address())
 	}
 
-	balanceBefore, err := testBank.Balance(callOpts)
+	initialBalance, err := testBank.Balance(callOpts)
 	if err != nil {
 		t.Fatalf("should get the balance: %s", err)
 	}
 
-	to, err := eth.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+	fmt.Printf("initial balance: %d\n", initialBalance)
+
+	depositTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 	if err != nil {
 		t.Fatalf("unable to create transaction opts for deposit: %s", err)
 	}
 
-	to.Value = big.NewInt(10)
-	if _, err = testBank.Deposit(to); err != nil {
+	depositTranOpts.Value = big.NewInt(10)
+	if _, err = testBank.Deposit(depositTranOpts); err != nil {
 		t.Fatalf("should be able to deposit money: %s", err)
 	}
 
-	if _, err := eth.WaitMined(ctx, tx); err != nil {
+	if _, err := deployer.WaitMined(ctx, tx); err != nil {
 		t.Fatalf("waiting for deposit: %s", err)
 	}
 
-	expBal, err := testBank.Balance(callOpts)
+	postDepositBalance, err := testBank.Balance(callOpts)
 	if err != nil {
 		t.Fatalf("should get balance after deposit: %s", err)
 	}
 
-	gotBal := balanceBefore.Add(balanceBefore, to.Value)
-	if expBal.Cmp(gotBal) != 0 {
-		t.Fatalf("wrong balance, got %v  exp %v", gotBal, expBal)
+	fmt.Printf("post deposit balance: %d\n", postDepositBalance)
+
+	gotBal := initialBalance.Add(initialBalance, depositTranOpts.Value)
+	if postDepositBalance.Cmp(gotBal) != 0 {
+		t.Fatalf("wrong balance, got %v  exp %v", gotBal, postDepositBalance)
+	}
+
+	withdrawTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+	if err != nil {
+		t.Fatalf("unable to create transaction opts for withdraw: %s", err)
+	}
+
+	withdrawTranOpts.Value = big.NewInt(10)
+	if _, err = testBank.Withdraw(withdrawTranOpts); err != nil {
+		t.Fatalf("should be able to withdraw money: %s", err)
+	}
+
+	if _, err := deployer.WaitMined(ctx, tx); err != nil {
+		t.Fatalf("waiting for withdraw: %s", err)
+	}
+
+	postWithdrawBalance, err := testBank.Balance(callOpts)
+	if err != nil {
+		t.Fatalf("should get balance after deposit: %s", err)
+	}
+
+	fmt.Printf("post withdraw balance: %d\n", postWithdrawBalance)
+
+	gotBal = postDepositBalance.Sub(postDepositBalance, withdrawTranOpts.Value)
+	if postWithdrawBalance.Cmp(gotBal) != 0 {
+		t.Fatalf("wrong balance, got %v  exp %v", gotBal, postWithdrawBalance)
+	}
+
+	reconcileTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+	if err != nil {
+		t.Fatalf("unable to create transaction opts for withdraw: %s", err)
+	}
+
+	losers := []common.Address{loser1.Address(), loser2.Address()}
+	antWei := big.NewInt(1000)
+	gameFeeWei := big.NewInt(10)
+
+	_, err = testBank.Reconcile(reconcileTranOpts, winner.Address(), losers, antWei, gameFeeWei)
+	if err != nil {
+		t.Fatalf("unable to reconcile: %s", err)
+	}
+
+	if _, err := deployer.WaitMined(ctx, tx); err != nil {
+		t.Fatalf("waiting for withdraw: %s", err)
+	}
+
+	version, err := testBank.Version(callOpts)
+	if err != nil {
+		t.Fatalf("error getting version: %s", err)
+	}
+
+	const expectedVersion = "0.1.0"
+	if version != expectedVersion {
+		t.Fatalf("wrong version. got %s, exp %s\n", version, expectedVersion)
 	}
 }
