@@ -1,28 +1,49 @@
 package simplecoin_test
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
+	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/smartcontract/app/simplecoin/contract/go/simplecoin"
-	"github.com/divergencetech/ethier/ethtest"
 )
 
 const (
-	deployer = 0
-	account  = 1
+	ownerAcc = iota
+	secondAcc
+	numAccounts
 )
 
 func TestSimpleCoin(t *testing.T) {
-	sim, err := ethtest.NewSimulatedBackend(2)
+	ctx := context.Background()
+
+	sim, err := ethereum.CreateSimulation(numAccounts, true)
 	if err != nil {
 		t.Fatalf("unable to create simulated backend: %s", err)
 	}
+	defer sim.Close()
 
-	startingBalance := big.NewInt(1000)
-	contractID, _, _, err := simplecoin.DeploySimplecoin(sim.Acc(deployer), sim, startingBalance)
+	deployer := ethereum.NewSimulation(sim, sim.PrivateKeys[ownerAcc])
+	second := ethereum.NewSimulation(sim, sim.PrivateKeys[secondAcc])
+
+	const gasLimit = 1600000
+	const valueGwei = 0.0
+	const startingBalanceAmount = 1000
+
+	deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+	if err != nil {
+		t.Fatalf("unable to create transaction opts for deploy: %s", err)
+	}
+
+	startingBalance := big.NewInt(startingBalanceAmount)
+	contractID, tx, _, err := simplecoin.DeploySimplecoin(deployTranOpts, sim, startingBalance)
 	if err != nil {
 		t.Fatalf("unable to deploy simplecoin: %s", err)
+	}
+
+	if _, err := deployer.WaitMined(ctx, tx); err != nil {
+		t.Fatalf("waiting for deploy: %s", err)
 	}
 
 	scoin, err := simplecoin.NewSimplecoin(contractID, sim)
@@ -30,36 +51,50 @@ func TestSimpleCoin(t *testing.T) {
 		t.Fatalf("unable to create a simplecoin: %s", err)
 	}
 
-	got, err := scoin.CoinBalance(sim.CallFrom(deployer), sim.Addr(deployer))
+	callOpts, err := deployer.NewCallOpts(ctx)
 	if err != nil {
-		t.Fatalf("should be able to get balance of deployer: %s", err)
+		t.Fatalf("unable to create call opts: %s", err)
 	}
 
-	if got.Cmp(startingBalance) != 0 {
-		t.Fatalf("should have the expected starting balance, got %v  exp %v", got, startingBalance)
+	initialBalance, err := scoin.CoinBalance(callOpts, deployer.Address())
+	if err != nil {
+		t.Fatalf("unable be able to get initial balance of deployer: %s", err)
+	}
+
+	if initialBalance.Cmp(startingBalance) != 0 {
+		t.Fatalf("should have the expected starting balance, got %v  exp %v", initialBalance, startingBalance)
+	}
+
+	transferTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+	if err != nil {
+		t.Fatalf("unable to create transaction opts for deploy: %s", err)
 	}
 
 	transferAmount := big.NewInt(100)
-	if _, err = scoin.Transfer(sim.Acc(deployer), sim.Addr(account), transferAmount); err != nil {
+	if _, err = scoin.Transfer(transferTranOpts, second.Address(), transferAmount); err != nil {
 		t.Fatalf("should be able to transfer money from deployer to account: %s", err)
 	}
 
-	got, err = scoin.CoinBalance(sim.CallFrom(deployer), sim.Addr(deployer))
+	if _, err := deployer.WaitMined(ctx, tx); err != nil {
+		t.Fatalf("waiting for transfer: %s", err)
+	}
+
+	postTransferBalance, err := scoin.CoinBalance(callOpts, deployer.Address())
 	if err != nil {
 		t.Fatalf("should be able to get balance of deployer: %s", err)
 	}
 
 	exp := startingBalance.Sub(startingBalance, transferAmount)
-	if got.Cmp(exp) != 0 {
-		t.Fatalf("should have the expected deployer balance, got %v  exp %v", got, exp)
+	if postTransferBalance.Cmp(exp) != 0 {
+		t.Fatalf("should have the expected deployer balance, got %v  exp %v", postTransferBalance, exp)
 	}
 
-	got, err = scoin.CoinBalance(sim.CallFrom(deployer), sim.Addr(account))
+	secondBalance, err := scoin.CoinBalance(callOpts, second.Address())
 	if err != nil {
 		t.Fatalf("should be able to get balance of account: %s", err)
 	}
 
-	if got.Cmp(transferAmount) != 0 {
-		t.Fatalf("should have the expected account balance, got %v  exp %v", got, transferAmount)
+	if secondBalance.Cmp(transferAmount) != 0 {
+		t.Fatalf("should have the expected account balance, got %v  exp %v", secondBalance, transferAmount)
 	}
 }
