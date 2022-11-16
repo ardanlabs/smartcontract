@@ -3,13 +3,17 @@
 This is a library specialized at replacing the big.Int library for math based on 256-bit types, used by both 
 [go-ethereum](https://github.com/ethereum/go-ethereum) and [turbo-geth](https://github.com/ledgerwatch/turbo-geth).
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/holiman/uint256.svg)](https://pkg.go.dev/github.com/holiman/uint256)
+[![codecov](https://codecov.io/gh/holiman/uint256/branch/master/graph/badge.svg?token=LHs7xL99wQ)](https://codecov.io/gh/holiman/uint256)
+[![DeepSource](https://deepsource.io/gh/holiman/uint256.svg/?label=active+issues&token=CNJRIm7wXZdOM9xKKH4hXUKd)](https://deepsource.io/gh/holiman/uint256/?ref=repository-badge)
+
 ## Benchmarks
 
 Current benchmarks, with tests ending with `big` being the standard `big.Int` library, and `uint256` being this library. 
 
 ### Current status
 
-- As of 2020-03-18, `uint256` wins over big in every single case, often with orders of magnitude.
+- As of 2020-03-18, `uint256` wins over `math/big` in every single case, often with orders of magnitude.
 - And as of release `0.1.0`, the `uint256` library is alloc-free. 
 - With the `1.0.0` release, it also has `100%` test coverage. 
  
