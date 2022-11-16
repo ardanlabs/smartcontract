@@ -81,15 +81,15 @@ basic-build:
 
 # This will deploy the smart contract to the locally running Ethereum environment.
 basic-deploy:
-	go run app/basic/cmd/deploy/main.go
+	CGO_ENABLED=0 go run app/basic/cmd/deploy/main.go
 
 # This will execute a simple program to test access to the smart contract API.
 basic-write:
-	go run app/basic/cmd/write/main.go
+	CGO_ENABLED=0 go run app/basic/cmd/write/main.go
 
 # This will execute a simple program to test access to the smart contract API.
 basic-read:
-	go run app/basic/cmd/read/main.go
+	CGO_ENABLED=0 go run app/basic/cmd/read/main.go
 
 
 # ==============================================================================
@@ -101,13 +101,13 @@ scoin-build:
 	abigen --bin=app/simplecoin/contract/abi/simplecoin/SimpleCoin.bin --abi=app/simplecoin/contract/abi/simplecoin/SimpleCoin.abi --pkg=simplecoin --out=app/simplecoin/contract/go/simplecoin/simplecoin.go
 
 scoin-deploy:
-	go run app/simplecoin/cmd/deploy/main.go
+	CGO_ENABLED=0 go run app/simplecoin/cmd/deploy/main.go
 
 scoin-transfer:
-	go run app/simplecoin/cmd/transfer/main.go
+	CGO_ENABLED=0 go run app/simplecoin/cmd/transfer/main.go
 
 scoin-trancheck:
-	go run app/simplecoin/cmd/trancheck/main.go
+	CGO_ENABLED=0 go run app/simplecoin/cmd/trancheck/main.go
 
 # ==============================================================================
 # These commands build, deploy, and run the bank-single smart contract.
@@ -118,7 +118,7 @@ bank-single-build:
 	abigen --bin=app/bank/single/contract/abi/bank/Bank.bin --abi=app/bank/single/contract/abi/bank/Bank.abi --pkg=bank --out=app/bank/single/contract/go/bank/bank.go
 
 bank-single-deploy:
-	go run app/bank/single/cmd/deploy/main.go
+	CGO_ENABLED=0 go run app/bank/single/cmd/deploy/main.go
 
 # ==============================================================================
 # These commands build and deploy different version of the proxy bank smart contract.
@@ -144,35 +144,35 @@ bank-api-v3-build:
 	abigen --bin=app/bank/proxy/contract/abi/bankapi/BankAPI.bin --abi=app/bank/proxy/contract/abi/bankapi/BankAPI.abi --pkg=bankapi --out=app/bank/proxy/contract/go/bankapi/bankapi.go
 
 bank-proxy-deploy:
-	go run app/bank/proxy/cmd/deploy/bank/main.go
+	CGO_ENABLED=0 go run app/bank/proxy/cmd/deploy/bank/main.go
 
 bank-api-deploy:
-	go run app/bank/proxy/cmd/deploy/api/main.go
+	CGO_ENABLED=0 go run app/bank/proxy/cmd/deploy/api/main.go
 
 # ==============================================================================
 # These commands execute API's against the bank smart contract.
 
 # Calls Bank Proxy Deposit function
 bank-proxy-deposit:
-	DEPOSIT_TARGET="account1" DEPOSIT_AMOUNT="120000" go run app/bank/proxy/cmd/deposit/main.go
+	DEPOSIT_TARGET="account1" DEPOSIT_AMOUNT="120000" CGO_ENABLED=0 go run app/bank/proxy/cmd/deposit/main.go
 
 # Calls Bank Proxy Withdraw function
 bank-proxy-withdraw:
-	WITHDRAW_TARGET="account1" go run app/bank/proxy/cmd/withdraw/main.go
+	WITHDRAW_TARGET="account1" CGO_ENABLED=0 go run app/bank/proxy/cmd/withdraw/main.go
 
 # Loads the Bank Proxy account balance with values from various accounts
 bank-proxy-load:
-	DEPOSIT_TARGET="account1" DEPOSIT_AMOUNT="100000" go run app/bank/proxy/cmd/deposit/main.go
-	DEPOSIT_TARGET="account2" DEPOSIT_AMOUNT="110000" go run app/bank/proxy/cmd/deposit/main.go
-	DEPOSIT_TARGET="account3" DEPOSIT_AMOUNT="120000" go run app/bank/proxy/cmd/deposit/main.go
-	DEPOSIT_TARGET="account4" DEPOSIT_AMOUNT="130000" go run app/bank/proxy/cmd/deposit/main.go
+	DEPOSIT_TARGET="account1" DEPOSIT_AMOUNT="100000" CGO_ENABLED=0 go run app/bank/proxy/cmd/deposit/main.go
+	DEPOSIT_TARGET="account2" DEPOSIT_AMOUNT="110000" CGO_ENABLED=0 go run app/bank/proxy/cmd/deposit/main.go
+	DEPOSIT_TARGET="account3" DEPOSIT_AMOUNT="120000" CGO_ENABLED=0 go run app/bank/proxy/cmd/deposit/main.go
+	DEPOSIT_TARGET="account4" DEPOSIT_AMOUNT="130000" CGO_ENABLED=0 go run app/bank/proxy/cmd/deposit/main.go
 
 # Reads all account balances
 bank-proxy-balances:
-	BALANCE_TARGET="account1" go run app/bank/proxy/cmd/balance/main.go
-	BALANCE_TARGET="account2" go run app/bank/proxy/cmd/balance/main.go
-	BALANCE_TARGET="account3" go run app/bank/proxy/cmd/balance/main.go
-	BALANCE_TARGET="account4" go run app/bank/proxy/cmd/balance/main.go
+	BALANCE_TARGET="account1" CGO_ENABLED=0 go run app/bank/proxy/cmd/balance/main.go
+	BALANCE_TARGET="account2" CGO_ENABLED=0 go run app/bank/proxy/cmd/balance/main.go
+	BALANCE_TARGET="account3" CGO_ENABLED=0 go run app/bank/proxy/cmd/balance/main.go
+	BALANCE_TARGET="account4" CGO_ENABLED=0 go run app/bank/proxy/cmd/balance/main.go
 
 # Reconciles the results of a game
 bank-proxy-reconcile:
@@ -180,7 +180,7 @@ bank-proxy-reconcile:
 	RECONCILE_LOSERS_ID="0x0070742FF6003c3E809E78D524F0Fe5dcc5BA7F7,0x7FDFc99999f1760e8dBd75a480B93c7B8386B79a,0x000cF95cB5Eb168F57D0bEFcdf6A201e3E1acea9" \
 	RECONCILE_ANTE_WEI="10000" \
 	RECONCILE_GAME_FEE_WEI="1000" \
-	go run app/bank/proxy/cmd/reconcile/main.go
+	CGO_ENABLED=0 go run app/bank/proxy/cmd/reconcile/main.go
 
 # ==============================================================================
 # These commands build, deploy, and run the verify smart contract.
@@ -192,11 +192,11 @@ sig-verify-build:
 
 # This will deploy the smart contract to the locally running Ethereum environment.
 sig-verify-deploy:
-	go run app/signature/cmd/verify/deploy/main.go
+	CGO_ENABLED=0 go run app/signature/cmd/verify/deploy/main.go
 
 # This will execute a simple program to test access to the smart contract API.
 sig-verify-confirm:
-	go run app/signature/cmd/verify/confirm/main.go
+	CGO_ENABLED=0 go run app/signature/cmd/verify/confirm/main.go
 
 # ==============================================================================
 # These commands build, deploy, and run the book smart contract.
@@ -208,7 +208,7 @@ book-build:
 
 # This will deploy the smart contract to the locally running Ethereum environment.
 book-deploy:
-	go run app/book/cmd/book/deploy/main.go
+	CGO_ENABLED=0 go run app/book/cmd/book/deploy/main.go
 
 # This will execute a test for the book package.
 book-test:
