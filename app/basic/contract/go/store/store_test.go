@@ -9,8 +9,6 @@ import (
 	"github.com/ardanlabs/smartcontract/app/basic/contract/go/store"
 )
 
-const deployer = 0
-
 func TestStore(t *testing.T) {
 	ctx := context.Background()
 
