@@ -19,9 +19,6 @@ func TestStore(t *testing.T) {
 	defer sim.Close()
 
 	ethereum := ethereum.NewSimulation(sim, sim.PrivateKeys[0])
-	if err != nil {
-		t.Fatalf("unable to create an ethereum api value: %s", err)
-	}
 
 	const gasLimit = 1600000
 	const valueGwei = 0.0
