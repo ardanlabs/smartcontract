@@ -25,7 +25,7 @@ func TestBankProxy(t *testing.T) {
 	ctx := context.Background()
 	var testBank *bank.Bank
 	converter := currency.NewDefaultConverter(simplecoin.SimplecoinMetaData.ABI)
-	var contractID common.Address
+	var contract1ID, contract2ID common.Address
 
 	sim, err := ethereum.CreateSimulation(numAccounts, true)
 	if err != nil {
@@ -46,6 +46,26 @@ func TestBankProxy(t *testing.T) {
 	const gasLimit = 1700000
 	const valueGwei = 0.0
 
+	t.Run("deploy initial contract", func(t *testing.T) {
+		deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		if err != nil {
+			t.Fatalf("unable to create transaction opts for deploy: %s", err)
+		}
+
+		var tx *types.Transaction
+		contract1ID, tx, _, err = bank.DeployBank(deployTranOpts, deployer.ContractBackend())
+		if err != nil {
+			t.Fatalf("unable to deploy bank: %s", err)
+		}
+
+		receipt, err := deployer.WaitMined(ctx, tx)
+		if err != nil {
+			t.Fatalf("waiting for deploy: %s", err)
+		}
+
+		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
+	})
+
 	t.Run("deploy bank", func(t *testing.T) {
 		deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 		if err != nil {
@@ -53,7 +73,7 @@ func TestBankProxy(t *testing.T) {
 		}
 
 		var tx *types.Transaction
-		contractID, tx, _, err = bank.DeployBank(deployTranOpts, deployer.ContractBackend())
+		contract2ID, tx, _, err = bank.DeployBank(deployTranOpts, deployer.ContractBackend())
 		if err != nil {
 			t.Fatalf("unable to deploy bank: %s", err)
 		}
@@ -65,7 +85,7 @@ func TestBankProxy(t *testing.T) {
 
 		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 
-		testBank, err = bank.NewBank(contractID, sim)
+		testBank, err = bank.NewBank(contract2ID, sim)
 		if err != nil {
 			t.Fatalf("unable to create a bank: %s", err)
 		}
@@ -77,7 +97,7 @@ func TestBankProxy(t *testing.T) {
 			t.Fatalf("unable to create transaction opts for deploy: %s", err)
 		}
 
-		tx, err := testBank.SetContract(setContractTranOpts, contractID)
+		tx, err := testBank.SetContract(setContractTranOpts, contract1ID)
 		if err != nil {
 			t.Fatalf("unable to set contract: %s", err)
 		}
