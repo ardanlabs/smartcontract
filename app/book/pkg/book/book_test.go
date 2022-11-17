@@ -13,6 +13,7 @@ import (
 	"github.com/ardanlabs/ethereum/currency"
 	scbook "github.com/ardanlabs/smartcontract/app/book/contract/go/book"
 	"github.com/ardanlabs/smartcontract/app/book/pkg/book"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 const (
@@ -59,7 +60,7 @@ func TestMain(m *testing.M) {
 	fmt.Println("Adding money to player 1 account")
 
 	// Add money to this account.
-	if err := ethereum.SendTransaction(ctx, Player1Address, currency.GWei2Wei(fiftyUSD), 21000); err != nil {
+	if err := ethereum.SendTransaction(ctx, common.HexToAddress(Player1Address), currency.GWei2Wei(fiftyUSD), 21000); err != nil {
 		fmt.Println("Player1Address:", err)
 		os.Exit(1)
 	}
@@ -67,7 +68,7 @@ func TestMain(m *testing.M) {
 	fmt.Println("Adding money to player 2 account")
 
 	// Add money to this account.
-	if err := ethereum.SendTransaction(ctx, Player2Address, currency.GWei2Wei(fiftyUSD), 21000); err != nil {
+	if err := ethereum.SendTransaction(ctx, common.HexToAddress(Player2Address), currency.GWei2Wei(fiftyUSD), 21000); err != nil {
 		fmt.Println("Player2Address:", err)
 		os.Exit(1)
 	}

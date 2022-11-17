@@ -215,7 +215,7 @@ func (eth *Ethereum) WaitMined(ctx context.Context, tx *types.Transaction) (*typ
 // SendTransaction sends a transaction to the specified address for the
 // specified amount. The function will wait for the transaction to be mined
 // based on the timeout value specified in the context.
-func (eth *Ethereum) SendTransaction(ctx context.Context, address string, value *big.Int, gasLimit uint64) error {
+func (eth *Ethereum) SendTransaction(ctx context.Context, address common.Address, value *big.Int, gasLimit uint64) error {
 	nonce, err := eth.client.PendingNonceAt(ctx, eth.address)
 	if err != nil {
 		return fmt.Errorf("retrieving next nonce: %w", err)
@@ -226,12 +226,11 @@ func (eth *Ethereum) SendTransaction(ctx context.Context, address string, value 
 		return fmt.Errorf("retrieving suggested gas price: %w", err)
 	}
 
-	addr := common.HexToAddress(address)
 	tx := types.NewTx(&types.LegacyTx{
 		Nonce:    nonce,
 		GasPrice: gasPrice,
 		Gas:      gasLimit,
-		To:       &addr,
+		To:       &address,
 		Value:    value,
 		Data:     nil,
 	})
@@ -266,17 +265,17 @@ func (eth *Ethereum) TransactionReceipt(ctx context.Context, txHash common.Hash)
 
 // Balance retrieves the current balance for the client account.
 func (eth *Ethereum) Balance(ctx context.Context) (wei *big.Int, err error) {
-	return eth.BalanceAt(ctx, eth.address.String())
+	return eth.BalanceAt(ctx, eth.address)
 }
 
 // BalanceAt retrieves the current balance for the specified account.
-func (eth *Ethereum) BalanceAt(ctx context.Context, address string) (wei *big.Int, err error) {
+func (eth *Ethereum) BalanceAt(ctx context.Context, address common.Address) (wei *big.Int, err error) {
 	client, isClient := eth.client.(*ethclient.Client)
 	if !isClient {
 		return big.NewInt(0), errors.New("running simulated backend")
 	}
 
-	return client.BalanceAt(ctx, common.HexToAddress(address), nil)
+	return client.BalanceAt(ctx, address, nil)
 }
 
 // BaseFee calculates the base fee from the block for this receipt.
