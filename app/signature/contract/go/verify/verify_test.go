@@ -1,67 +1,100 @@
 package verify_test
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/ardanlabs/ethereum"
+	"github.com/ardanlabs/ethereum/currency"
 	"github.com/ardanlabs/smartcontract/app/signature/contract/go/verify"
-	"github.com/divergencetech/ethier/ethtest"
+	"github.com/ardanlabs/smartcontract/app/simplecoin/contract/go/simplecoin"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 )
 
 const (
-	deployer     = 0
+	deployerAcc = iota
+	numAccounts
 	keyStoreFile = "../../../../../zarf/ethereum/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd"
 	passPhrase   = "123"
 )
 
 func TestVerify(t *testing.T) {
-	sim, err := ethtest.NewSimulatedBackend(1)
+	ctx := context.Background()
+	var testVerify *verify.Verify
+	converter := currency.NewDefaultConverter(simplecoin.SimplecoinMetaData.ABI)
+
+	sim, err := ethereum.CreateSimulation(1, true)
 	if err != nil {
 		t.Fatalf("unable to create simulated backend: %s", err)
 	}
+	defer sim.Close()
 
-	contractID, _, _, err := verify.DeployVerify(sim.Acc(deployer), sim)
+	deployer := ethereum.NewSimulation(sim, sim.PrivateKeys[deployerAcc])
+
+	callOpts, err := deployer.NewCallOpts(ctx)
 	if err != nil {
-		t.Fatalf("unable to deploy verify: %s", err)
+		t.Fatalf("unable to create call opts: %s", err)
 	}
 
-	verify, err := verify.NewVerify(contractID, sim)
-	if err != nil {
-		t.Fatalf("unable to create a verify: %s", err)
-	}
+	const gasLimit = 1700000
+	const valueGwei = 0.0
 
-	id := "asdjh1231"
-	participant := sim.Addr(deployer)
-	nonce := big.NewInt(1)
+	t.Run("deploy verify", func(t *testing.T) {
+		deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		if err != nil {
+			t.Fatalf("unable to create transaction opts for verify: %s", err)
+		}
 
-	bytes, err := encodeForSolidity(id, participant, nonce)
-	if err != nil {
-		t.Fatalf("should be able to encode data: %s", err)
-	}
+		contractID, tx, _, err := verify.DeployVerify(deployTranOpts, deployer.ContractBackend())
+		if err != nil {
+			t.Fatalf("unable to deploy verify: %s", err)
+		}
 
-	signature, err := ethereum.SignBytes(bytes, sim.PrivateKey(deployer))
-	if err != nil {
-		t.Fatalf("should be able to sign the message: %s", err)
-	}
+		receipt, err := deployer.WaitMined(ctx, tx)
+		if err != nil {
+			t.Fatalf("waiting for deploy: %s", err)
+		}
 
-	sig, err := hex.DecodeString(signature[2:])
-	if err != nil {
-		t.Fatalf("should be able to decode the signature: %s", err)
-	}
+		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 
-	matched, err := verify.MatchSender(sim.CallFrom(deployer), id, participant, nonce, sig)
-	if err != nil {
-		t.Fatalf("should be able to match the sender: %s", err)
-	}
+		testVerify, err = verify.NewVerify(contractID, sim)
+		if err != nil {
+			t.Fatalf("unable to create a verify: %s", err)
+		}
+	})
 
-	if !matched {
-		t.Fatal("Match failed!")
-	}
+	t.Run("match sender", func(t *testing.T) {
+		id := "asdjh1231"
+		nonce := big.NewInt(1)
+
+		bytes, err := encodeForSolidity(id, deployer.Address(), nonce)
+		if err != nil {
+			t.Fatalf("should be able to encode data: %s", err)
+		}
+
+		signature, err := ethereum.SignBytes(bytes, sim.PrivateKeys[deployerAcc])
+		if err != nil {
+			t.Fatalf("should be able to sign the message: %s", err)
+		}
+
+		sig, err := hex.DecodeString(signature[2:])
+		if err != nil {
+			t.Fatalf("should be able to decode the signature: %s", err)
+		}
+
+		matched, err := testVerify.MatchSender(callOpts, id, deployer.Address(), nonce, sig)
+		if err != nil {
+			t.Fatalf("should be able to match the sender: %s", err)
+		}
+
+		if !matched {
+			t.Fatal("Match failed!")
+		}
+	})
 }
 
 // encodeForSolidity will take the arguments and pack them into a byte array that
