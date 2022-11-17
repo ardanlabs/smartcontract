@@ -20,6 +20,7 @@ const (
 
 func TestBank(t *testing.T) {
 	ctx := context.Background()
+	var testBank *bank.Bank
 
 	sim, err := ethereum.CreateSimulation(numAccounts, true)
 	if err != nil {
@@ -32,120 +33,139 @@ func TestBank(t *testing.T) {
 	loser1 := ethereum.NewSimulation(sim, sim.PrivateKeys[loser1Acc])
 	loser2 := ethereum.NewSimulation(sim, sim.PrivateKeys[loser2Acc])
 
-	const gasLimit = 1700000
-	const valueGwei = 0.0
-
-	deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
-	if err != nil {
-		t.Fatalf("unable to create transaction opts for deploy: %s", err)
-	}
-
-	contractID, tx, _, err := bank.DeployBank(deployTranOpts, deployer.ContractBackend())
-	if err != nil {
-		t.Fatalf("unable to deploy bank: %s", err)
-	}
-
-	if _, err := deployer.WaitMined(ctx, tx); err != nil {
-		t.Fatalf("waiting for deploy: %s", err)
-	}
-
-	testBank, err := bank.NewBank(contractID, sim)
-	if err != nil {
-		t.Fatalf("unable to create a bank: %s", err)
-	}
-
 	callOpts, err := deployer.NewCallOpts(ctx)
 	if err != nil {
 		t.Fatalf("unable to create call opts: %s", err)
 	}
 
-	owner, err := testBank.Owner(callOpts)
-	if err != nil {
-		t.Fatalf("unable to get account owner: %s", err)
-	}
+	const gasLimit = 1700000
+	const valueGwei = 0.0
 
-	if owner != deployer.Address() {
-		t.Fatalf("Retrieved owner doesn't match expectations: %v != %v", owner, deployer.Address())
-	}
+	t.Run("deploy bank", func(t *testing.T) {
+		deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		if err != nil {
+			t.Fatalf("unable to create transaction opts for deploy: %s", err)
+		}
 
-	initialBalance, err := testBank.Balance(callOpts)
-	if err != nil {
-		t.Fatalf("should get the initial balance: %s", err)
-	}
+		contractID, tx, _, err := bank.DeployBank(deployTranOpts, deployer.ContractBackend())
+		if err != nil {
+			t.Fatalf("unable to deploy bank: %s", err)
+		}
 
-	depositTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
-	if err != nil {
-		t.Fatalf("unable to create transaction opts for deposit: %s", err)
-	}
+		if _, err := deployer.WaitMined(ctx, tx); err != nil {
+			t.Fatalf("waiting for deploy: %s", err)
+		}
 
-	depositTranOpts.Value = big.NewInt(10)
-	if _, err = testBank.Deposit(depositTranOpts); err != nil {
-		t.Fatalf("should be able to deposit money: %s", err)
-	}
+		testBank, err = bank.NewBank(contractID, sim)
+		if err != nil {
+			t.Fatalf("unable to create a bank: %s", err)
+		}
+	})
 
-	if _, err := deployer.WaitMined(ctx, tx); err != nil {
-		t.Fatalf("waiting for deposit: %s", err)
-	}
+	t.Run("check owner matches", func(t *testing.T) {
+		owner, err := testBank.Owner(callOpts)
+		if err != nil {
+			t.Fatalf("unable to get account owner: %s", err)
+		}
 
-	postDepositBalance, err := testBank.Balance(callOpts)
-	if err != nil {
-		t.Fatalf("unable to get balance after deposit: %s", err)
-	}
+		if owner != deployer.Address() {
+			t.Fatalf("Retrieved owner doesn't match expectations: %v != %v", owner, deployer.Address())
+		}
+	})
 
-	gotBal := initialBalance.Add(initialBalance, depositTranOpts.Value)
-	if postDepositBalance.Cmp(gotBal) != 0 {
-		t.Fatalf("wrong balance, got %v  exp %v", gotBal, postDepositBalance)
-	}
+	t.Run("check deposit", func(t *testing.T) {
+		initialBalance, err := testBank.Balance(callOpts)
+		if err != nil {
+			t.Fatalf("should get the initial balance: %s", err)
+		}
 
-	withdrawTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
-	if err != nil {
-		t.Fatalf("unable to create transaction opts for withdraw: %s", err)
-	}
+		depositTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		if err != nil {
+			t.Fatalf("unable to create transaction opts for deposit: %s", err)
+		}
 
-	withdrawTranOpts.Value = big.NewInt(10)
-	if _, err = testBank.Withdraw(withdrawTranOpts); err != nil {
-		t.Fatalf("unable be able to withdraw money: %s", err)
-	}
+		depositTranOpts.Value = big.NewInt(10)
+		tx, err := testBank.Deposit(depositTranOpts)
+		if err != nil {
+			t.Fatalf("should be able to deposit money: %s", err)
+		}
 
-	if _, err := deployer.WaitMined(ctx, tx); err != nil {
-		t.Fatalf("waiting for withdraw: %s", err)
-	}
+		if _, err := deployer.WaitMined(ctx, tx); err != nil {
+			t.Fatalf("waiting for deposit: %s", err)
+		}
 
-	postWithdrawBalance, err := testBank.Balance(callOpts)
-	if err != nil {
-		t.Fatalf("should get balance after withdraw: %s", err)
-	}
+		postDepositBalance, err := testBank.Balance(callOpts)
+		if err != nil {
+			t.Fatalf("unable to get balance after deposit: %s", err)
+		}
 
-	gotBal = postDepositBalance.Sub(postDepositBalance, withdrawTranOpts.Value)
-	if postWithdrawBalance.Cmp(gotBal) != 0 {
-		t.Fatalf("wrong balance, got %v  exp %v", gotBal, postWithdrawBalance)
-	}
+		gotBal := initialBalance.Add(initialBalance, depositTranOpts.Value)
+		if postDepositBalance.Cmp(gotBal) != 0 {
+			t.Fatalf("wrong balance, got %v  exp %v", gotBal, postDepositBalance)
+		}
+	})
 
-	reconcileTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
-	if err != nil {
-		t.Fatalf("unable to create transaction opts for reconcile: %s", err)
-	}
+	t.Run("check withdraw", func(t *testing.T) {
+		initialBalance, err := testBank.Balance(callOpts)
+		if err != nil {
+			t.Fatalf("should get the initial balance: %s", err)
+		}
 
-	losers := []common.Address{loser1.Address(), loser2.Address()}
-	antWei := big.NewInt(1000)
-	gameFeeWei := big.NewInt(10)
+		withdrawTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		if err != nil {
+			t.Fatalf("unable to create transaction opts for withdraw: %s", err)
+		}
 
-	_, err = testBank.Reconcile(reconcileTranOpts, winner.Address(), losers, antWei, gameFeeWei)
-	if err != nil {
-		t.Fatalf("unable to reconcile: %s", err)
-	}
+		withdrawTranOpts.Value = big.NewInt(10)
+		tx, err := testBank.Withdraw(withdrawTranOpts)
+		if err != nil {
+			t.Fatalf("unable be able to withdraw money: %s", err)
+		}
 
-	if _, err := deployer.WaitMined(ctx, tx); err != nil {
-		t.Fatalf("waiting for reconcile: %s", err)
-	}
+		if _, err := deployer.WaitMined(ctx, tx); err != nil {
+			t.Fatalf("waiting for withdraw: %s", err)
+		}
 
-	version, err := testBank.Version(callOpts)
-	if err != nil {
-		t.Fatalf("error getting version: %s", err)
-	}
+		postWithdrawBalance, err := testBank.Balance(callOpts)
+		if err != nil {
+			t.Fatalf("should get balance after withdraw: %s", err)
+		}
 
-	const expectedVersion = "0.1.0"
-	if version != expectedVersion {
-		t.Fatalf("wrong version. got %s, exp %s\n", version, expectedVersion)
-	}
+		gotBal := initialBalance.Sub(initialBalance, withdrawTranOpts.Value)
+		if postWithdrawBalance.Cmp(gotBal) != 0 {
+			t.Fatalf("wrong balance, got %v  exp %v", gotBal, postWithdrawBalance)
+		}
+	})
+
+	t.Run("check reconciliation", func(t *testing.T) {
+		reconcileTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		if err != nil {
+			t.Fatalf("unable to create transaction opts for reconcile: %s", err)
+		}
+
+		losers := []common.Address{loser1.Address(), loser2.Address()}
+		antWei := big.NewInt(1000)
+		gameFeeWei := big.NewInt(10)
+
+		tx, err := testBank.Reconcile(reconcileTranOpts, winner.Address(), losers, antWei, gameFeeWei)
+		if err != nil {
+			t.Fatalf("unable to reconcile: %s", err)
+		}
+
+		if _, err := deployer.WaitMined(ctx, tx); err != nil {
+			t.Fatalf("waiting for reconcile: %s", err)
+		}
+	})
+
+	t.Run("check version", func(t *testing.T) {
+		version, err := testBank.Version(callOpts)
+		if err != nil {
+			t.Fatalf("error getting version: %s", err)
+		}
+
+		const expectedVersion = "0.1.0"
+		if version != expectedVersion {
+			t.Fatalf("wrong version. got %s, exp %s\n", version, expectedVersion)
+		}
+	})
 }

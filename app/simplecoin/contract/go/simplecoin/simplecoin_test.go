@@ -2,7 +2,6 @@ package simplecoin_test
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -15,17 +14,17 @@ const (
 	ownerAcc = iota
 	secondAcc
 	numAccounts
-	gasLimit               = 1600000
-	valueGwei              = 0.0
-	xstartingBalanceAmount = 5000
+	gasLimit              = 1600000
+	valueGwei             = 0.0
+	startingBalanceAmount = 5000
 )
 
 func TestSimpleCoin(t *testing.T) {
 	ctx := context.Background()
+	var scoin *simplecoin.Simplecoin
+	startingBalance := big.NewInt(startingBalanceAmount)
 
 	converter := currency.NewDefaultConverter(simplecoin.SimplecoinMetaData.ABI)
-
-	// =========================================================================
 
 	sim, err := ethereum.CreateSimulation(numAccounts, true)
 	if err != nil {
@@ -36,212 +35,205 @@ func TestSimpleCoin(t *testing.T) {
 	deployer := ethereum.NewSimulation(sim, sim.PrivateKeys[ownerAcc])
 	second := ethereum.NewSimulation(sim, sim.PrivateKeys[secondAcc])
 
-	// =========================================================================
-
-	deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
-	if err != nil {
-		t.Fatalf("unable to create transaction opts for deploy: %s", err)
-	}
-
-	startingBalance := big.NewInt(3000)
-	contractID, tx, _, err := simplecoin.DeploySimplecoin(deployTranOpts, sim, startingBalance)
-	if err != nil {
-		t.Fatalf("unable to deploy simplecoin: %s", err)
-	}
-
-	if _, err := deployer.WaitMined(ctx, tx); err != nil {
-		t.Fatalf("waiting for deploy: %s", err)
-	}
-
-	scoin, err := simplecoin.NewSimplecoin(contractID, sim)
-	if err != nil {
-		t.Fatalf("unable to create a simplecoin: %s", err)
-	}
-
-	// =========================================================================
-
 	callOpts, err := deployer.NewCallOpts(ctx)
 	if err != nil {
 		t.Fatalf("unable to create call opts: %s", err)
 	}
 
-	initialBalance, err := scoin.CoinBalance(callOpts, deployer.Address())
-	if err != nil {
-		t.Fatalf("unable be able to get initial balance of deployer: %s", err)
-	}
+	t.Run("deploy simplecoin", func(t *testing.T) {
+		deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		if err != nil {
+			t.Fatalf("unable to create transaction opts for deploy: %s", err)
+		}
 
-	if initialBalance.Cmp(startingBalance) != 0 {
-		t.Fatalf("should have the expected starting balance, got %v  exp %v", initialBalance, startingBalance)
-	}
+		contractID, tx, _, err := simplecoin.DeploySimplecoin(deployTranOpts, sim, startingBalance)
+		if err != nil {
+			t.Fatalf("unable to deploy simplecoin: %s", err)
+		}
 
-	// =========================================================================
+		if _, err := deployer.WaitMined(ctx, tx); err != nil {
+			t.Fatalf("waiting for deploy: %s", err)
+		}
 
-	transferTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
-	if err != nil {
-		t.Fatalf("unable to create transaction opts for deploy: %s", err)
-	}
+		scoin, err = simplecoin.NewSimplecoin(contractID, sim)
+		if err != nil {
+			t.Fatalf("unable to create a simplecoin: %s", err)
+		}
+	})
 
-	transferAmount := big.NewInt(1000)
-	tx, err = scoin.Transfer(transferTranOpts, second.Address(), transferAmount)
-	if err != nil {
-		t.Fatalf("should be able to transfer money from deployer to account: %s", err)
-	}
+	t.Run("check starting balance", func(t *testing.T) {
+		initialBalance, err := scoin.CoinBalance(callOpts, deployer.Address())
+		if err != nil {
+			t.Fatalf("unable be able to get initial balance of deployer: %s", err)
+		}
 
-	receipt, err := deployer.WaitMined(ctx, tx)
-	if err != nil {
-		t.Fatalf("waiting for transfer: %s", err)
-	}
+		if initialBalance.Cmp(startingBalance) != 0 {
+			t.Fatalf("should have the expected starting balance, got %v  exp %v", initialBalance, startingBalance)
+		}
+	})
 
-	t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
+	t.Run("check transfer", func(t *testing.T) {
+		transferTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		if err != nil {
+			t.Fatalf("unable to create transaction opts for deploy: %s", err)
+		}
 
-	// =========================================================================
+		transferAmount := big.NewInt(1000)
+		tx, err := scoin.Transfer(transferTranOpts, second.Address(), transferAmount)
+		if err != nil {
+			t.Fatalf("should be able to transfer money from deployer to account: %s", err)
+		}
 
-	postTransferBalance, err := scoin.CoinBalance(callOpts, deployer.Address())
-	if err != nil {
-		t.Fatalf("should be able to get balance of deployer: %s", err)
-	}
+		receipt, err := deployer.WaitMined(ctx, tx)
+		if err != nil {
+			t.Fatalf("waiting for transfer: %s", err)
+		}
 
-	exp := startingBalance.Sub(startingBalance, transferAmount)
-	if postTransferBalance.Cmp(exp) != 0 {
-		t.Fatalf("should have the expected deployer balance, got %v  exp %v", postTransferBalance, exp)
-	}
+		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 
-	// =========================================================================
+		postTransferBalance, err := scoin.CoinBalance(callOpts, deployer.Address())
+		if err != nil {
+			t.Fatalf("should be able to get balance of deployer: %s", err)
+		}
 
-	secondBalance, err := scoin.CoinBalance(callOpts, second.Address())
-	if err != nil {
-		t.Fatalf("should be able to get balance of account: %s", err)
-	}
+		exp := startingBalance.Sub(startingBalance, transferAmount)
+		if postTransferBalance.Cmp(exp) != 0 {
+			t.Fatalf("should have the expected deployer balance, got %v  exp %v", postTransferBalance, exp)
+		}
 
-	if secondBalance.Cmp(transferAmount) != 0 {
-		t.Fatalf("should have the expected account balance, got %v  exp %v", secondBalance, transferAmount)
-	}
+		secondBalance, err := scoin.CoinBalance(callOpts, second.Address())
+		if err != nil {
+			t.Fatalf("should be able to get balance of account: %s", err)
+		}
 
-	// =========================================================================
+		if secondBalance.Cmp(transferAmount) != 0 {
+			t.Fatalf("should have the expected account balance, got %v  exp %v", secondBalance, transferAmount)
+		}
+	})
 
-	preTransferFromBalanceDeployer, err := scoin.CoinBalance(callOpts, deployer.Address())
-	if err != nil {
-		t.Fatalf("should be able to get balance of account: %s", err)
-	}
+	// preTransferFromBalanceDeployer, err := scoin.CoinBalance(callOpts, deployer.Address())
+	// if err != nil {
+	// 	t.Fatalf("should be able to get balance of account: %s", err)
+	// }
+	//
+	// preTransferFromBalanceSecond, err := scoin.CoinBalance(callOpts, second.Address())
+	// if err != nil {
+	// 	t.Fatalf("should be able to get balance of account: %s", err)
+	// }
+	//
+	// fmt.Printf("tfd: %v tfs: %v\n", preTransferFromBalanceDeployer, preTransferFromBalanceSecond)
+	//
+	// transferFromBalanceDeployer, err := scoin.CoinBalance(callOpts, deployer.Address())
+	// if err != nil {
+	// 	t.Fatalf("should be able to get balance of account: %s", err)
+	// }
+	//
+	// transferFromBalanceSecond, err := scoin.CoinBalance(callOpts, second.Address())
+	// if err != nil {
+	// 	t.Fatalf("should be able to get balance of account: %s", err)
+	// }
+	//
+	// fmt.Printf("tfd: %v tfs: %v\n", transferFromBalanceDeployer, transferFromBalanceSecond)
 
-	preTransferFromBalanceSecond, err := scoin.CoinBalance(callOpts, second.Address())
-	if err != nil {
-		t.Fatalf("should be able to get balance of account: %s", err)
-	}
+	t.Run("check owner", func(t *testing.T) {
+		owner, err := scoin.Owner(callOpts)
+		if err != nil {
+			t.Fatalf("unable to get account owner: %s", err)
+		}
 
-	fmt.Printf("tfd: %v tfs: %v\n", preTransferFromBalanceDeployer, preTransferFromBalanceSecond)
+		if owner != deployer.Address() {
+			t.Fatalf("Retrieved owner doesn't match expectations: %v != %v", owner, deployer.Address())
+		}
+	})
 
-	transferFromBalanceDeployer, err := scoin.CoinBalance(callOpts, deployer.Address())
-	if err != nil {
-		t.Fatalf("should be able to get balance of account: %s", err)
-	}
+	t.Run("check non-frozen account", func(t *testing.T) {
+		frozen, err := scoin.FrozenAccount(callOpts, second.Address())
+		if err != nil {
+			t.Fatalf("unable be able to get allowences: %s", err)
+		}
 
-	transferFromBalanceSecond, err := scoin.CoinBalance(callOpts, second.Address())
-	if err != nil {
-		t.Fatalf("should be able to get balance of account: %s", err)
-	}
+		if frozen {
+			t.Fatal("Account shouldn't be frozen")
+		}
+	})
 
-	fmt.Printf("tfd: %v tfs: %v\n", transferFromBalanceDeployer, transferFromBalanceSecond)
+	t.Run("freeze account", func(t *testing.T) {
+		freezeTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		if err != nil {
+			t.Fatalf("unable to create transaction opts for deploy: %s", err)
+		}
 
-	// =========================================================================
+		tx, err := scoin.FreezeAccount(freezeTranOpts, second.Address(), true)
+		if err != nil {
+			t.Fatalf("unable to create transaction opts for deploy: %s", err)
+		}
 
-	owner, err := scoin.Owner(callOpts)
-	if err != nil {
-		t.Fatalf("unable to get account owner: %s", err)
-	}
+		receipt, err := deployer.WaitMined(ctx, tx)
+		if err != nil {
+			t.Fatalf("waiting for transfer: %s", err)
+		}
 
-	if owner != deployer.Address() {
-		t.Fatalf("Retrieved owner doesn't match expectations: %v != %v", owner, deployer.Address())
-	}
+		t.Logf("FreezeAccount\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
+	})
 
-	// =========================================================================
+	t.Run("check account was frozen", func(t *testing.T) {
+		frozen, err := scoin.FrozenAccount(callOpts, second.Address())
+		if err != nil {
+			t.Fatalf("unable be able to get allowences: %s", err)
+		}
 
-	frozen, err := scoin.FrozenAccount(callOpts, second.Address())
-	if err != nil {
-		t.Fatalf("unable be able to get allowences: %s", err)
-	}
+		if !frozen {
+			t.Fatal("Account should be frozen")
+		}
+	})
 
-	if frozen {
-		t.Fatal("Account shouldn't be frozen")
-	}
+	t.Run("thaw account", func(t *testing.T) {
+		thawTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		if err != nil {
+			t.Fatalf("unable to create transaction opts for deploy: %s", err)
+		}
 
-	// =========================================================================
+		tx, err := scoin.FreezeAccount(thawTranOpts, second.Address(), false)
+		if err != nil {
+			t.Fatalf("unable to create transaction opts for deploy: %s", err)
+		}
 
-	freezeTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
-	if err != nil {
-		t.Fatalf("unable to create transaction opts for deploy: %s", err)
-	}
+		receipt, err := deployer.WaitMined(ctx, tx)
+		if err != nil {
+			t.Fatalf("waiting for transfer: %s", err)
+		}
 
-	tx, err = scoin.FreezeAccount(freezeTranOpts, second.Address(), true)
-	if err != nil {
-		t.Fatalf("unable to create transaction opts for deploy: %s", err)
-	}
+		t.Logf("FreezeAccount\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
+	})
 
-	receipt, err = deployer.WaitMined(ctx, tx)
-	if err != nil {
-		t.Fatalf("waiting for transfer: %s", err)
-	}
+	t.Run("check account was thawed", func(t *testing.T) {
+		frozen, err := scoin.FrozenAccount(callOpts, second.Address())
+		if err != nil {
+			t.Fatalf("unable be able to get allowences: %s", err)
+		}
 
-	t.Logf("FreezeAccount\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
+		if frozen {
+			t.Fatal("Account shouldn't be frozen")
+		}
+	})
 
-	// =========================================================================
+	t.Run("check minting", func(t *testing.T) {
+		mintTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		if err != nil {
+			t.Fatalf("unable to create transaction opts for deploy: %s", err)
+		}
 
-	frozen, err = scoin.FrozenAccount(callOpts, second.Address())
-	if err != nil {
-		t.Fatalf("unable be able to get allowences: %s", err)
-	}
+		mintedAmount := big.NewInt(1000)
+		tx, err := scoin.Mint(mintTranOpts, second.Address(), mintedAmount)
+		if err != nil {
+			t.Fatalf("unable to create transaction opts for deploy: %s", err)
+		}
 
-	if !frozen {
-		t.Fatal("Account should be frozen")
-	}
+		receipt, err := deployer.WaitMined(ctx, tx)
+		if err != nil {
+			t.Fatalf("waiting for transfer: %s", err)
+		}
 
-	// =========================================================================
-
-	thawTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
-	if err != nil {
-		t.Fatalf("unable to create transaction opts for deploy: %s", err)
-	}
-
-	tx, err = scoin.FreezeAccount(thawTranOpts, second.Address(), false)
-	if err != nil {
-		t.Fatalf("unable to create transaction opts for deploy: %s", err)
-	}
-
-	receipt, err = deployer.WaitMined(ctx, tx)
-	if err != nil {
-		t.Fatalf("waiting for transfer: %s", err)
-	}
-
-	t.Logf("FreezeAccount\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
-
-	// =========================================================================
-
-	frozen, err = scoin.FrozenAccount(callOpts, second.Address())
-	if err != nil {
-		t.Fatalf("unable be able to get allowences: %s", err)
-	}
-
-	if frozen {
-		t.Fatal("Account shouldn't be frozen")
-	}
-
-	// =========================================================================
-
-	mintTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
-	if err != nil {
-		t.Fatalf("unable to create transaction opts for deploy: %s", err)
-	}
-
-	mintedAmount := big.NewInt(1000)
-	tx, err = scoin.Mint(mintTranOpts, second.Address(), mintedAmount)
-	if err != nil {
-		t.Fatalf("unable to create transaction opts for deploy: %s", err)
-	}
-
-	receipt, err = deployer.WaitMined(ctx, tx)
-	if err != nil {
-		t.Fatalf("waiting for transfer: %s", err)
-	}
-
-	t.Logf("Mint\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
+		t.Logf("Mint\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
+	})
 }
