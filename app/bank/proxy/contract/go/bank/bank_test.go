@@ -13,14 +13,14 @@ import (
 )
 
 const (
-	deployerAcc = iota
+	delpoyerAcc = iota
 	winnerAcc
 	loser1Acc
 	loser2Acc
 	numAccounts
 )
 
-func TestBankSingle(t *testing.T) {
+func TestBank(t *testing.T) {
 	ctx := context.Background()
 	var testBank *bank.Bank
 	converter := currency.NewDefaultConverter(simplecoin.SimplecoinMetaData.ABI)
@@ -31,7 +31,7 @@ func TestBankSingle(t *testing.T) {
 	}
 	defer sim.Close()
 
-	deployer := ethereum.NewSimulation(sim, sim.PrivateKeys[deployerAcc])
+	deployer := ethereum.NewSimulation(sim, sim.PrivateKeys[delpoyerAcc])
 	winner := ethereum.NewSimulation(sim, sim.PrivateKeys[winnerAcc])
 	loser1 := ethereum.NewSimulation(sim, sim.PrivateKeys[loser1Acc])
 	loser2 := ethereum.NewSimulation(sim, sim.PrivateKeys[loser2Acc])
