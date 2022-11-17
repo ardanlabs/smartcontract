@@ -108,9 +108,9 @@ func TestBankSingle(t *testing.T) {
 			t.Fatalf("unable to get balance after deposit: %s", err)
 		}
 
-		gotBal := initialBalance.Add(initialBalance, depositTranOpts.Value)
-		if postDepositBalance.Cmp(gotBal) != 0 {
-			t.Fatalf("wrong balance, got %v  exp %v", gotBal, postDepositBalance)
+		expectedBalance := initialBalance.Add(initialBalance, depositTranOpts.Value)
+		if postDepositBalance.Cmp(expectedBalance) != 0 {
+			t.Fatalf("wrong balance, got %v  exp %v", postDepositBalance, expectedBalance)
 		}
 	})
 
@@ -143,9 +143,9 @@ func TestBankSingle(t *testing.T) {
 			t.Fatalf("should get balance after withdraw: %s", err)
 		}
 
-		gotBal := initialBalance.Sub(initialBalance, withdrawTranOpts.Value)
-		if postWithdrawBalance.Cmp(gotBal) != 0 {
-			t.Fatalf("wrong balance, got %v  exp %v", gotBal, postWithdrawBalance)
+		expectedBalance := initialBalance.Sub(initialBalance, withdrawTranOpts.Value)
+		if postWithdrawBalance.Cmp(expectedBalance) != 0 {
+			t.Fatalf("wrong balance, got %v  exp %v", postWithdrawBalance, expectedBalance)
 		}
 	})
 
