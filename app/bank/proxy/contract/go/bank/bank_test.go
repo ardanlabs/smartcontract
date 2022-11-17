@@ -8,6 +8,7 @@ import (
 	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/ethereum/currency"
 	"github.com/ardanlabs/smartcontract/app/bank/proxy/contract/go/bank"
+	"github.com/ardanlabs/smartcontract/app/bank/proxy/contract/go/bankapi"
 	"github.com/ardanlabs/smartcontract/app/simplecoin/contract/go/simplecoin"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -25,7 +26,7 @@ func TestBankProxy(t *testing.T) {
 	ctx := context.Background()
 	var testBank *bank.Bank
 	converter := currency.NewDefaultConverter(simplecoin.SimplecoinMetaData.ABI)
-	var contract1ID, contract2ID common.Address
+	var bankContractID, bankapiContractID common.Address
 
 	sim, err := ethereum.CreateSimulation(numAccounts, true)
 	if err != nil {
@@ -46,14 +47,14 @@ func TestBankProxy(t *testing.T) {
 	const gasLimit = 1700000
 	const valueGwei = 0.0
 
-	t.Run("deploy initial contract", func(t *testing.T) {
+	t.Run("deploy bank", func(t *testing.T) {
 		deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 		if err != nil {
 			t.Fatalf("unable to create transaction opts for deploy: %s", err)
 		}
 
 		var tx *types.Transaction
-		contract1ID, tx, _, err = bank.DeployBank(deployTranOpts, deployer.ContractBackend())
+		bankContractID, tx, _, err = bank.DeployBank(deployTranOpts, deployer.ContractBackend())
 		if err != nil {
 			t.Fatalf("unable to deploy bank: %s", err)
 		}
@@ -66,14 +67,14 @@ func TestBankProxy(t *testing.T) {
 		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 	})
 
-	t.Run("deploy bank", func(t *testing.T) {
+	t.Run("deploy bank api", func(t *testing.T) {
 		deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 		if err != nil {
 			t.Fatalf("unable to create transaction opts for deploy: %s", err)
 		}
 
 		var tx *types.Transaction
-		contract2ID, tx, _, err = bank.DeployBank(deployTranOpts, deployer.ContractBackend())
+		bankapiContractID, tx, _, err = bankapi.DeployBankapi(deployTranOpts, deployer.ContractBackend())
 		if err != nil {
 			t.Fatalf("unable to deploy bank: %s", err)
 		}
@@ -84,8 +85,10 @@ func TestBankProxy(t *testing.T) {
 		}
 
 		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
+	})
 
-		testBank, err = bank.NewBank(contract2ID, sim)
+	t.Run("create bank", func(t *testing.T) {
+		testBank, err = bank.NewBank(bankContractID, sim)
 		if err != nil {
 			t.Fatalf("unable to create a bank: %s", err)
 		}
@@ -97,7 +100,7 @@ func TestBankProxy(t *testing.T) {
 			t.Fatalf("unable to create transaction opts for deploy: %s", err)
 		}
 
-		tx, err := testBank.SetContract(setContractTranOpts, contract1ID)
+		tx, err := testBank.SetContract(setContractTranOpts, bankapiContractID)
 		if err != nil {
 			t.Fatalf("unable to set contract: %s", err)
 		}
