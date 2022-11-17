@@ -24,28 +24,50 @@ const (
 
 func TestBankProxy(t *testing.T) {
 	ctx := context.Background()
-	var testBank *bank.Bank
-	converter := currency.NewDefaultConverter(simplecoin.SimplecoinMetaData.ABI)
-	var bankContractID, bankapiContractID common.Address
 
-	sim, err := ethereum.CreateSimulation(numAccounts, true)
+	backend, err := ethereum.CreateSimulatedBackend(numAccounts, true)
 	if err != nil {
 		t.Fatalf("unable to create simulated backend: %s", err)
 	}
-	defer sim.Close()
+	defer backend.Close()
 
-	deployer := ethereum.NewSimulation(sim, sim.PrivateKeys[deployerAcc])
-	winner := ethereum.NewSimulation(sim, sim.PrivateKeys[winnerAcc])
-	loser1 := ethereum.NewSimulation(sim, sim.PrivateKeys[loser1Acc])
-	loser2 := ethereum.NewSimulation(sim, sim.PrivateKeys[loser2Acc])
+	// =========================================================================
+
+	deployer, err := ethereum.NewClient(backend, backend.PrivateKeys[deployerAcc])
+	if err != nil {
+		t.Fatalf("unable to create deployerAcc: %s", err)
+	}
+
+	winner, err := ethereum.NewClient(backend, backend.PrivateKeys[winnerAcc])
+	if err != nil {
+		t.Fatalf("unable to create winnerAcc: %s", err)
+	}
+
+	loser1, err := ethereum.NewClient(backend, backend.PrivateKeys[loser1Acc])
+	if err != nil {
+		t.Fatalf("unable to create loser1Acc: %s", err)
+	}
+
+	loser2, err := ethereum.NewClient(backend, backend.PrivateKeys[loser2Acc])
+	if err != nil {
+		t.Fatalf("unable to create loser2Acc: %s", err)
+	}
 
 	callOpts, err := deployer.NewCallOpts(ctx)
 	if err != nil {
 		t.Fatalf("unable to create call opts: %s", err)
 	}
 
+	// =========================================================================
+
 	const gasLimit = 1700000
 	const valueGwei = 0.0
+
+	var testBank *bank.Bank
+	var bankContractID, bankapiContractID common.Address
+	converter := currency.NewDefaultConverter(simplecoin.SimplecoinMetaData.ABI)
+
+	// =========================================================================
 
 	t.Run("deploy bank", func(t *testing.T) {
 		deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
@@ -54,7 +76,7 @@ func TestBankProxy(t *testing.T) {
 		}
 
 		var tx *types.Transaction
-		bankContractID, tx, _, err = bank.DeployBank(deployTranOpts, deployer.ContractBackend())
+		bankContractID, tx, _, err = bank.DeployBank(deployTranOpts, deployer.Backend)
 		if err != nil {
 			t.Fatalf("unable to deploy bank: %s", err)
 		}
@@ -66,6 +88,8 @@ func TestBankProxy(t *testing.T) {
 
 		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 	})
+
+	// =========================================================================
 
 	t.Run("deploy bank api", func(t *testing.T) {
 		deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
@@ -74,7 +98,7 @@ func TestBankProxy(t *testing.T) {
 		}
 
 		var tx *types.Transaction
-		bankapiContractID, tx, _, err = bankapi.DeployBankapi(deployTranOpts, deployer.ContractBackend())
+		bankapiContractID, tx, _, err = bankapi.DeployBankapi(deployTranOpts, deployer.Backend)
 		if err != nil {
 			t.Fatalf("unable to deploy bank: %s", err)
 		}
@@ -87,12 +111,16 @@ func TestBankProxy(t *testing.T) {
 		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 	})
 
+	// =========================================================================
+
 	t.Run("create bank", func(t *testing.T) {
-		testBank, err = bank.NewBank(bankContractID, sim)
+		testBank, err = bank.NewBank(bankContractID, deployer.Backend)
 		if err != nil {
 			t.Fatalf("unable to create a bank: %s", err)
 		}
 	})
+
+	// =========================================================================
 
 	t.Run("set contract", func(t *testing.T) {
 		setContractTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
@@ -113,6 +141,8 @@ func TestBankProxy(t *testing.T) {
 		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 	})
 
+	// =========================================================================
+
 	t.Run("check owner matches", func(t *testing.T) {
 		owner, err := testBank.Owner(callOpts)
 		if err != nil {
@@ -123,6 +153,8 @@ func TestBankProxy(t *testing.T) {
 			t.Fatalf("Retrieved owner doesn't match expectations: %v != %v", owner, deployer.Address())
 		}
 	})
+
+	// =========================================================================
 
 	t.Run("check deposit", func(t *testing.T) {
 		initialBalance, err := testBank.Balance(callOpts)
@@ -163,6 +195,8 @@ func TestBankProxy(t *testing.T) {
 		}
 	})
 
+	// =========================================================================
+
 	t.Run("check withdraw", func(t *testing.T) {
 		initialBalance, err := testBank.Balance(callOpts)
 		if err != nil {
@@ -198,6 +232,8 @@ func TestBankProxy(t *testing.T) {
 		}
 	})
 
+	// =========================================================================
+
 	t.Run("check reconciliation", func(t *testing.T) {
 		reconcileTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 		if err != nil {
@@ -219,8 +255,9 @@ func TestBankProxy(t *testing.T) {
 		}
 
 		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
-
 	})
+
+	// =========================================================================
 
 	t.Run("check version", func(t *testing.T) {
 		version, err := testBank.Version(callOpts)

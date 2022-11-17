@@ -3,13 +3,15 @@ package book
 import (
 	"math/big"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // BetInfo represents information about a bet inside the contract.
 type BetInfo struct {
 	State         int
-	Participants  []string
-	Moderator     string
+	Participants  []common.Address
+	Moderator     common.Address
 	AmountBetGWei *big.Float
 	Expiration    time.Time
 }
@@ -19,8 +21,8 @@ type PlaceBet struct {
 	AmountBetGWei *big.Float
 	AmountFeeGWei *big.Float
 	Expiration    time.Time
-	Moderator     string
-	Participants  []string
+	Moderator     common.Address
+	Participants  []common.Address
 	Nonces        []*big.Int
 	Signatures    [][]byte
 }
@@ -33,9 +35,9 @@ func (pb PlaceBet) Validate() error {
 // ReconcileBet represents the input required to reconcile a bet.
 type ReconcileBet struct {
 	Nonce     *big.Int
-	Moderator string
+	Moderator common.Address
 	Signature []byte
-	Winners   []string
+	Winners   []common.Address
 }
 
 // Validate verifies the reconcile bet value is properly initialized.
@@ -47,7 +49,7 @@ func (rb ReconcileBet) Validate() error {
 type CancelBetModerator struct {
 	AmountFeeGWei *big.Float
 	Nonce         *big.Int
-	Moderator     string
+	Moderator     common.Address
 	Signature     []byte
 }
 

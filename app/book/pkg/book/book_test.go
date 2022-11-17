@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -14,24 +13,6 @@ import (
 	scbook "github.com/ardanlabs/smartcontract/app/book/contract/go/book"
 	"github.com/ardanlabs/smartcontract/app/book/pkg/book"
 	"github.com/ethereum/go-ethereum/common"
-)
-
-const (
-	OwnerAddress    = "0x6327A38415C53FFb36c11db55Ea74cc9cB4976Fd"
-	OwnerKeyPath    = "../../../../zarf/ethereum/keystore/UTC--2022-05-12T14-47-50.112225000Z--6327a38415c53ffb36c11db55ea74cc9cb4976fd"
-	OwnerPassPhrase = "123"
-
-	Player1Address    = "0x0070742ff6003c3e809e78d524f0fe5dcc5ba7f7"
-	Player1KeyPath    = "../../../../zarf/ethereum/keystore/UTC--2022-05-13T16-59-42.277071000Z--0070742ff6003c3e809e78d524f0fe5dcc5ba7f7"
-	Player1PassPhrase = "123"
-
-	Player2Address    = "0x8e113078adf6888b7ba84967f299f29aece24c55"
-	Player2KeyPath    = "../../../../zarf/ethereum/keystore/UTC--2022-05-13T16-57-20.203544000Z--8e113078adf6888b7ba84967f299f29aece24c55"
-	Player2PassPhrase = "123"
-
-	ModeratorAddress    = "0x40CFaB8ab694937d644764A3f58237be4c568458"
-	ModeratorKeyPath    = "../../../../zarf/ethereum/keystore/UTC--2022-09-29T16-18-17.064954000Z--40cfab8ab694937d644764a3f58237be4c568458"
-	ModeratorPassPhrase = "123"
 )
 
 // These variables provide some static GWei to play with.
@@ -45,22 +26,58 @@ var (
 // We need a string for the bet id.
 var betID = "1234"
 
+var (
+	backend      *ethereum.SimulatedBackend
+	ownerClt     *ethereum.Client
+	player1Clt   *ethereum.Client
+	player2Clt   *ethereum.Client
+	moderatorClt *ethereum.Client
+)
+
 // =============================================================================
 
 func TestMain(m *testing.M) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	ethereum, err := ethereum.New(ctx, ethereum.NetworkHTTPLocalhost, OwnerKeyPath, OwnerPassPhrase)
+	var err error
+	backend, err = ethereum.CreateSimulatedBackend(4, true)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("create backend", err)
 		os.Exit(1)
 	}
+	defer backend.Close()
+
+	ownerClt, err = ethereum.NewClient(backend, backend.PrivateKeys[0])
+	if err != nil {
+		fmt.Println("create ownerClt client", err)
+		os.Exit(1)
+	}
+
+	player1Clt, err = ethereum.NewClient(backend, backend.PrivateKeys[1])
+	if err != nil {
+		fmt.Println("create player1Clt client", err)
+		os.Exit(1)
+	}
+
+	player2Clt, err = ethereum.NewClient(backend, backend.PrivateKeys[2])
+	if err != nil {
+		fmt.Println("create player2Clt client", err)
+		os.Exit(1)
+	}
+
+	moderatorClt, err = ethereum.NewClient(backend, backend.PrivateKeys[3])
+	if err != nil {
+		fmt.Println("create moderatorClt client", err)
+		os.Exit(1)
+	}
+
+	// =========================================================================
 
 	fmt.Println("Adding money to player 1 account")
 
 	// Add money to this account.
-	if err := ethereum.SendTransaction(ctx, common.HexToAddress(Player1Address), currency.GWei2Wei(fiftyUSD), 21000); err != nil {
+	if err := ownerClt.SendTransaction(ctx, player1Clt.Address(), currency.GWei2Wei(fiftyUSD), 21000); err != nil {
 		fmt.Println("Player1Address:", err)
 		os.Exit(1)
 	}
@@ -68,7 +85,7 @@ func TestMain(m *testing.M) {
 	fmt.Println("Adding money to player 2 account")
 
 	// Add money to this account.
-	if err := ethereum.SendTransaction(ctx, common.HexToAddress(Player2Address), currency.GWei2Wei(fiftyUSD), 21000); err != nil {
+	if err := ownerClt.SendTransaction(ctx, player2Clt.Address(), currency.GWei2Wei(fiftyUSD), 21000); err != nil {
 		fmt.Println("Player2Address:", err)
 		os.Exit(1)
 	}
@@ -88,9 +105,9 @@ func Test_DepositWithdraw(t *testing.T) {
 	defer cancel()
 
 	// Connect player 1 to the smart contract.
-	playerClient, err := book.New(ctx, ethereum.NetworkHTTPLocalhost, Player1KeyPath, Player1PassPhrase, contractID)
+	playerClient, err := book.New(ctx, backend, player1Clt.PrivateKey(), contractID)
 	if err != nil {
-		t.Fatalf("error creating new book for owner: %s", err)
+		t.Fatalf("error creating new book for player1: %s", err)
 	}
 
 	// *************************************************************************
@@ -182,22 +199,22 @@ func placeBet(t *testing.T) bet {
 	// *************************************************************************
 	// Establish books for each of the entities involved
 
-	player1Client, err := book.New(ctx, ethereum.NetworkHTTPLocalhost, Player1KeyPath, Player1PassPhrase, contractID)
+	player1Client, err := book.New(ctx, backend, player1Clt.PrivateKey(), contractID)
 	if err != nil {
 		t.Fatalf("error creating new book for player 1: %s", err)
 	}
 
-	player2Client, err := book.New(ctx, ethereum.NetworkHTTPLocalhost, Player2KeyPath, Player2PassPhrase, contractID)
+	player2Client, err := book.New(ctx, backend, player2Clt.PrivateKey(), contractID)
 	if err != nil {
 		t.Fatalf("error creating new book for player 1: %s", err)
 	}
 
-	ownerClient, err := book.New(ctx, ethereum.NetworkHTTPLocalhost, OwnerKeyPath, OwnerPassPhrase, contractID)
+	ownerClient, err := book.New(ctx, backend, ownerClt.PrivateKey(), contractID)
 	if err != nil {
 		t.Fatalf("error creating new book for owner: %s", err)
 	}
 
-	moderatorClient, err := book.New(ctx, ethereum.NetworkHTTPLocalhost, ModeratorKeyPath, ModeratorPassPhrase, contractID)
+	moderatorClient, err := book.New(ctx, backend, moderatorClt.PrivateKey(), contractID)
 	if err != nil {
 		t.Fatalf("error creating new book for moderator: %s", err)
 	}
@@ -237,8 +254,8 @@ func placeBet(t *testing.T) bet {
 		AmountBetGWei: tenUSD,
 		AmountFeeGWei: oneUSD,
 		Expiration:    expiration,
-		Moderator:     ModeratorAddress,
-		Participants:  []string{Player1Address, Player2Address},
+		Moderator:     moderatorClt.Address(),
+		Participants:  []common.Address{player1Clt.Address(), player2Clt.Address()},
 		Nonces:        []*big.Int{big.NewInt(0), big.NewInt(0)},
 		Signatures:    signatures,
 	}
@@ -325,9 +342,9 @@ func Test_Reconcile(t *testing.T) {
 
 	rec := book.ReconcileBet{
 		Nonce:     big.NewInt(0),
-		Moderator: ModeratorAddress,
+		Moderator: moderatorClt.Address(),
 		Signature: signature,
-		Winners:   []string{Player1Address},
+		Winners:   []common.Address{player1Clt.Address()},
 	}
 	if _, _, err := bet.ownerClient.ReconcileBet(ctx, betID, rec); err != nil {
 		t.Fatalf("error calling reconcile: %s", err)
@@ -379,7 +396,7 @@ func Test_CancelBetModerator(t *testing.T) {
 	cbm := book.CancelBetModerator{
 		AmountFeeGWei: oneUSD,
 		Nonce:         big.NewInt(0),
-		Moderator:     ModeratorAddress,
+		Moderator:     moderatorClt.Address(),
 		Signature:     signature,
 	}
 	if _, _, err := bet.ownerClient.CancelBetModerator(ctx, betID, cbm); err != nil {
@@ -571,22 +588,17 @@ func deployContract() (string, error) {
 }
 
 func smartContract(ctx context.Context) (string, error) {
-	ethereum, err := ethereum.New(ctx, ethereum.NetworkHTTPLocalhost, OwnerKeyPath, OwnerPassPhrase)
+	tranOpts, err := ownerClt.NewTransactOpts(ctx, 5_000_000, big.NewFloat(0))
 	if err != nil {
 		return "", err
 	}
 
-	tranOpts, err := ethereum.NewTransactOpts(ctx, 5_000_000, big.NewFloat(0))
+	address, tx, _, err := scbook.DeployBook(tranOpts, ownerClt.Backend)
 	if err != nil {
 		return "", err
 	}
 
-	address, tx, _, err := scbook.DeployBook(tranOpts, ethereum.RawClient())
-	if err != nil {
-		return "", err
-	}
-
-	if _, err := ethereum.WaitMined(ctx, tx); err != nil {
+	if _, err := ownerClt.WaitMined(ctx, tx); err != nil {
 		return "", err
 	}
 
@@ -609,13 +621,13 @@ func checkBetState(t *testing.T, ctx context.Context, b *book.Book, betID string
 		}
 
 		for i, part := range check.Participants {
-			if !strings.EqualFold(part, betInfo.Participants[i]) {
+			if part != betInfo.Participants[i] {
 				t.Errorf("wrong participant address, got %s  exp %s", betInfo.Participants[i], part)
 			}
 		}
 	}
 
-	if check.Moderator != "" && !strings.EqualFold(betInfo.Moderator, check.Moderator) {
+	if check.Moderator.Hex() != "" && betInfo.Moderator != check.Moderator {
 		t.Errorf("wrong moderator address, got %s  exp %s", betInfo.Moderator, check.Moderator)
 	}
 

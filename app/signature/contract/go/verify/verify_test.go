@@ -13,6 +13,7 @@ import (
 	"github.com/ardanlabs/smartcontract/app/simplecoin/contract/go/simplecoin"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 const (
@@ -24,24 +25,32 @@ const (
 
 func TestVerify(t *testing.T) {
 	ctx := context.Background()
-	var testVerify *verify.Verify
-	converter := currency.NewDefaultConverter(simplecoin.SimplecoinMetaData.ABI)
 
-	sim, err := ethereum.CreateSimulation(1, true)
+	backend, err := ethereum.CreateSimulatedBackend(numAccounts, true)
 	if err != nil {
 		t.Fatalf("unable to create simulated backend: %s", err)
 	}
-	defer sim.Close()
+	defer backend.Close()
 
-	deployer := ethereum.NewSimulation(sim, sim.PrivateKeys[deployerAcc])
+	deployer, err := ethereum.NewClient(backend, backend.PrivateKeys[deployerAcc])
+	if err != nil {
+		t.Fatalf("unable to create deployerAcc: %s", err)
+	}
 
 	callOpts, err := deployer.NewCallOpts(ctx)
 	if err != nil {
 		t.Fatalf("unable to create call opts: %s", err)
 	}
 
+	// =========================================================================
+
 	const gasLimit = 1700000
 	const valueGwei = 0.0
+
+	var testVerify *verify.Verify
+	converter := currency.NewDefaultConverter(simplecoin.SimplecoinMetaData.ABI)
+
+	// =========================================================================
 
 	t.Run("deploy verify", func(t *testing.T) {
 		deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
@@ -49,7 +58,7 @@ func TestVerify(t *testing.T) {
 			t.Fatalf("unable to create transaction opts for verify: %s", err)
 		}
 
-		contractID, tx, _, err := verify.DeployVerify(deployTranOpts, deployer.ContractBackend())
+		contractID, tx, _, err := verify.DeployVerify(deployTranOpts, deployer.Backend)
 		if err != nil {
 			t.Fatalf("unable to deploy verify: %s", err)
 		}
@@ -61,11 +70,13 @@ func TestVerify(t *testing.T) {
 
 		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 
-		testVerify, err = verify.NewVerify(contractID, sim)
+		testVerify, err = verify.NewVerify(contractID, deployer.Backend)
 		if err != nil {
 			t.Fatalf("unable to create a verify: %s", err)
 		}
 	})
+
+	// =========================================================================
 
 	t.Run("match sender", func(t *testing.T) {
 		id := "asdjh1231"
@@ -76,7 +87,7 @@ func TestVerify(t *testing.T) {
 			t.Fatalf("should be able to encode data: %s", err)
 		}
 
-		signature, err := ethereum.SignBytes(bytes, sim.PrivateKeys[deployerAcc])
+		signature, err := ethereum.SignBytes(bytes, deployer.PrivateKey())
 		if err != nil {
 			t.Fatalf("should be able to sign the message: %s", err)
 		}
@@ -84,6 +95,17 @@ func TestVerify(t *testing.T) {
 		sig, err := hex.DecodeString(signature[2:])
 		if err != nil {
 			t.Fatalf("should be able to decode the signature: %s", err)
+		}
+
+		addr, err := testVerify.Address(callOpts, id, deployer.Address(), nonce, sig)
+		if err != nil {
+			t.Fatalf("should be able to get address from signature: %s", err)
+		}
+
+		if addr.Hex() != deployer.Address().Hex() {
+			t.Log("got:", addr.Hex())
+			t.Log("exp:", deployer.Address().Hex())
+			t.Fatalf("should be able to match the addresses: %s", err)
 		}
 
 		matched, err := testVerify.MatchSender(callOpts, id, deployer.Address(), nonce, sig)
@@ -120,6 +142,8 @@ func encodeForSolidity(id string, participant common.Address, nonce *big.Int) ([
 	if err != nil {
 		return nil, fmt.Errorf("arguments pack: %w", err)
 	}
+
+	bytes = crypto.Keccak256(bytes)
 
 	return bytes, nil
 }

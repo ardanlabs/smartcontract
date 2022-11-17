@@ -14,30 +14,43 @@ const (
 	ownerAcc = iota
 	secondAcc
 	numAccounts
-	gasLimit              = 1600000
-	valueGwei             = 0.0
-	startingBalanceAmount = 5000
 )
 
 func TestSimpleCoin(t *testing.T) {
 	ctx := context.Background()
-	var scoin *simplecoin.Simplecoin
-	startingBalance := big.NewInt(startingBalanceAmount)
-	converter := currency.NewDefaultConverter(simplecoin.SimplecoinMetaData.ABI)
 
-	sim, err := ethereum.CreateSimulation(numAccounts, true)
+	backend, err := ethereum.CreateSimulatedBackend(numAccounts, true)
 	if err != nil {
 		t.Fatalf("unable to create simulated backend: %s", err)
 	}
-	defer sim.Close()
+	defer backend.Close()
 
-	deployer := ethereum.NewSimulation(sim, sim.PrivateKeys[ownerAcc])
-	second := ethereum.NewSimulation(sim, sim.PrivateKeys[secondAcc])
+	deployer, err := ethereum.NewClient(backend, backend.PrivateKeys[ownerAcc])
+	if err != nil {
+		t.Fatalf("unable to create ownerAcc: %s", err)
+	}
+
+	second, err := ethereum.NewClient(backend, backend.PrivateKeys[secondAcc])
+	if err != nil {
+		t.Fatalf("unable to create secondAcc: %s", err)
+	}
 
 	callOpts, err := deployer.NewCallOpts(ctx)
 	if err != nil {
 		t.Fatalf("unable to create call opts: %s", err)
 	}
+
+	// =========================================================================
+
+	const gasLimit = 1600000
+	const valueGwei = 0.0
+	const startingBalanceAmount = 5000
+
+	var scoin *simplecoin.Simplecoin
+	startingBalance := big.NewInt(startingBalanceAmount)
+	converter := currency.NewDefaultConverter(simplecoin.SimplecoinMetaData.ABI)
+
+	// =========================================================================
 
 	t.Run("deploy simplecoin", func(t *testing.T) {
 		deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
@@ -45,7 +58,7 @@ func TestSimpleCoin(t *testing.T) {
 			t.Fatalf("unable to create transaction opts for deploy: %s", err)
 		}
 
-		contractID, tx, _, err := simplecoin.DeploySimplecoin(deployTranOpts, sim, startingBalance)
+		contractID, tx, _, err := simplecoin.DeploySimplecoin(deployTranOpts, deployer.Backend, startingBalance)
 		if err != nil {
 			t.Fatalf("unable to deploy simplecoin: %s", err)
 		}
@@ -57,11 +70,13 @@ func TestSimpleCoin(t *testing.T) {
 
 		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 
-		scoin, err = simplecoin.NewSimplecoin(contractID, sim)
+		scoin, err = simplecoin.NewSimplecoin(contractID, deployer.Backend)
 		if err != nil {
 			t.Fatalf("unable to create a simplecoin: %s", err)
 		}
 	})
+
+	// =========================================================================
 
 	t.Run("check starting balance", func(t *testing.T) {
 		initialBalance, err := scoin.CoinBalance(callOpts, deployer.Address())
@@ -73,6 +88,8 @@ func TestSimpleCoin(t *testing.T) {
 			t.Fatalf("should have the expected starting balance, got %v  exp %v", initialBalance, startingBalance)
 		}
 	})
+
+	// =========================================================================
 
 	t.Run("check transfer", func(t *testing.T) {
 		transferTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
@@ -113,29 +130,7 @@ func TestSimpleCoin(t *testing.T) {
 		}
 	})
 
-	// preTransferFromBalanceDeployer, err := scoin.CoinBalance(callOpts, deployer.Address())
-	// if err != nil {
-	// 	t.Fatalf("should be able to get balance of account: %s", err)
-	// }
-	//
-	// preTransferFromBalanceSecond, err := scoin.CoinBalance(callOpts, second.Address())
-	// if err != nil {
-	// 	t.Fatalf("should be able to get balance of account: %s", err)
-	// }
-	//
-	// fmt.Printf("tfd: %v tfs: %v\n", preTransferFromBalanceDeployer, preTransferFromBalanceSecond)
-	//
-	// transferFromBalanceDeployer, err := scoin.CoinBalance(callOpts, deployer.Address())
-	// if err != nil {
-	// 	t.Fatalf("should be able to get balance of account: %s", err)
-	// }
-	//
-	// transferFromBalanceSecond, err := scoin.CoinBalance(callOpts, second.Address())
-	// if err != nil {
-	// 	t.Fatalf("should be able to get balance of account: %s", err)
-	// }
-	//
-	// fmt.Printf("tfd: %v tfs: %v\n", transferFromBalanceDeployer, transferFromBalanceSecond)
+	// =========================================================================
 
 	t.Run("check owner", func(t *testing.T) {
 		owner, err := scoin.Owner(callOpts)
@@ -148,6 +143,8 @@ func TestSimpleCoin(t *testing.T) {
 		}
 	})
 
+	// =========================================================================
+
 	t.Run("check non-frozen account", func(t *testing.T) {
 		frozen, err := scoin.FrozenAccount(callOpts, second.Address())
 		if err != nil {
@@ -158,6 +155,8 @@ func TestSimpleCoin(t *testing.T) {
 			t.Fatal("Account shouldn't be frozen")
 		}
 	})
+
+	// =========================================================================
 
 	t.Run("freeze account", func(t *testing.T) {
 		freezeTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
@@ -178,6 +177,8 @@ func TestSimpleCoin(t *testing.T) {
 		t.Logf("FreezeAccount\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 	})
 
+	// =========================================================================
+
 	t.Run("check account was frozen", func(t *testing.T) {
 		frozen, err := scoin.FrozenAccount(callOpts, second.Address())
 		if err != nil {
@@ -188,6 +189,8 @@ func TestSimpleCoin(t *testing.T) {
 			t.Fatal("Account should be frozen")
 		}
 	})
+
+	// =========================================================================
 
 	t.Run("thaw account", func(t *testing.T) {
 		thawTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
@@ -208,6 +211,8 @@ func TestSimpleCoin(t *testing.T) {
 		t.Logf("FreezeAccount\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 	})
 
+	// =========================================================================
+
 	t.Run("check account was thawed", func(t *testing.T) {
 		frozen, err := scoin.FrozenAccount(callOpts, second.Address())
 		if err != nil {
@@ -218,6 +223,8 @@ func TestSimpleCoin(t *testing.T) {
 			t.Fatal("Account shouldn't be frozen")
 		}
 	})
+
+	// =========================================================================
 
 	t.Run("check minting", func(t *testing.T) {
 		mintTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))

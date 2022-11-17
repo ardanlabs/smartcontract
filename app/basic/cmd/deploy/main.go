@@ -28,14 +28,25 @@ func main() {
 func run() (err error) {
 	ctx := context.Background()
 
-	ethereum, err := ethereum.New(ctx, ethereum.NetworkLocalhost, keyStoreFile, passPhrase)
+	backend, err := ethereum.CreateDialedBackend(ctx, ethereum.NetworkLocalhost)
+	if err != nil {
+		return err
+	}
+	defer backend.Close()
+
+	privateKey, err := ethereum.PrivateKeyByKeyFile(keyStoreFile, passPhrase)
+	if err != nil {
+		return err
+	}
+
+	clt, err := ethereum.NewClient(backend, privateKey)
 	if err != nil {
 		return err
 	}
 
 	fmt.Println("\nInput Values")
 	fmt.Println("----------------------------------------------------")
-	fmt.Println("fromAddress:", ethereum.Address())
+	fmt.Println("fromAddress:", clt.Address())
 
 	// =========================================================================
 
@@ -50,12 +61,12 @@ func run() (err error) {
 
 	// =========================================================================
 
-	startingBalance, err := ethereum.Balance(ctx)
+	startingBalance, err := clt.Balance(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		endingBalance, dErr := ethereum.Balance(ctx)
+		endingBalance, dErr := clt.Balance(ctx)
 		if dErr != nil {
 			err = dErr
 			return
@@ -67,14 +78,14 @@ func run() (err error) {
 
 	const gasLimit = 1600000
 	const valueGwei = 0.0
-	tranOpts, err := ethereum.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+	tranOpts, err := clt.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 	if err != nil {
 		return err
 	}
 
 	// =========================================================================
 
-	address, tx, _, err := store.DeployStore(tranOpts, ethereum.RawClient())
+	address, tx, _, err := store.DeployStore(tranOpts, clt.Backend)
 	if err != nil {
 		return err
 	}
@@ -90,16 +101,11 @@ func run() (err error) {
 
 	// =========================================================================
 
-	ethCopy, err := ethereum.Copy(ctx)
-	if err != nil {
-		return err
-	}
-
 	fmt.Println("\nWaiting Logs")
 	fmt.Println("----------------------------------------------------")
 	log.Root().SetHandler(log.StdoutHandler)
 
-	receipt, err := ethCopy.WaitMined(ctx, tx)
+	receipt, err := clt.WaitMined(ctx, tx)
 	if err != nil {
 		return err
 	}

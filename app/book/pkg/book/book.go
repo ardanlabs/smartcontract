@@ -3,6 +3,7 @@ package book
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -36,25 +37,25 @@ const (
 // information about account balances.
 type Book struct {
 	contractID string
-	ethereum   *ethereum.Ethereum
+	ethereum   *ethereum.Client
 	contract   *book.Book
 }
 
 // New returns a new bank with the ability to manage the game money.
-func New(ctx context.Context, network string, keyPath string, passPhrase string, contractID string) (*Book, error) {
-	ethereum, err := ethereum.New(ctx, network, keyPath, passPhrase)
+func New(ctx context.Context, backend ethereum.Backend, privateKey *ecdsa.PrivateKey, contractID string) (*Book, error) {
+	clt, err := ethereum.NewClient(backend, privateKey)
 	if err != nil {
-		return nil, fmt.Errorf("network connect: %w", err)
+		return nil, fmt.Errorf("client: %w", err)
 	}
 
-	contract, err := book.NewBook(common.HexToAddress(contractID), ethereum.RawClient())
+	contract, err := book.NewBook(common.HexToAddress(contractID), clt.Backend)
 	if err != nil {
 		return nil, fmt.Errorf("new contract: %w", err)
 	}
 
 	b := Book{
 		contractID: contractID,
-		ethereum:   ethereum,
+		ethereum:   clt,
 		contract:   contract,
 	}
 
@@ -67,7 +68,7 @@ func (b *Book) ContractID() string {
 }
 
 // Client returns the underlying contract client.
-func (b *Book) Client() *ethereum.Ethereum {
+func (b *Book) Client() *ethereum.Client {
 	return b.ethereum
 }
 
@@ -138,15 +139,13 @@ func (b *Book) BetDetails(ctx context.Context, betID string) (BetInfo, error) {
 		return BetInfo{}, fmt.Errorf("account balance: %w", err)
 	}
 
-	participants := make([]string, len(bbi.Participants))
-	for i, participant := range bbi.Participants {
-		participants[i] = participant.Hex()
-	}
+	participants := make([]common.Address, len(bbi.Participants))
+	copy(participants, bbi.Participants)
 
 	betInfo := BetInfo{
 		State:         int(bbi.State),
 		Participants:  participants,
-		Moderator:     bbi.Moderator.Hex(),
+		Moderator:     bbi.Moderator,
 		AmountBetGWei: currency.Wei2GWei(bbi.AmountBetWei),
 		Expiration:    time.Unix(bbi.Expiration.Int64(), 0),
 	}
@@ -162,9 +161,7 @@ func (b *Book) PlaceBet(ctx context.Context, betID string, pb PlaceBet) (*types.
 	}
 
 	var participants []common.Address
-	for _, participant := range pb.Participants {
-		participants = append(participants, common.HexToAddress(participant))
-	}
+	participants = append(participants, pb.Participants...)
 
 	tranOpts, err := b.ethereum.NewTransactOpts(ctx, gasLimitPlaceBet, big.NewFloat(0))
 	if err != nil {
@@ -177,7 +174,7 @@ func (b *Book) PlaceBet(ctx context.Context, betID string, pb PlaceBet) (*types.
 		currency.GWei2Wei(pb.AmountBetGWei),
 		currency.GWei2Wei(pb.AmountFeeGWei),
 		new(big.Int).SetInt64(pb.Expiration.Unix()),
-		common.HexToAddress(pb.Moderator),
+		pb.Moderator,
 		participants,
 		pb.Nonces,
 		pb.Signatures,
@@ -202,9 +199,7 @@ func (b *Book) ReconcileBet(ctx context.Context, betID string, rb ReconcileBet) 
 	}
 
 	var winners []common.Address
-	for _, winner := range rb.Winners {
-		winners = append(winners, common.HexToAddress(winner))
-	}
+	winners = append(winners, rb.Winners...)
 
 	tranOpts, err := b.ethereum.NewTransactOpts(ctx, 1600000, big.NewFloat(0))
 	if err != nil {

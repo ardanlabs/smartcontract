@@ -12,41 +12,48 @@ import (
 func TestStore(t *testing.T) {
 	ctx := context.Background()
 
-	sim, err := ethereum.CreateSimulation(1, true)
+	backend, err := ethereum.CreateSimulatedBackend(1, true)
 	if err != nil {
 		t.Fatalf("unable to create simulated backend: %s", err)
 	}
-	defer sim.Close()
+	defer backend.Close()
 
-	eth := ethereum.NewSimulation(sim, sim.PrivateKeys[0])
+	clt, err := ethereum.NewClient(backend, backend.PrivateKeys[0])
+	if err != nil {
+		t.Fatalf("unable to create ethereum api: %s", err)
+	}
+
+	// =========================================================================
 
 	const gasLimit = 1600000
 	const valueGwei = 0.0
-	tranOpts, err := eth.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+	tranOpts, err := clt.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 	if err != nil {
 		t.Fatalf("unable to create transaction opts for deploy: %s", err)
 	}
 
-	contractID, tx, _, err := store.DeployStore(tranOpts, eth.ContractBackend())
+	contractID, tx, _, err := store.DeployStore(tranOpts, clt.Backend)
 	if err != nil {
 		t.Fatalf("unable to deploy store: %s", err)
 	}
 
-	if _, err := eth.WaitMined(ctx, tx); err != nil {
+	if _, err := clt.WaitMined(ctx, tx); err != nil {
 		t.Fatalf("waiting for deploy: %s", err)
 	}
 
-	testStore, err := store.NewStore(contractID, eth.ContractBackend())
+	testStore, err := store.NewStore(contractID, clt.Backend)
 	if err != nil {
 		t.Fatalf("error creating store: %s", err)
 	}
+
+	// =========================================================================
 
 	var key [32]byte
 	var value [32]byte
 	copy(key[:], []byte("name"))
 	copy(value[:], []byte("brianna"))
 
-	tranOpts, err = eth.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+	tranOpts, err = clt.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 	if err != nil {
 		t.Fatalf("unable to create transaction opts for setitem: %s", err)
 	}
@@ -55,9 +62,11 @@ func TestStore(t *testing.T) {
 		t.Fatalf("should be able to set item: %s", err)
 	}
 
-	if _, err := eth.WaitMined(ctx, tx); err != nil {
+	if _, err := clt.WaitMined(ctx, tx); err != nil {
 		t.Fatalf("waiting for setitem: %s", err)
 	}
+
+	// =========================================================================
 
 	item, err := testStore.Items(nil, key)
 	if err != nil {
