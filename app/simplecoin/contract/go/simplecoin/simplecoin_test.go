@@ -23,7 +23,6 @@ func TestSimpleCoin(t *testing.T) {
 	ctx := context.Background()
 	var scoin *simplecoin.Simplecoin
 	startingBalance := big.NewInt(startingBalanceAmount)
-
 	converter := currency.NewDefaultConverter(simplecoin.SimplecoinMetaData.ABI)
 
 	sim, err := ethereum.CreateSimulation(numAccounts, true)
@@ -51,9 +50,12 @@ func TestSimpleCoin(t *testing.T) {
 			t.Fatalf("unable to deploy simplecoin: %s", err)
 		}
 
-		if _, err := deployer.WaitMined(ctx, tx); err != nil {
+		receipt, err := deployer.WaitMined(ctx, tx)
+		if err != nil {
 			t.Fatalf("waiting for deploy: %s", err)
 		}
+
+		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 
 		scoin, err = simplecoin.NewSimplecoin(contractID, sim)
 		if err != nil {

@@ -6,7 +6,9 @@ import (
 	"testing"
 
 	"github.com/ardanlabs/ethereum"
+	"github.com/ardanlabs/ethereum/currency"
 	"github.com/ardanlabs/smartcontract/app/bank/single/contract/go/bank"
+	"github.com/ardanlabs/smartcontract/app/simplecoin/contract/go/simplecoin"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -21,6 +23,7 @@ const (
 func TestBank(t *testing.T) {
 	ctx := context.Background()
 	var testBank *bank.Bank
+	converter := currency.NewDefaultConverter(simplecoin.SimplecoinMetaData.ABI)
 
 	sim, err := ethereum.CreateSimulation(numAccounts, true)
 	if err != nil {
@@ -52,9 +55,12 @@ func TestBank(t *testing.T) {
 			t.Fatalf("unable to deploy bank: %s", err)
 		}
 
-		if _, err := deployer.WaitMined(ctx, tx); err != nil {
+		receipt, err := deployer.WaitMined(ctx, tx)
+		if err != nil {
 			t.Fatalf("waiting for deploy: %s", err)
 		}
+
+		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 
 		testBank, err = bank.NewBank(contractID, sim)
 		if err != nil {
@@ -90,9 +96,12 @@ func TestBank(t *testing.T) {
 			t.Fatalf("should be able to deposit money: %s", err)
 		}
 
-		if _, err := deployer.WaitMined(ctx, tx); err != nil {
+		receipt, err := deployer.WaitMined(ctx, tx)
+		if err != nil {
 			t.Fatalf("waiting for deposit: %s", err)
 		}
+
+		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 
 		postDepositBalance, err := testBank.Balance(callOpts)
 		if err != nil {
@@ -122,9 +131,12 @@ func TestBank(t *testing.T) {
 			t.Fatalf("unable be able to withdraw money: %s", err)
 		}
 
-		if _, err := deployer.WaitMined(ctx, tx); err != nil {
+		receipt, err := deployer.WaitMined(ctx, tx)
+		if err != nil {
 			t.Fatalf("waiting for withdraw: %s", err)
 		}
+
+		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 
 		postWithdrawBalance, err := testBank.Balance(callOpts)
 		if err != nil {
@@ -152,9 +164,13 @@ func TestBank(t *testing.T) {
 			t.Fatalf("unable to reconcile: %s", err)
 		}
 
-		if _, err := deployer.WaitMined(ctx, tx); err != nil {
+		receipt, err := deployer.WaitMined(ctx, tx)
+		if err != nil {
 			t.Fatalf("waiting for reconcile: %s", err)
 		}
+
+		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
+
 	})
 
 	t.Run("check version", func(t *testing.T) {
