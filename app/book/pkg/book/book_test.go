@@ -37,11 +37,8 @@ var (
 // =============================================================================
 
 func TestMain(m *testing.M) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	var err error
-	backend, err = ethereum.CreateSimulatedBackend(4, true)
+	backend, err = ethereum.CreateSimulatedBackend(4, true, big.NewInt(100))
 	if err != nil {
 		fmt.Println("create backend", err)
 		os.Exit(1)
@@ -72,24 +69,6 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	// =========================================================================
-
-	fmt.Println("Adding money to player 1 account")
-
-	// Add money to this account.
-	if err := ownerClt.SendTransaction(ctx, player1Clt.Address(), currency.GWei2Wei(fiftyUSD), 21000); err != nil {
-		fmt.Println("Player1Address:", err)
-		os.Exit(1)
-	}
-
-	fmt.Println("Adding money to player 2 account")
-
-	// Add money to this account.
-	if err := ownerClt.SendTransaction(ctx, player2Clt.Address(), currency.GWei2Wei(fiftyUSD), 21000); err != nil {
-		fmt.Println("Player2Address:", err)
-		os.Exit(1)
-	}
-
 	m.Run()
 }
 
@@ -98,7 +77,7 @@ func TestMain(m *testing.M) {
 func Test_DepositWithdraw(t *testing.T) {
 	contractID, err := deployContract()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("deploying contract: %s", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -190,7 +169,7 @@ type bet struct {
 func placeBet(t *testing.T) bet {
 	contractID, err := deployContract()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("deploying contract: %s", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -227,7 +206,7 @@ func placeBet(t *testing.T) bet {
 	}
 
 	if _, _, err := player2Client.Deposit(ctx, twentyUSD); err != nil {
-		t.Fatalf("error making deposit player 1: %s", err)
+		t.Fatalf("error making deposit player 2: %s", err)
 	}
 
 	// *************************************************************************
@@ -369,6 +348,7 @@ func Test_Reconcile(t *testing.T) {
 
 	check := book.BetInfo{
 		State:         book.StateReconciled,
+		Moderator:     moderatorClt.Address(),
 		AmountBetGWei: big.NewFloat(0),
 	}
 	checkBetState(t, ctx, bet.ownerClient, betID, check)
@@ -423,6 +403,7 @@ func Test_CancelBetModerator(t *testing.T) {
 
 	check := book.BetInfo{
 		State:         book.StateCancelled,
+		Moderator:     moderatorClt.Address(),
 		AmountBetGWei: big.NewFloat(0),
 	}
 	checkBetState(t, ctx, bet.ownerClient, betID, check)
@@ -484,6 +465,7 @@ func Test_CancelBetParticipants(t *testing.T) {
 
 	check := book.BetInfo{
 		State:         book.StateCancelled,
+		Moderator:     moderatorClt.Address(),
 		AmountBetGWei: big.NewFloat(0),
 	}
 	checkBetState(t, ctx, bet.ownerClient, betID, check)
@@ -527,6 +509,7 @@ func Test_CancelBetOwner(t *testing.T) {
 
 	check := book.BetInfo{
 		State:         book.StateCancelled,
+		Moderator:     moderatorClt.Address(),
 		AmountBetGWei: big.NewFloat(0),
 	}
 	checkBetState(t, ctx, bet.ownerClient, betID, check)
@@ -565,6 +548,7 @@ func Test_CancelBetExpired(t *testing.T) {
 
 	check := book.BetInfo{
 		State:         book.StateCancelled,
+		Moderator:     moderatorClt.Address(),
 		AmountBetGWei: big.NewFloat(0),
 	}
 	checkBetState(t, ctx, bet.ownerClient, betID, check)
@@ -576,7 +560,10 @@ func deployContract() (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	fmt.Println("*** Deploying Contract ***")
+	backend.Commit()
+
+	fmt.Println("Deploying Contract ...")
+	defer fmt.Println("Deployed")
 
 	contractID, err := smartContract(ctx)
 	if err != nil {
@@ -627,7 +614,7 @@ func checkBetState(t *testing.T, ctx context.Context, b *book.Book, betID string
 		}
 	}
 
-	if check.Moderator.Hex() != "" && betInfo.Moderator != check.Moderator {
+	if betInfo.Moderator != check.Moderator {
 		t.Errorf("wrong moderator address, got %s  exp %s", betInfo.Moderator, check.Moderator)
 	}
 

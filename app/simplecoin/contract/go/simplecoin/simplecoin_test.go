@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/ardanlabs/ethereum"
-	"github.com/ardanlabs/ethereum/currency"
 	"github.com/ardanlabs/smartcontract/app/simplecoin/contract/go/simplecoin"
 )
 
@@ -19,7 +18,7 @@ const (
 func TestSimpleCoin(t *testing.T) {
 	ctx := context.Background()
 
-	backend, err := ethereum.CreateSimulatedBackend(numAccounts, true)
+	backend, err := ethereum.CreateSimulatedBackend(numAccounts, true, big.NewInt(100))
 	if err != nil {
 		t.Fatalf("unable to create simulated backend: %s", err)
 	}
@@ -48,7 +47,6 @@ func TestSimpleCoin(t *testing.T) {
 
 	var scoin *simplecoin.Simplecoin
 	startingBalance := big.NewInt(startingBalanceAmount)
-	converter := currency.NewDefaultConverter(simplecoin.SimplecoinMetaData.ABI)
 
 	// =========================================================================
 
@@ -63,12 +61,9 @@ func TestSimpleCoin(t *testing.T) {
 			t.Fatalf("unable to deploy simplecoin: %s", err)
 		}
 
-		receipt, err := deployer.WaitMined(ctx, tx)
-		if err != nil {
+		if _, err := deployer.WaitMined(ctx, tx); err != nil {
 			t.Fatalf("waiting for deploy: %s", err)
 		}
-
-		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 
 		scoin, err = simplecoin.NewSimplecoin(contractID, deployer.Backend)
 		if err != nil {
@@ -103,12 +98,9 @@ func TestSimpleCoin(t *testing.T) {
 			t.Fatalf("should be able to transfer money from deployer to account: %s", err)
 		}
 
-		receipt, err := deployer.WaitMined(ctx, tx)
-		if err != nil {
+		if _, err := deployer.WaitMined(ctx, tx); err != nil {
 			t.Fatalf("waiting for transfer: %s", err)
 		}
-
-		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 
 		postTransferBalance, err := scoin.CoinBalance(callOpts, deployer.Address())
 		if err != nil {
@@ -169,12 +161,9 @@ func TestSimpleCoin(t *testing.T) {
 			t.Fatalf("unable to create transaction opts for deploy: %s", err)
 		}
 
-		receipt, err := deployer.WaitMined(ctx, tx)
-		if err != nil {
+		if _, err := deployer.WaitMined(ctx, tx); err != nil {
 			t.Fatalf("waiting for transfer: %s", err)
 		}
-
-		t.Logf("FreezeAccount\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 	})
 
 	// =========================================================================
@@ -203,12 +192,9 @@ func TestSimpleCoin(t *testing.T) {
 			t.Fatalf("unable to create transaction opts for deploy: %s", err)
 		}
 
-		receipt, err := deployer.WaitMined(ctx, tx)
-		if err != nil {
+		if _, err := deployer.WaitMined(ctx, tx); err != nil {
 			t.Fatalf("waiting for transfer: %s", err)
 		}
-
-		t.Logf("FreezeAccount\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 	})
 
 	// =========================================================================
@@ -238,11 +224,8 @@ func TestSimpleCoin(t *testing.T) {
 			t.Fatalf("unable to create transaction opts for deploy: %s", err)
 		}
 
-		receipt, err := deployer.WaitMined(ctx, tx)
-		if err != nil {
+		if _, err := deployer.WaitMined(ctx, tx); err != nil {
 			t.Fatalf("waiting for transfer: %s", err)
 		}
-
-		t.Logf("Mint\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 	})
 }

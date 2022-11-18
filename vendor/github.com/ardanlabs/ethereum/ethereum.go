@@ -5,7 +5,6 @@ package ethereum
 import (
 	"context"
 	"crypto/ecdsa"
-	"errors"
 	"fmt"
 	"math/big"
 
@@ -31,6 +30,7 @@ type Backend interface {
 	bind.DeployBackend
 	TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, bool, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	BalanceAt(ctx context.Context, contract common.Address, blockNumber *big.Int) (*big.Int, error)
 	ChainID() *big.Int
 }
 
@@ -177,17 +177,7 @@ func (clt *Client) SendTransaction(ctx context.Context, address common.Address, 
 
 // Balance retrieves the current balance for the client account.
 func (clt *Client) Balance(ctx context.Context) (wei *big.Int, err error) {
-	return clt.BalanceAt(ctx, clt.address)
-}
-
-// BalanceAt retrieves the current balance for the specified account.
-func (clt *Client) BalanceAt(ctx context.Context, address common.Address) (wei *big.Int, err error) {
-	client, isClient := clt.Backend.(*DialedBackend)
-	if !isClient {
-		return big.NewInt(0), errors.New("running simulated backend")
-	}
-
-	return client.BalanceAt(ctx, address, nil)
+	return clt.BalanceAt(ctx, clt.address, nil)
 }
 
 // BaseFee calculates the base fee from the block for this receipt.

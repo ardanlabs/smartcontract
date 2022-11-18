@@ -62,7 +62,7 @@ type SimulatedBackend struct {
 // CreateSimulatedBackend constructs a simulated backend and a set of private keys
 // registered to the backend with a balance of 100 ETH. Use these private keys
 // with the NewSimulation call to get an Ethereum API value.
-func CreateSimulatedBackend(numAccounts int, autoCommit bool) (*SimulatedBackend, error) {
+func CreateSimulatedBackend(numAccounts int, autoCommit bool, accountBalance *big.Int) (*SimulatedBackend, error) {
 	keys := make([]*ecdsa.PrivateKey, numAccounts)
 	alloc := make(core.GenesisAlloc)
 
@@ -75,12 +75,15 @@ func CreateSimulatedBackend(numAccounts int, autoCommit bool) (*SimulatedBackend
 		keys[i] = privateKey
 
 		alloc[crypto.PubkeyToAddress(privateKey.PublicKey)] = core.GenesisAccount{
-			Balance: big.NewInt(0).Mul(big.NewInt(100), big.NewInt(1e18)),
+			Balance: big.NewInt(0).Mul(accountBalance, big.NewInt(1e18)),
 		}
 	}
 
-	client := backends.NewSimulatedBackend(alloc, 3e7)
-	client.AdjustTime(365 * 24 * time.Hour)
+	epoch := time.Date(1970, time.January, 1, 0, 0, 0, 0, time.Local)
+	maxLimit := uint64(9223372036854775807)
+
+	client := backends.NewSimulatedBackend(alloc, maxLimit)
+	client.AdjustTime(time.Since(epoch))
 	client.Commit()
 
 	b := SimulatedBackend{
@@ -110,4 +113,11 @@ func (b *SimulatedBackend) SendTransaction(ctx context.Context, tx *types.Transa
 	}
 
 	return nil
+}
+
+// SetTime creates a time shift to the simulated clock. It can only be called
+// on empty blocks.
+func (b *SimulatedBackend) SetTime(t time.Time) {
+	b.AdjustTime(time.Since(t))
+	b.Commit()
 }

@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/ardanlabs/ethereum"
-	"github.com/ardanlabs/ethereum/currency"
 	"github.com/ardanlabs/smartcontract/app/bank/single/contract/go/bank"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -22,7 +21,7 @@ const (
 func TestBankSingle(t *testing.T) {
 	ctx := context.Background()
 
-	backend, err := ethereum.CreateSimulatedBackend(numAccounts, true)
+	backend, err := ethereum.CreateSimulatedBackend(numAccounts, true, big.NewInt(100))
 	if err != nil {
 		t.Fatalf("unable to create simulated backend: %s", err)
 	}
@@ -61,7 +60,6 @@ func TestBankSingle(t *testing.T) {
 	const valueGwei = 0.0
 
 	var testBank *bank.Bank
-	converter := currency.NewDefaultConverter(bank.BankMetaData.ABI)
 
 	// =========================================================================
 
@@ -76,12 +74,9 @@ func TestBankSingle(t *testing.T) {
 			t.Fatalf("unable to deploy bank: %s", err)
 		}
 
-		receipt, err := deployer.WaitMined(ctx, tx)
-		if err != nil {
+		if _, err := deployer.WaitMined(ctx, tx); err != nil {
 			t.Fatalf("waiting for deploy: %s", err)
 		}
-
-		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 
 		testBank, err = bank.NewBank(contractID, deployer.Backend)
 		if err != nil {
@@ -121,12 +116,9 @@ func TestBankSingle(t *testing.T) {
 			t.Fatalf("should be able to deposit money: %s", err)
 		}
 
-		receipt, err := deployer.WaitMined(ctx, tx)
-		if err != nil {
+		if _, err := deployer.WaitMined(ctx, tx); err != nil {
 			t.Fatalf("waiting for deposit: %s", err)
 		}
-
-		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 
 		postDepositBalance, err := testBank.Balance(callOpts)
 		if err != nil {
@@ -158,12 +150,9 @@ func TestBankSingle(t *testing.T) {
 			t.Fatalf("unable be able to withdraw money: %s", err)
 		}
 
-		receipt, err := deployer.WaitMined(ctx, tx)
-		if err != nil {
+		if _, err := deployer.WaitMined(ctx, tx); err != nil {
 			t.Fatalf("waiting for withdraw: %s", err)
 		}
-
-		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 
 		postWithdrawBalance, err := testBank.Balance(callOpts)
 		if err != nil {
@@ -193,12 +182,9 @@ func TestBankSingle(t *testing.T) {
 			t.Fatalf("unable to reconcile: %s", err)
 		}
 
-		receipt, err := deployer.WaitMined(ctx, tx)
-		if err != nil {
+		if _, err := deployer.WaitMined(ctx, tx); err != nil {
 			t.Fatalf("waiting for reconcile: %s", err)
 		}
-
-		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 	})
 
 	// =========================================================================

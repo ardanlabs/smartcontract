@@ -12,7 +12,7 @@ import (
 func TestStore(t *testing.T) {
 	ctx := context.Background()
 
-	backend, err := ethereum.CreateSimulatedBackend(1, true)
+	backend, err := ethereum.CreateSimulatedBackend(1, true, big.NewInt(100))
 	if err != nil {
 		t.Fatalf("unable to create simulated backend: %s", err)
 	}

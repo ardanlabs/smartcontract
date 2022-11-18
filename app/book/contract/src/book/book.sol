@@ -199,7 +199,7 @@ contract Book {
 
         // Ensure the bet has passed its expiration.
         if (block.timestamp < bet.Info.Expiration) {
-            revert("bet has not yet expired");
+            revert(string.concat("bet has not yet expired : block.timestamp[", Error.Itoa(block.timestamp), "] expiration[", Error.Itoa(bet.Info.Expiration), "]"));
         }
 
         // Ensure the nonce used by the moderator is the expected nonce.

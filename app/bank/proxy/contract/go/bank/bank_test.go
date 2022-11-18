@@ -6,10 +6,8 @@ import (
 	"testing"
 
 	"github.com/ardanlabs/ethereum"
-	"github.com/ardanlabs/ethereum/currency"
 	"github.com/ardanlabs/smartcontract/app/bank/proxy/contract/go/bank"
 	"github.com/ardanlabs/smartcontract/app/bank/proxy/contract/go/bankapi"
-	"github.com/ardanlabs/smartcontract/app/simplecoin/contract/go/simplecoin"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 )
@@ -25,7 +23,7 @@ const (
 func TestBankProxy(t *testing.T) {
 	ctx := context.Background()
 
-	backend, err := ethereum.CreateSimulatedBackend(numAccounts, true)
+	backend, err := ethereum.CreateSimulatedBackend(numAccounts, true, big.NewInt(100))
 	if err != nil {
 		t.Fatalf("unable to create simulated backend: %s", err)
 	}
@@ -65,7 +63,6 @@ func TestBankProxy(t *testing.T) {
 
 	var testBank *bank.Bank
 	var bankContractID, bankapiContractID common.Address
-	converter := currency.NewDefaultConverter(simplecoin.SimplecoinMetaData.ABI)
 
 	// =========================================================================
 
@@ -81,12 +78,9 @@ func TestBankProxy(t *testing.T) {
 			t.Fatalf("unable to deploy bank: %s", err)
 		}
 
-		receipt, err := deployer.WaitMined(ctx, tx)
-		if err != nil {
+		if _, err := deployer.WaitMined(ctx, tx); err != nil {
 			t.Fatalf("waiting for deploy: %s", err)
 		}
-
-		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 	})
 
 	// =========================================================================
@@ -103,12 +97,9 @@ func TestBankProxy(t *testing.T) {
 			t.Fatalf("unable to deploy bank: %s", err)
 		}
 
-		receipt, err := deployer.WaitMined(ctx, tx)
-		if err != nil {
+		if _, err := deployer.WaitMined(ctx, tx); err != nil {
 			t.Fatalf("waiting for deploy: %s", err)
 		}
-
-		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 	})
 
 	// =========================================================================
@@ -133,12 +124,9 @@ func TestBankProxy(t *testing.T) {
 			t.Fatalf("unable to set contract: %s", err)
 		}
 
-		receipt, err := deployer.WaitMined(ctx, tx)
-		if err != nil {
+		if _, err := deployer.WaitMined(ctx, tx); err != nil {
 			t.Fatalf("waiting for set contract: %s", err)
 		}
-
-		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 	})
 
 	// =========================================================================
@@ -162,8 +150,6 @@ func TestBankProxy(t *testing.T) {
 			t.Fatalf("should get the initial balance: %s", err)
 		}
 
-		t.Logf("Initial balance: %v", initialBalance)
-
 		depositTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 		if err != nil {
 			t.Fatalf("unable to create transaction opts for deposit: %s", err)
@@ -175,19 +161,14 @@ func TestBankProxy(t *testing.T) {
 			t.Fatalf("should be able to deposit money: %s", err)
 		}
 
-		receipt, err := deployer.WaitMined(ctx, tx)
-		if err != nil {
+		if _, err := deployer.WaitMined(ctx, tx); err != nil {
 			t.Fatalf("waiting for deposit: %s", err)
 		}
-
-		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 
 		postDepositBalance, err := testBank.Balance(callOpts)
 		if err != nil {
 			t.Fatalf("unable to get balance after deposit: %s", err)
 		}
-
-		t.Logf("post deposit balance: %v", postDepositBalance)
 
 		expectedBalance := initialBalance.Add(initialBalance, depositTranOpts.Value)
 		if postDepositBalance.Cmp(expectedBalance) != 0 {
@@ -214,12 +195,9 @@ func TestBankProxy(t *testing.T) {
 			t.Fatalf("unable be able to withdraw money: %s", err)
 		}
 
-		receipt, err := deployer.WaitMined(ctx, tx)
-		if err != nil {
+		if _, err := deployer.WaitMined(ctx, tx); err != nil {
 			t.Fatalf("waiting for withdraw: %s", err)
 		}
-
-		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 
 		postWithdrawBalance, err := testBank.Balance(callOpts)
 		if err != nil {
@@ -249,12 +227,9 @@ func TestBankProxy(t *testing.T) {
 			t.Fatalf("unable to reconcile: %s", err)
 		}
 
-		receipt, err := deployer.WaitMined(ctx, tx)
-		if err != nil {
+		if _, err := deployer.WaitMined(ctx, tx); err != nil {
 			t.Fatalf("waiting for reconcile: %s", err)
 		}
-
-		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 	})
 
 	// =========================================================================

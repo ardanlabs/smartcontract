@@ -8,9 +8,7 @@ import (
 	"testing"
 
 	"github.com/ardanlabs/ethereum"
-	"github.com/ardanlabs/ethereum/currency"
 	"github.com/ardanlabs/smartcontract/app/signature/contract/go/verify"
-	"github.com/ardanlabs/smartcontract/app/simplecoin/contract/go/simplecoin"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -26,7 +24,7 @@ const (
 func TestVerify(t *testing.T) {
 	ctx := context.Background()
 
-	backend, err := ethereum.CreateSimulatedBackend(numAccounts, true)
+	backend, err := ethereum.CreateSimulatedBackend(numAccounts, true, big.NewInt(100))
 	if err != nil {
 		t.Fatalf("unable to create simulated backend: %s", err)
 	}
@@ -48,7 +46,6 @@ func TestVerify(t *testing.T) {
 	const valueGwei = 0.0
 
 	var testVerify *verify.Verify
-	converter := currency.NewDefaultConverter(simplecoin.SimplecoinMetaData.ABI)
 
 	// =========================================================================
 
@@ -63,12 +60,9 @@ func TestVerify(t *testing.T) {
 			t.Fatalf("unable to deploy verify: %s", err)
 		}
 
-		receipt, err := deployer.WaitMined(ctx, tx)
-		if err != nil {
+		if _, err := deployer.WaitMined(ctx, tx); err != nil {
 			t.Fatalf("waiting for deploy: %s", err)
 		}
-
-		t.Logf("Transfer\n%s", converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
 
 		testVerify, err = verify.NewVerify(contractID, deployer.Backend)
 		if err != nil {

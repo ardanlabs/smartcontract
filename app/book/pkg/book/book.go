@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // These constants define the different bet states.
@@ -444,6 +445,8 @@ func (b *Book) Sign(betID string, nonce int) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("arguments pack: %w", err)
 	}
+
+	bytes = crypto.Keccak256(bytes)
 
 	signature, err := ethereum.SignBytes(bytes, b.Client().PrivateKey())
 	if err != nil {
