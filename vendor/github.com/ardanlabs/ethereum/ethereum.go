@@ -31,6 +31,7 @@ type Backend interface {
 	TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, bool, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	BalanceAt(ctx context.Context, contract common.Address, blockNumber *big.Int) (*big.Int, error)
+	Network() string
 	ChainID() *big.Int
 }
 
@@ -39,7 +40,6 @@ type Client struct {
 	Backend
 	address    common.Address
 	privateKey *ecdsa.PrivateKey
-	chainID    *big.Int
 }
 
 // NewClient provides an API for accessing an Ethereum node to perform blockchain
@@ -50,7 +50,6 @@ func NewClient(backend Backend, privateKey *ecdsa.PrivateKey) (*Client, error) {
 		Backend:    backend,
 		address:    crypto.PubkeyToAddress(privateKey.PublicKey),
 		privateKey: privateKey,
-		chainID:    backend.ChainID(),
 	}
 
 	return &clt, nil
@@ -63,9 +62,14 @@ func (clt *Client) Address() common.Address {
 	return clt.address
 }
 
+// Network returns the network information for the connected network.
+func (clt *Client) Network() string {
+	return clt.Backend.Network()
+}
+
 // ChainID returns the chain information for the connected network.
 func (clt *Client) ChainID() int {
-	return int(clt.chainID.Int64())
+	return int(clt.Backend.ChainID().Int64())
 }
 
 // PrivateKey returns the private key being used.
@@ -101,7 +105,7 @@ func (clt *Client) NewTransactOpts(ctx context.Context, gasLimit uint64, valueGW
 		return nil, fmt.Errorf("retrieving suggested gas price: %w", err)
 	}
 
-	tranOpts, err := bind.NewKeyedTransactorWithChainID(clt.privateKey, clt.chainID)
+	tranOpts, err := bind.NewKeyedTransactorWithChainID(clt.privateKey, clt.Backend.ChainID())
 	if err != nil {
 		return nil, fmt.Errorf("keying transaction: %w", err)
 	}
@@ -157,7 +161,7 @@ func (clt *Client) SendTransaction(ctx context.Context, address common.Address, 
 		Data:     nil,
 	})
 
-	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(clt.chainID), clt.privateKey)
+	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(clt.Backend.ChainID()), clt.privateKey)
 	if err != nil {
 		return fmt.Errorf("signing transaction: %w", err)
 	}

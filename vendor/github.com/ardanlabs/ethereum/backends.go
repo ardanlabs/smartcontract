@@ -18,7 +18,7 @@ import (
 // DialedBackend represents a dialied connection to an ethereum node.
 type DialedBackend struct {
 	*ethclient.Client
-	Network string
+	network string
 	chainID *big.Int
 }
 
@@ -37,11 +37,16 @@ func CreateDialedBackend(ctx context.Context, network string) (*DialedBackend, e
 
 	b := DialedBackend{
 		Client:  client,
-		Network: network,
+		network: network,
 		chainID: chainID,
 	}
 
 	return &b, nil
+}
+
+// Network returns the network the backend is connected to.
+func (b *DialedBackend) Network() string {
+	return b.network
 }
 
 // ChainID returns the chain id the backend is connected to.
@@ -56,6 +61,7 @@ type SimulatedBackend struct {
 	*backends.SimulatedBackend
 	AutoCommit  bool
 	PrivateKeys []*ecdsa.PrivateKey
+	network     string
 	chainID     *big.Int
 }
 
@@ -90,10 +96,16 @@ func CreateSimulatedBackend(numAccounts int, autoCommit bool, accountBalance *bi
 		SimulatedBackend: client,
 		AutoCommit:       autoCommit,
 		PrivateKeys:      keys,
+		network:          "simulated",
 		chainID:          big.NewInt(1337),
 	}
 
 	return &b, nil
+}
+
+// Network returns the network the backend is connected to.
+func (b *SimulatedBackend) Network() string {
+	return b.network
 }
 
 // ChainID returns the chain id the backend is connected to.
