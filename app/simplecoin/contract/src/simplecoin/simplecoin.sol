@@ -11,9 +11,6 @@ contract SimpleCoin {
     // CoinBalance manages the accounts and their funding.
     mapping (address => uint256) public CoinBalance;
 
-    // Allowance manages the funding accounts can perform on behalf of others.
-    mapping (address => mapping (address => uint256)) public Allowance;
-
     // FrozenAccount represents accounts who can't spend any longer.
     mapping (address => bool) public FrozenAccount;
 
@@ -23,7 +20,7 @@ contract SimpleCoin {
     event EventLog(string value);
 
     // EventTransfer is an event to indicate a transfer was performed.
-    event EventTransfer(address indexed from, address indexed to, uint256 value);
+    event EventTransfer(address indexed from, address indexed to, uint256 amount);
 
     // EventFrozenAccount is an event to indicate an account was frozen or
     // unfrozen.
@@ -76,30 +73,6 @@ contract SimpleCoin {
 
         emit EventLog(string.concat("transfered ", Error.Itoa(amount), " to ", Error.Addrtoa(to), " from ", Error.Addrtoa(msg.sender)));
         emit EventTransfer(msg.sender, to, amount);
-    }
-
-    // TransferFrom moves coins from the specified account to the specified
-    // account.
-    // The from account must have an allowance for doing this.
-    function TransferFrom(address from, address to, uint256 amount) public {
-        Error.Err memory err = validateTransfer(from, to, amount);
-        if (err.isError) {
-            revert(err.msg);
-        }
-
-        CoinBalance[from]           -= amount;
-        CoinBalance[to]             += amount;
-        Allowance[from][msg.sender] -= amount;
-
-        emit EventLog(string.concat("transfered from ", Error.Itoa(amount), " to ", Error.Addrtoa(to), " from ", Error.Addrtoa(from)));
-        emit EventTransfer(from, to, amount);
-    }
-
-    // Authorize provides an account an allowance of coins they are authorized
-    // to spend.
-    function Authorize(address authorizedAccount, uint256 allowanceAmount) public returns (bool) {
-        Allowance[msg.sender][authorizedAccount] = allowanceAmount;
-        return true;
     }
 
     // =========================================================================

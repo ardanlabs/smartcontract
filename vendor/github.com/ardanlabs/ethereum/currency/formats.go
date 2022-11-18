@@ -39,13 +39,14 @@ func formatReceiptCostDetails(rcd ReceiptDetails) string {
 }
 
 // formatLogs takes the slice of log information and displays it.
-func formatLogs(logs []string) string {
+func formatLogs(logs []LogData) string {
 	var b bytes.Buffer
 
 	fmt.Fprintf(&b, "\nLogs\n")
 	fmt.Fprintf(&b, "----------------------------------------------------\n")
 	for _, log := range logs {
-		fmt.Fprintln(&b, log)
+		fmt.Fprintln(&b, log.EventName)
+		fmt.Fprintln(&b, log.Data)
 	}
 
 	return b.String()

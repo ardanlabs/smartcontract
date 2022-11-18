@@ -75,3 +75,9 @@ type BalanceDiff struct {
 	DiffGWei   string
 	DiffUSD    string
 }
+
+// LogData represents data we can pull from events in the receipt logs.
+type LogData struct {
+	EventName string
+	Data      map[string]interface{}
+}

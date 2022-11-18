@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"math/big"
+	"strings"
 
 	ethUnit "github.com/DeOne4eg/eth-unit-converter"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 )
@@ -19,6 +22,7 @@ var (
 
 // Converter maintains the information required for ETH conversions.
 type Converter struct {
+	abiMetaData      string
 	coinMarketCapKey string
 	oneETHToUSD      *big.Float
 	oneUSDToETH      *big.Float
@@ -27,7 +31,7 @@ type Converter struct {
 }
 
 // NewConverter constructs a conversion for working with ETH and USD.
-func NewConverter(coinMarketCapKey string) (*Converter, error) {
+func NewConverter(abiMetaData string, coinMarketCapKey string) (*Converter, error) {
 	oneETHToUSD, err := captureETH2USD(coinMarketCapKey)
 	if err != nil {
 		return nil, fmt.Errorf("captureETH2USD: %w", err)
@@ -42,6 +46,7 @@ func NewConverter(coinMarketCapKey string) (*Converter, error) {
 	oneUSDToGWei := big.NewFloat(0).SetPrec(1024).Mul(oneUSDToETH, big.NewFloat(1000000000))
 
 	return &Converter{
+		abiMetaData:      abiMetaData,
 		coinMarketCapKey: coinMarketCapKey,
 		oneETHToUSD:      oneETHToUSD,
 		oneUSDToETH:      oneUSDToETH,
@@ -52,11 +57,12 @@ func NewConverter(coinMarketCapKey string) (*Converter, error) {
 
 // NewDefaultConverter can be used if the API is failing to set reasonable
 // defaults. Also good for tests.
-func NewDefaultConverter() *Converter {
+func NewDefaultConverter(abiMetaData string) *Converter {
 	oneGWeiToUSD := big.NewFloat(0).SetPrec(1024).Mul(defaultOneETHToUSD, big.NewFloat(0.000000001))
 	oneUSDToGWei := big.NewFloat(0).SetPrec(1024).Mul(defaultOneUSDToETH, big.NewFloat(1000000000))
 
 	return &Converter{
+		abiMetaData:  abiMetaData,
 		oneETHToUSD:  defaultOneETHToUSD,
 		oneUSDToETH:  defaultOneUSDToETH,
 		oneGWeiToUSD: oneGWeiToUSD,
@@ -137,6 +143,58 @@ func (c *Converter) CalculateBalanceDiff(startingBalance *big.Int, endingBalance
 	}, nil
 }
 
+// ExtractLogData can extra the information in the receipt logs from the
+// receipt.
+func ExtractLogData(abiMetaData string, receipt *types.Receipt) ([]LogData, error) {
+	type topic struct {
+		Name string
+		Func string
+	}
+
+	codeABI, err := abi.JSON(strings.NewReader(string(abiMetaData)))
+	if err != nil {
+		return nil, err
+	}
+
+	events := make(map[common.Hash]topic)
+
+	for _, evt := range codeABI.Events {
+		f := evt.Name + "("
+		for _, inp := range evt.Inputs {
+			f = f + inp.Type.String() + ","
+		}
+		f = f[:len(f)-1] + ")"
+
+		events[crypto.Keccak256Hash([]byte(f))] = topic{
+			Name: evt.Name,
+			Func: f,
+		}
+	}
+
+	var logData []LogData
+
+	for _, log := range receipt.Logs {
+		for _, topic := range log.Topics {
+			evt, found := events[topic]
+			if !found {
+				continue
+			}
+
+			data := map[string]interface{}{}
+			if err := codeABI.UnpackIntoMap(data, evt.Name, log.Data); err != nil {
+				return nil, err
+			}
+
+			logData = append(logData, LogData{
+				EventName: evt.Name,
+				Data:      data,
+			})
+		}
+	}
+
+	return logData, nil
+}
+
 // FmtBalanceSheet produces a easy to read format of the starting and ending
 // balance for the connected account.
 func (c *Converter) FmtBalanceSheet(startingBalance *big.Int, endingBalance *big.Int) string {
@@ -162,31 +220,10 @@ func (c *Converter) FmtTransactionReceipt(receipt *types.Receipt, gasPrice *big.
 	var b bytes.Buffer
 
 	b.WriteString(formatReceiptCostDetails(rcd))
-	b.WriteString(formatLogs(extractLogs(receipt)))
-
-	return b.String()
-}
-
-// =============================================================================
-
-// extractLogs extracts the logging events from the receipt.
-func extractLogs(receipt *types.Receipt) []string {
-	var logs []string
-
-	if len(receipt.Logs) > 0 {
-
-		// We have a particular log event that if we find, we can separate
-		// from the rest of the events.
-		topicLog := crypto.Keccak256Hash([]byte("EventLog(string)"))
-
-		// Iterate over the logs and separate.
-		for _, v := range receipt.Logs {
-			if v.Topics[0] == topicLog {
-				l := v.Data[63]
-				logs = append(logs, string(v.Data[64:64+l]))
-			}
-		}
+	logData, err := ExtractLogData(c.abiMetaData, receipt)
+	if err == nil {
+		b.WriteString(formatLogs(logData))
 	}
 
-	return logs
+	return b.String()
 }

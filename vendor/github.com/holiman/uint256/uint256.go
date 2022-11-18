@@ -195,10 +195,43 @@ func (z *Int) AddOverflow(x, y *Int) (*Int, bool) {
 // AddMod sets z to the sum ( x+y ) mod m, and returns z.
 // If m == 0, z is set to 0 (OBS: differs from the big.Int)
 func (z *Int) AddMod(x, y, m *Int) *Int {
+
+	// Fast path for m >= 2^192, with x and y at most slightly bigger than m.
+	// This is always the case when x and y are already reduced modulo such m.
+
+	if (m[3] != 0) && (x[3] <= m[3]) && (y[3] <= m[3]) {
+		var (
+			s, t     Int
+			overflow bool
+		)
+
+		s = *x
+		if _, overflow = s.SubOverflow(&s, m); overflow {
+			s = *x
+		}
+
+		t = *y
+		if _, overflow = t.SubOverflow(&t, m); overflow {
+			t = *y
+		}
+
+		if _, overflow = s.AddOverflow(&s, &t); overflow {
+			s.Sub(&s, m)
+		}
+
+		t = s
+		if _, overflow = s.SubOverflow(&s, m); overflow {
+			s = t
+		}
+
+		*z = s
+		return z
+	}
+
 	if m.IsZero() {
 		return z.Clear()
 	}
-	if z == m { // z is an alias for m  // TODO: Understand why needed and add tests for all "division" methods.
+	if z == m { // z is an alias for m and will be overwritten by AddOverflow before m is read
 		m = m.Clone()
 	}
 	if _, overflow := z.AddOverflow(x, y); overflow {
@@ -475,6 +508,11 @@ func udivrem(quot, u []uint64, d *Int) (rem Int) {
 		}
 	}
 
+	if uLen < dLen {
+		copy(rem[:], u)
+		return rem
+	}
+
 	var unStorage [9]uint64
 	un := unStorage[:uLen+1]
 	un[uLen] = u[uLen-1] >> (64 - shift)
@@ -550,8 +588,20 @@ func (z *Int) Mod(x, y *Int) *Int {
 	}
 
 	var quot Int
-	rem := udivrem(quot[:], x[:], y)
-	return z.Set(&rem)
+	*z = udivrem(quot[:], x[:], y)
+	return z
+}
+
+// DivMod sets z to the quotient x div y and m to the modulus x mod y and returns the pair (z, m) for y != 0.
+// If y == 0, both z and m are set to 0 (OBS: differs from the big.Int)
+func (z *Int) DivMod(x, y, m *Int) (*Int, *Int) {
+	if y.IsZero() {
+		return z.Clear(), m.Clear()
+	}
+	var quot Int
+	*m = udivrem(quot[:], x[:], y)
+	*z = quot
+	return z, m
 }
 
 // SMod interprets x and y as two's complement signed integers,
@@ -576,14 +626,21 @@ func (z *Int) SMod(x, y *Int) *Int {
 	return z
 }
 
-// MulMod calculates the modulo-m multiplication of x and y and
-// returns z.
+// MulModWithReciprocal calculates the modulo-m multiplication of x and y
+// and returns z, using the reciprocal of m provided as the mu parameter.
+// Use uint256.Reciprocal to calculate mu from m.
 // If m == 0, z is set to 0 (OBS: differs from the big.Int)
-func (z *Int) MulMod(x, y, m *Int) *Int {
+func (z *Int) MulModWithReciprocal(x, y, m *Int, mu *[5]uint64) *Int {
 	if x.IsZero() || y.IsZero() || m.IsZero() {
 		return z.Clear()
 	}
 	p := umul(x, y)
+
+	if m[3] != 0 {
+		r := reduce4(p, m, *mu)
+		return z.Set(&r)
+	}
+
 	var (
 		pl Int
 		ph Int
@@ -599,6 +656,54 @@ func (z *Int) MulMod(x, y, m *Int) *Int {
 	var quot [8]uint64
 	rem := udivrem(quot[:], p[:], m)
 	return z.Set(&rem)
+}
+
+// MulMod calculates the modulo-m multiplication of x and y and
+// returns z.
+// If m == 0, z is set to 0 (OBS: differs from the big.Int)
+func (z *Int) MulMod(x, y, m *Int) *Int {
+	if x.IsZero() || y.IsZero() || m.IsZero() {
+		return z.Clear()
+	}
+	p := umul(x, y)
+
+	if m[3] != 0 {
+		mu := Reciprocal(m)
+		r := reduce4(p, m, mu)
+		return z.Set(&r)
+	}
+
+	var (
+		pl Int
+		ph Int
+	)
+	copy(pl[:], p[:4])
+	copy(ph[:], p[4:])
+
+	// If the multiplication is within 256 bits use Mod().
+	if ph.IsZero() {
+		return z.Mod(&pl, m)
+	}
+
+	var quot [8]uint64
+	rem := udivrem(quot[:], p[:], m)
+	return z.Set(&rem)
+}
+
+// MulDivOverflow calculates (x*y)/d with full precision, returns z and whether overflow occurred in multiply process (result does not fit to 256-bit).
+// computes 512-bit multiplication and 512 by 256 division.
+func (z *Int) MulDivOverflow(x, y, d *Int) (*Int, bool) {
+	if x.IsZero() || y.IsZero() || d.IsZero() {
+		return z.Clear(), false
+	}
+	p := umul(x, y)
+
+	var quot [8]uint64
+	udivrem(quot[:], p[:], d)
+
+	copy(z[:], quot[:4])
+
+	return z, (quot[4] | quot[5] | quot[6] | quot[7]) != 0
 }
 
 // Abs interprets x as a two's complement signed number,
@@ -788,13 +893,18 @@ func (z *Int) Eq(x *Int) bool {
 //   +1 if z >  x
 //
 func (z *Int) Cmp(x *Int) (r int) {
-	if z.Gt(x) {
-		return 1
-	}
-	if z.Lt(x) {
+	// z < x <=> z - x < 0 i.e. when subtraction overflows.
+	d0, carry := bits.Sub64(z[0], x[0], 0)
+	d1, carry := bits.Sub64(z[1], x[1], carry)
+	d2, carry := bits.Sub64(z[2], x[2], carry)
+	d3, carry := bits.Sub64(z[3], x[3], carry)
+	if carry == 1 {
 		return -1
 	}
-	return 0
+	if d0|d1|d2|d3 == 0 {
+		return 0
+	}
+	return 1
 }
 
 // LtUint64 returns true if z is smaller than n
@@ -1131,4 +1241,38 @@ func (z *Int) ExtendSign(x, byteNum *Int) *Int {
 		z.And(x, mask)
 	}
 	return z
+}
+
+// Sqrt sets z to ⌊√x⌋, the largest integer such that z² ≤ x, and returns z.
+func (z *Int) Sqrt(x *Int) *Int {
+	// This implementation of Sqrt is based on big.Int (see math/big/nat.go).
+	if x.LtUint64(2) {
+		return z.Set(x)
+	}
+	var (
+		z1 = &Int{1, 0, 0, 0}
+		z2 = &Int{}
+	)
+	// Start with value known to be too large and repeat "z = ⌊(z + ⌊x/z⌋)/2⌋" until it stops getting smaller.
+	z1 = z1.Lsh(z1, uint(x.BitLen()+1)/2) // must be ≥ √x
+	for {
+		z2 = z2.Div(x, z1)
+		z2 = z2.Add(z2, z1)
+		{ //z2 = z2.Rsh(z2, 1) -- the code below does a 1-bit rsh faster
+			a := z2[3] << 63
+			z2[3] = z2[3] >> 1
+			b := z2[2] << 63
+			z2[2] = (z2[2] >> 1) | a
+			a = z2[1] << 63
+			z2[1] = (z2[1] >> 1) | b
+			z2[0] = (z2[0] >> 1) | a
+		}
+		// end of inlined bitshift
+
+		if z2.Cmp(z1) >= 0 {
+			// z1 is answer.
+			return z.Set(z1)
+		}
+		z1, z2 = z2, z1
+	}
 }

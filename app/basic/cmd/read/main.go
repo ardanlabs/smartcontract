@@ -27,14 +27,25 @@ func main() {
 func run() error {
 	ctx := context.Background()
 
-	ethereum, err := ethereum.New(ctx, ethereum.NetworkLocalhost, keyStoreFile, passPhrase)
+	backend, err := ethereum.CreateDialedBackend(ctx, ethereum.NetworkLocalhost)
+	if err != nil {
+		return err
+	}
+	defer backend.Close()
+
+	privateKey, err := ethereum.PrivateKeyByKeyFile(keyStoreFile, passPhrase)
+	if err != nil {
+		return err
+	}
+
+	clt, err := ethereum.NewClient(backend, privateKey)
 	if err != nil {
 		return err
 	}
 
 	fmt.Println("\nInput Values")
 	fmt.Println("----------------------------------------------------")
-	fmt.Println("fromAddress:", ethereum.Address())
+	fmt.Println("fromAddress:", clt.Address())
 
 	// =========================================================================
 
@@ -49,7 +60,7 @@ func run() error {
 	}
 	fmt.Println("contractID:", contractID)
 
-	storeCon, err := store.NewStore(common.HexToAddress(contractID), ethereum.RawClient())
+	storeCon, err := store.NewStore(common.HexToAddress(contractID), clt.Backend)
 	if err != nil {
 		return fmt.Errorf("new contract: %w", err)
 	}

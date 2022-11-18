@@ -52,20 +52,31 @@ func run() (err error) {
 		ethAccount = account1StoreFile
 	}
 
-	eth, err := ethereum.New(ctx, ethereum.NetworkLocalhost, ethAccount, passPhrase)
+	backend, err := ethereum.CreateDialedBackend(ctx, ethereum.NetworkLocalhost)
+	if err != nil {
+		return err
+	}
+	defer backend.Close()
+
+	privateKey, err := ethereum.PrivateKeyByKeyFile(ethAccount, passPhrase)
+	if err != nil {
+		return err
+	}
+
+	clt, err := ethereum.NewClient(backend, privateKey)
 	if err != nil {
 		return err
 	}
 
 	fmt.Println("\nInput Values")
 	fmt.Println("----------------------------------------------------")
-	fmt.Println("fromAddress:", eth.Address())
+	fmt.Println("fromAddress:", clt.Address())
 
 	// =========================================================================
 
-	converter, err := currency.NewConverter(coinMarketCapKey)
+	converter, err := currency.NewConverter(bank.BankMetaData.ABI, coinMarketCapKey)
 	if err != nil {
-		converter = currency.NewDefaultConverter()
+		converter = currency.NewDefaultConverter(bank.BankMetaData.ABI)
 	}
 	oneETHToUSD, oneUSDToETH := converter.Values()
 
@@ -74,12 +85,12 @@ func run() (err error) {
 
 	// =========================================================================
 
-	startingBalance, err := eth.Balance(ctx)
+	startingBalance, err := clt.Balance(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		endingBalance, dErr := eth.Balance(ctx)
+		endingBalance, dErr := clt.Balance(ctx)
 		if dErr != nil {
 			err = dErr
 			return
@@ -89,7 +100,7 @@ func run() (err error) {
 
 	// =========================================================================
 
-	callOpts, err := eth.NewCallOpts(ctx)
+	callOpts, err := clt.NewCallOpts(ctx)
 	if err != nil {
 		return err
 	}
@@ -107,7 +118,7 @@ func run() (err error) {
 	}
 	fmt.Println("contractID:", contractID)
 
-	proxyContract, err := bank.NewBank(common.HexToAddress(contractID), eth.RawClient())
+	proxyContract, err := bank.NewBank(common.HexToAddress(contractID), clt.Backend)
 	if err != nil {
 		return fmt.Errorf("new proxy connection: %w", err)
 	}

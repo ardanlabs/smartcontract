@@ -31,25 +31,31 @@ func main() {
 func run() (err error) {
 	ctx := context.Background()
 
-	ownerKey, err := ethereum.PrivateKeyByKeyFile(keyStoreFile, passPhrase)
+	backend, err := ethereum.CreateDialedBackend(ctx, ethereum.NetworkLocalhost)
+	if err != nil {
+		return err
+	}
+	defer backend.Close()
+
+	privateKey, err := ethereum.PrivateKeyByKeyFile(keyStoreFile, passPhrase)
 	if err != nil {
 		return err
 	}
 
-	eth, err := ethereum.New(ctx, ethereum.NetworkLocalhost, keyStoreFile, passPhrase)
+	clt, err := ethereum.NewClient(backend, privateKey)
 	if err != nil {
 		return err
 	}
 
 	fmt.Println("\nInput Values")
 	fmt.Println("----------------------------------------------------")
-	fmt.Println("fromAddress:", eth.Address())
+	fmt.Println("fromAddress:", clt.Address())
 
 	// =========================================================================
 
-	converter, err := currency.NewConverter(coinMarketCapKey)
+	converter, err := currency.NewConverter(verify.VerifyMetaData.ABI, coinMarketCapKey)
 	if err != nil {
-		converter = currency.NewDefaultConverter()
+		converter = currency.NewDefaultConverter(verify.VerifyMetaData.ABI)
 	}
 	oneETHToUSD, oneUSDToETH := converter.Values()
 
@@ -58,7 +64,7 @@ func run() (err error) {
 
 	// =========================================================================
 
-	callOpts, err := eth.NewCallOpts(ctx)
+	callOpts, err := clt.NewCallOpts(ctx)
 	if err != nil {
 		return err
 	}
@@ -76,7 +82,7 @@ func run() (err error) {
 	}
 	fmt.Println("contractID :", contractID)
 
-	verification, err := verify.NewVerify(common.HexToAddress(contractID), eth.RawClient())
+	verification, err := verify.NewVerify(common.HexToAddress(contractID), clt.Backend)
 	if err != nil {
 		return fmt.Errorf("new contract: %w", err)
 	}
@@ -95,7 +101,7 @@ func run() (err error) {
 	}
 
 	// Sign the message with the private key.
-	signature, err := ethereum.SignBytes(bytes, ownerKey)
+	signature, err := ethereum.SignBytes(bytes, privateKey)
 	if err != nil {
 		return fmt.Errorf("signing message: %w", err)
 	}
@@ -123,7 +129,7 @@ func run() (err error) {
 
 	fmt.Println("\nResults")
 	fmt.Println("----------------------------------------------------")
-	fmt.Println("Keyfile address   :", eth.Address())
+	fmt.Println("Keyfile address   :", clt.Address())
 	fmt.Println("Signature address :", sigAddress)
 	fmt.Println("Match sender      :", matched)
 

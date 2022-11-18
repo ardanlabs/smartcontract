@@ -31,20 +31,31 @@ func main() {
 func run() (err error) {
 	ctx := context.Background()
 
-	ethereum, err := ethereum.New(ctx, ethereum.NetworkLocalhost, ownerStoreFile, passPhrase)
+	backend, err := ethereum.CreateDialedBackend(ctx, ethereum.NetworkLocalhost)
+	if err != nil {
+		return err
+	}
+	defer backend.Close()
+
+	privateKey, err := ethereum.PrivateKeyByKeyFile(ownerStoreFile, passPhrase)
+	if err != nil {
+		return err
+	}
+
+	clt, err := ethereum.NewClient(backend, privateKey)
 	if err != nil {
 		return err
 	}
 
 	fmt.Println("\nInput Values")
 	fmt.Println("----------------------------------------------------")
-	fmt.Println("fromAddress:", ethereum.Address())
+	fmt.Println("fromAddress:", clt.Address())
 
 	// =========================================================================
 
-	converter, err := currency.NewConverter(coinMarketCapKey)
+	converter, err := currency.NewConverter(bank.BankMetaData.ABI, coinMarketCapKey)
 	if err != nil {
-		converter = currency.NewDefaultConverter()
+		converter = currency.NewDefaultConverter(bank.BankMetaData.ABI)
 	}
 	oneETHToUSD, oneUSDToETH := converter.Values()
 
@@ -53,12 +64,12 @@ func run() (err error) {
 
 	// =========================================================================
 
-	startingBalance, err := ethereum.Balance(ctx)
+	startingBalance, err := clt.Balance(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		endingBalance, dErr := ethereum.Balance(ctx)
+		endingBalance, dErr := clt.Balance(ctx)
 		if dErr != nil {
 			err = dErr
 			return
@@ -70,7 +81,7 @@ func run() (err error) {
 
 	const gasLimit = 1600000
 	const valueGwei = 0.0
-	tranOpts, err := ethereum.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+	tranOpts, err := clt.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 	if err != nil {
 		return err
 	}
@@ -88,7 +99,7 @@ func run() (err error) {
 	}
 	fmt.Println("contractID:", contractID)
 
-	proxyContract, err := bank.NewBank(common.HexToAddress(contractID), ethereum.RawClient())
+	proxyContract, err := bank.NewBank(common.HexToAddress(contractID), clt.Backend)
 	if err != nil {
 		return fmt.Errorf("new proxy connection: %w", err)
 	}
@@ -144,7 +155,7 @@ func run() (err error) {
 
 	// =========================================================================
 
-	receipt, err := ethereum.WaitMined(ctx, tx)
+	receipt, err := clt.WaitMined(ctx, tx)
 	if err != nil {
 		return err
 	}
