@@ -85,14 +85,14 @@ func CreateSimulatedBackend(numAccounts int, autoCommit bool, accountBalance *bi
 		}
 	}
 
-	epoch := time.Date(1970, time.January, 1, 0, 0, 0, 0, time.Local)
+	epoch := time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC)
 	maxLimit := uint64(9223372036854775807)
 
 	client := backends.NewSimulatedBackend(alloc, maxLimit)
 
 	// For some reasons on different system the time ends up in the future
-	// and causes problems. So subtracting a minute to keep close to now.
-	client.AdjustTime(time.Since(epoch) - time.Minute)
+	// and causes problems. So subtracting ten minutes to keep it close to now.
+	client.AdjustTime(time.Since(epoch) - (10 * time.Minute))
 	client.Commit()
 
 	b := SimulatedBackend{
