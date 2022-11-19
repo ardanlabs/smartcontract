@@ -3,14 +3,14 @@ module github.com/ardanlabs/smartcontract
 go 1.18
 
 require (
-	github.com/ardanlabs/ethereum v0.11.0
+	github.com/ardanlabs/ethereum v0.12.0
 	github.com/ethereum/go-ethereum v1.10.26
 )
 
 require (
 	github.com/DeOne4eg/eth-unit-converter v0.2.0 // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.0 // indirect
-	github.com/btcsuite/btcd/btcec/v2 v2.3.1 // indirect
+	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/deckarep/golang-set v1.8.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
@@ -34,7 +34,7 @@ require (
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
 	github.com/tklauser/numcpus v0.6.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
-	golang.org/x/crypto v0.2.0 // indirect
+	golang.org/x/crypto v0.3.0 // indirect
 	golang.org/x/sys v0.2.0 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 )

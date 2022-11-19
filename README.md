@@ -1,5 +1,7 @@
 # Ultimate Go: Smart Contract
 
+[![CircleCI](https://circleci.com/gh/ardanlabs/smartcontract.svg?style=svg)](https://circleci.com/gh/ardanlabs/smartcontract)
+
 Copyright 2021, 2022, Ardan Labs  
 hello@ardanlabs.com
 
