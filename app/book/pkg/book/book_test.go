@@ -20,7 +20,6 @@ var (
 	oneUSD    = big.NewFloat(662_833.00)
 	tenUSD    = big.NewFloat(0).Mul(oneUSD, big.NewFloat(10))
 	twentyUSD = big.NewFloat(0).Mul(oneUSD, big.NewFloat(20))
-	fiftyUSD  = big.NewFloat(0).Mul(oneUSD, big.NewFloat(50))
 )
 
 // We need a string for the bet id.

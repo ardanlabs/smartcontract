@@ -128,7 +128,7 @@ func (b *Book) Nonce(ctx context.Context, accountID string) (*big.Int, error) {
 	return nonce, nil
 }
 
-// Nonce will return the current nonce for the specified account.
+// BetDetails will the details for the specied betID.
 func (b *Book) BetDetails(ctx context.Context, betID string) (BetInfo, error) {
 	tranOpts, err := b.ethereum.NewCallOpts(ctx)
 	if err != nil {
