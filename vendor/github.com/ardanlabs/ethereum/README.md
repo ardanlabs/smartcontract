@@ -1,5 +1,6 @@
 # Ethereum
 
+[![CircleCI](https://circleci.com/gh/ardanlabs/ethereum.svg?style=svg)](https://circleci.com/gh/ardanlabs/ethereum)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ardanlabs/ethereum)](https://goreportcard.com/report/github.com/ardanlabs/ethereum)
 [![go.mod Go version](https://img.shields.io/github/go-mod/go-version/ardanlabs/ethereum)](https://github.com/ardanlabs/ethereum)
 

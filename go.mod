@@ -3,7 +3,7 @@ module github.com/ardanlabs/smartcontract
 go 1.18
 
 require (
-	github.com/ardanlabs/ethereum v0.13.0
+	github.com/ardanlabs/ethereum v0.14.0
 	github.com/ethereum/go-ethereum v1.10.26
 )
 
