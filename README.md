@@ -1,6 +1,8 @@
 # Ultimate Go: Smart Contract
 
 [![CircleCI](https://circleci.com/gh/ardanlabs/smartcontract.svg?style=svg)](https://circleci.com/gh/ardanlabs/smartcontract)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ardanlabs/smartcontract)](https://goreportcard.com/report/github.com/ardanlabs/smartcontract)
+[![go.mod Go version](https://img.shields.io/github/go-mod/go-version/ardanlabs/smartcontract)](https://github.com/ardanlabs/smartcontract)
 
 Copyright 2021, 2022, Ardan Labs  
 hello@ardanlabs.com
