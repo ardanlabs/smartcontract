@@ -92,7 +92,7 @@ func CreateSimulatedBackend(numAccounts int, autoCommit bool, accountBalance *bi
 
 	// For some reasons on different system the time ends up in the future
 	// and causes problems. So subtracting ten minutes to keep it close to now.
-	client.AdjustTime(time.Since(epoch) - (2 * time.Minute))
+	client.AdjustTime(time.Since(epoch) - (5 * time.Minute))
 	client.Commit()
 
 	b := SimulatedBackend{
