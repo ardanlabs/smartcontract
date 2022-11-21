@@ -15,15 +15,15 @@ jobs:
               which go
               go version
       - run:
-          name: Run staticheck
+          name: Run tests
           command: |
-              go install honnef.co/go/tools/cmd/staticcheck@latest
-              staticcheck -checks=all ./...
+              CGO_ENABLED=0 go test ./...
       - run:
           name: Run vet
           command: |
               CGO_ENABLED=0 go vet ./...
       - run:
-          name: Run tests
+          name: Run staticheck
           command: |
-              CGO_ENABLED=0 go test ./...
+              go install honnef.co/go/tools/cmd/staticcheck@latest
+              staticcheck -checks=all ./...

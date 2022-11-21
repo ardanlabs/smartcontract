@@ -572,7 +572,7 @@ func deployContract() (string, error) {
 }
 
 func smartContract(ctx context.Context) (string, error) {
-	tranOpts, err := ownerClt.NewTransactOpts(ctx, 5_000_000, big.NewFloat(0))
+	tranOpts, err := ownerClt.NewTransactOpts(ctx, 10_000_000, big.NewFloat(0))
 	if err != nil {
 		return "", err
 	}
