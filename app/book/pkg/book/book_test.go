@@ -559,8 +559,6 @@ func deployContract() (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	backend.Commit()
-
 	fmt.Println("Deploying Contract ...")
 	defer fmt.Println("Deployed")
 

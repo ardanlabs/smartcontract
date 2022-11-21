@@ -58,7 +58,8 @@ func TestStore(t *testing.T) {
 		t.Fatalf("unable to create transaction opts for setitem: %s", err)
 	}
 
-	if _, err := testStore.SetItem(tranOpts, key, value); err != nil {
+	tx, err = testStore.SetItem(tranOpts, key, value)
+	if err != nil {
 		t.Fatalf("should be able to set item: %s", err)
 	}
 
