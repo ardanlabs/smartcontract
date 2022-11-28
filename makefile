@@ -56,7 +56,7 @@
 # ==============================================================================
 # Install dependencies
 # https://geth.ethereum.org/docs/install-and-build/installing-geth
-# https://docs.soliditylang.org/en/v0.8.11/installing-solidity.html
+# https://docs.soliditylang.org/en/v0.8.17/installing-solidity.html
 
 dev.setup:
 	brew update
