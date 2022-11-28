@@ -40,8 +40,8 @@
 # Endpoint: https://rpc.goerli.mudit.blog/
 #
 # Visibility Quantifiers
-# external − External functions are meant to be called by other contracts. They cannot be used for internal call.
-# public   − Public functions/variables can be used both externally and internally. For public state variable, Solidity automatically creates a getter function.
+# external − External functions are meant to be called by other contracts. They cannot be used for internal calls.
+# public   − Public functions/variables can be used both externally and internally. For public state variables, Solidity automatically creates a getter function.
 # internal − Internal functions/variables can only be used internally or by derived contracts.
 # private  − Private functions/variables can only be used internally and not even by derived contracts.
 #
