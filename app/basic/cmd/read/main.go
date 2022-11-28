@@ -73,18 +73,15 @@ func run() error {
 
 	// =========================================================================
 
-	var key [32]byte
-	copy(key[:], []byte("name"))
-
-	var result [32]byte
-	result, err = storeCon.Items(nil, key)
+	key := "bill"
+	result, err := storeCon.Items(nil, key)
 	if err != nil {
 		return err
 	}
 
 	fmt.Println("\nRead Value")
 	fmt.Println("----------------------------------------------------")
-	fmt.Println("value:", string(result[:]))
+	fmt.Println("value:", result)
 
 	return nil
 }

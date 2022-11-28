@@ -48,10 +48,8 @@ func TestStore(t *testing.T) {
 
 	// =========================================================================
 
-	var key [32]byte
-	var value [32]byte
-	copy(key[:], []byte("name"))
-	copy(value[:], []byte("brianna"))
+	key := "bill"
+	value := big.NewInt(1_000_000)
 
 	tranOpts, err = clt.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 	if err != nil {
@@ -74,7 +72,7 @@ func TestStore(t *testing.T) {
 		t.Fatalf("should be able to retrieve item: %s", err)
 	}
 
-	if item != value {
-		t.Fatalf("wrong value, got %s  exp %s", string(item[:]), string(value[:]))
+	if item.Cmp(value) != 0 {
+		t.Fatalf("wrong value, got %s  exp %s", item, value)
 	}
 }

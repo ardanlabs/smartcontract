@@ -111,10 +111,8 @@ func run() (err error) {
 
 	// =========================================================================
 
-	var key [32]byte
-	var value [32]byte
-	copy(key[:], []byte("name"))
-	copy(value[:], []byte("brianna"))
+	key := "bill"
+	value := big.NewInt(1_000_000)
 
 	tx, err := storeCon.SetItem(tranOpts, key, value)
 	if err != nil {

@@ -8,11 +8,11 @@ contract Store {
     string public Version;
 
     // Items is a mapping which will store the key/value data.
-    mapping (bytes32 => bytes32) public Items;
+    mapping (string => uint256) public Items;
 
     // ItemSet is an event which will output any updates to the key/value
     // data to the transaction receipt's logs.
-    event ItemSet(bytes32 key, bytes32 value);
+    event ItemSet(string key, uint256 value);
 
     // The constructor is automatically executed when the contract is deployed.
     constructor() {
@@ -21,7 +21,7 @@ contract Store {
 
     // SetItem is an external-only function which accepts a key/value pair
     // and updates the contract's internal storage accordingly.
-    function SetItem(bytes32 key, bytes32 value) external {
+    function SetItem(string memory key, uint256 value) external {
         Items[key] = value;
         emit ItemSet(key, value);
     }
