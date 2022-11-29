@@ -12,7 +12,11 @@ import (
 func TestBasic(t *testing.T) {
 	ctx := context.Background()
 
-	backend, err := ethereum.CreateSimulatedBackend(1, true, big.NewInt(100))
+	const numAccounts = 1
+	const autoCommit = true
+	var accountBalance = big.NewInt(100)
+
+	backend, err := ethereum.CreateSimulatedBackend(numAccounts, autoCommit, accountBalance)
 	if err != nil {
 		t.Fatalf("unable to create simulated backend: %s", err)
 	}
