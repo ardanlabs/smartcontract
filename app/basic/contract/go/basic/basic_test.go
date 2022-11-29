@@ -9,7 +9,7 @@ import (
 	"github.com/ardanlabs/smartcontract/app/basic/contract/go/basic"
 )
 
-func TestStore(t *testing.T) {
+func TestBasic(t *testing.T) {
 	ctx := context.Background()
 
 	backend, err := ethereum.CreateSimulatedBackend(1, true, big.NewInt(100))
