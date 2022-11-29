@@ -1,4 +1,4 @@
-package store_test
+package basic_test
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/ardanlabs/ethereum"
-	"github.com/ardanlabs/smartcontract/app/basic/contract/go/store"
+	"github.com/ardanlabs/smartcontract/app/basic/contract/go/basic"
 )
 
 func TestStore(t *testing.T) {
@@ -32,18 +32,18 @@ func TestStore(t *testing.T) {
 		t.Fatalf("unable to create transaction opts for deploy: %s", err)
 	}
 
-	contractID, tx, _, err := store.DeployStore(tranOpts, clt.Backend)
+	contractID, tx, _, err := basic.DeployBasic(tranOpts, clt.Backend)
 	if err != nil {
-		t.Fatalf("unable to deploy store: %s", err)
+		t.Fatalf("unable to deploy basic: %s", err)
 	}
 
 	if _, err := clt.WaitMined(ctx, tx); err != nil {
 		t.Fatalf("waiting for deploy: %s", err)
 	}
 
-	testStore, err := store.NewStore(contractID, clt.Backend)
+	testBasic, err := basic.NewBasic(contractID, clt.Backend)
 	if err != nil {
-		t.Fatalf("error creating store: %s", err)
+		t.Fatalf("error creating basic: %s", err)
 	}
 
 	// =========================================================================
@@ -56,7 +56,7 @@ func TestStore(t *testing.T) {
 		t.Fatalf("unable to create transaction opts for setitem: %s", err)
 	}
 
-	tx, err = testStore.SetItem(tranOpts, key, value)
+	tx, err = testBasic.SetItem(tranOpts, key, value)
 	if err != nil {
 		t.Fatalf("should be able to set item: %s", err)
 	}
@@ -67,7 +67,7 @@ func TestStore(t *testing.T) {
 
 	// =========================================================================
 
-	item, err := testStore.Items(nil, key)
+	item, err := testBasic.Items(nil, key)
 	if err != nil {
 		t.Fatalf("should be able to retrieve item: %s", err)
 	}

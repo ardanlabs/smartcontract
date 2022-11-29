@@ -8,7 +8,7 @@ import (
 
 	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/ethereum/currency"
-	"github.com/ardanlabs/smartcontract/app/basic/contract/go/store"
+	"github.com/ardanlabs/smartcontract/app/basic/contract/go/basic"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -50,9 +50,9 @@ func run() (err error) {
 
 	// =========================================================================
 
-	converter, err := currency.NewConverter(store.StoreMetaData.ABI, coinMarketCapKey)
+	converter, err := currency.NewConverter(basic.BasicMetaData.ABI, coinMarketCapKey)
 	if err != nil {
-		converter = currency.NewDefaultConverter(store.StoreMetaData.ABI)
+		converter = currency.NewDefaultConverter(basic.BasicMetaData.ABI)
 	}
 	oneETHToUSD, oneUSDToETH := converter.Values()
 
@@ -85,7 +85,7 @@ func run() (err error) {
 
 	// =========================================================================
 
-	address, tx, _, err := store.DeployStore(tranOpts, clt.Backend)
+	address, tx, _, err := basic.DeployBasic(tranOpts, clt.Backend)
 	if err != nil {
 		return err
 	}

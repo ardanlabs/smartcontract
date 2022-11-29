@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-// Store is a contract which implements a basic key/value store.
-contract Store {
+// Basic is a contract which implements a basic key/value store.
+contract Basic {
 
     // Version is the current version of Store.
     string public Version;

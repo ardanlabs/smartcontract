@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/ardanlabs/ethereum"
-	"github.com/ardanlabs/smartcontract/app/basic/contract/go/store"
+	"github.com/ardanlabs/smartcontract/app/basic/contract/go/basic"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -60,7 +60,7 @@ func run() error {
 	}
 	fmt.Println("contractID:", contractID)
 
-	storeCon, err := store.NewStore(common.HexToAddress(contractID), clt.Backend)
+	storeCon, err := basic.NewBasic(common.HexToAddress(contractID), clt.Backend)
 	if err != nil {
 		return fmt.Errorf("new contract: %w", err)
 	}

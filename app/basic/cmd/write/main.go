@@ -10,7 +10,7 @@ import (
 
 	"github.com/ardanlabs/ethereum"
 	"github.com/ardanlabs/ethereum/currency"
-	"github.com/ardanlabs/smartcontract/app/basic/contract/go/store"
+	"github.com/ardanlabs/smartcontract/app/basic/contract/go/basic"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -52,9 +52,9 @@ func run() (err error) {
 
 	// =========================================================================
 
-	converter, err := currency.NewConverter(store.StoreMetaData.ABI, coinMarketCapKey)
+	converter, err := currency.NewConverter(basic.BasicMetaData.ABI, coinMarketCapKey)
 	if err != nil {
-		converter = currency.NewDefaultConverter(store.StoreMetaData.ABI)
+		converter = currency.NewDefaultConverter(basic.BasicMetaData.ABI)
 	}
 	oneETHToUSD, oneUSDToETH := converter.Values()
 
@@ -74,7 +74,7 @@ func run() (err error) {
 	}
 	fmt.Println("contractID:", contractID)
 
-	storeCon, err := store.NewStore(common.HexToAddress(contractID), clt.Backend)
+	storeCon, err := basic.NewBasic(common.HexToAddress(contractID), clt.Backend)
 	if err != nil {
 		return fmt.Errorf("new contract: %w", err)
 	}
