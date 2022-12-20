@@ -52,6 +52,22 @@ func TestBasic(t *testing.T) {
 
 	// =========================================================================
 
+	callOpts, err := clt.NewCallOpts(ctx)
+	if err != nil {
+		t.Fatalf("unable to create call opts: %s", err)
+	}
+
+	ver, err := testBasic.Version(callOpts)
+	if err != nil {
+		t.Fatalf("unable to get version: %s", err)
+	}
+
+	if ver != "1.1" {
+		t.Fatalf("should be able to get the correct version, got %s  exp %s", ver, "1.1")
+	}
+
+	// =========================================================================
+
 	tranOpts, err = clt.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 	if err != nil {
 		t.Fatalf("unable to create transaction opts for setitem: %s", err)
@@ -71,7 +87,12 @@ func TestBasic(t *testing.T) {
 
 	// =========================================================================
 
-	item, err := testBasic.Items(nil, key)
+	callOpts, err = clt.NewCallOpts(ctx)
+	if err != nil {
+		t.Fatalf("unable to create call opts: %s", err)
+	}
+
+	item, err := testBasic.Items(callOpts, key)
 	if err != nil {
 		t.Fatalf("should be able to retrieve item: %s", err)
 	}
