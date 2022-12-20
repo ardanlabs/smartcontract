@@ -52,13 +52,13 @@ func TestBasic(t *testing.T) {
 
 	// =========================================================================
 
-	key := "bill"
-	value := big.NewInt(1_000_000)
-
 	tranOpts, err = clt.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
 	if err != nil {
 		t.Fatalf("unable to create transaction opts for setitem: %s", err)
 	}
+
+	key := "bill"
+	value := big.NewInt(1_000_000)
 
 	tx, err = testBasic.SetItem(tranOpts, key, value)
 	if err != nil {
