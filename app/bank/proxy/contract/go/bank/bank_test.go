@@ -240,7 +240,7 @@ func TestBankProxy(t *testing.T) {
 			t.Fatalf("error getting version: %s", err)
 		}
 
-		const expectedVersion = "0.1.0"
+		const expectedVersion = "0.3.0"
 		if version != expectedVersion {
 			t.Fatalf("wrong version. got %s, exp %s\n", version, expectedVersion)
 		}
