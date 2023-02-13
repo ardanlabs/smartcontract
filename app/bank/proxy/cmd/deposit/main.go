@@ -109,7 +109,8 @@ func run() (err error) {
 	}
 
 	const gasLimit = 1600000
-	tranOpts, err := clt.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+	const gasPriceGwei = 39.576
+	tranOpts, err := clt.NewTransactOpts(ctx, gasLimit, currency.GWei2Wei(big.NewFloat(gasPriceGwei)), big.NewFloat(valueGwei))
 	if err != nil {
 		return err
 	}

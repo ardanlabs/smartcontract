@@ -50,7 +50,7 @@ func TestVerify(t *testing.T) {
 	// =========================================================================
 
 	t.Run("deploy verify", func(t *testing.T) {
-		deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewInt(0), big.NewFloat(valueGwei))
 		if err != nil {
 			t.Fatalf("unable to create transaction opts for verify: %s", err)
 		}

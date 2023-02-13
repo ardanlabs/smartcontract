@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ardanlabs/ethereum"
+	"github.com/ardanlabs/ethereum/currency"
 	"github.com/ardanlabs/smartcontract/app/basic/contract/go/basic"
 )
 
@@ -30,8 +31,9 @@ func TestBasic(t *testing.T) {
 	// =========================================================================
 
 	const gasLimit = 1600000
-	const valueGwei = 0.0
-	tranOpts, err := clt.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+	valueGwei := big.NewFloat(0.0)
+	gasPrice := currency.GWei2Wei(big.NewFloat(39.576))
+	tranOpts, err := clt.NewTransactOpts(ctx, gasLimit, gasPrice, valueGwei)
 	if err != nil {
 		t.Fatalf("unable to create transaction opts for deploy: %s", err)
 	}
@@ -68,7 +70,7 @@ func TestBasic(t *testing.T) {
 
 	// =========================================================================
 
-	tranOpts, err = clt.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+	tranOpts, err = clt.NewTransactOpts(ctx, gasLimit, gasPrice, valueGwei)
 	if err != nil {
 		t.Fatalf("unable to create transaction opts for setitem: %s", err)
 	}

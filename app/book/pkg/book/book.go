@@ -86,7 +86,7 @@ func (b *Book) Client() *ethereum.Client {
 // Drain will drain the full value of the smart contract and transfer it to
 // the owner address.
 func (b *Book) Drain(ctx context.Context) (*types.Transaction, *types.Receipt, error) {
-	tranOpts, err := b.ethereum.NewTransactOpts(ctx, gasLimitDrain, big.NewFloat(0))
+	tranOpts, err := b.ethereum.NewTransactOpts(ctx, gasLimitDrain, big.NewInt(0), big.NewFloat(0))
 	if err != nil {
 		return nil, nil, fmt.Errorf("new trans opts: %w", err)
 	}
@@ -171,7 +171,7 @@ func (b *Book) PlaceBet(ctx context.Context, betID string, pb PlaceBet) (*types.
 	var participants []common.Address
 	participants = append(participants, pb.Participants...)
 
-	tranOpts, err := b.ethereum.NewTransactOpts(ctx, gasLimitPlaceBet, big.NewFloat(0))
+	tranOpts, err := b.ethereum.NewTransactOpts(ctx, gasLimitPlaceBet, big.NewInt(0), big.NewFloat(0))
 	if err != nil {
 		return nil, nil, fmt.Errorf("new trans opts: %w", err)
 	}
@@ -209,7 +209,7 @@ func (b *Book) ReconcileBet(ctx context.Context, betID string, rb ReconcileBet) 
 	var winners []common.Address
 	winners = append(winners, rb.Winners...)
 
-	tranOpts, err := b.ethereum.NewTransactOpts(ctx, gasReconcileBet, big.NewFloat(0))
+	tranOpts, err := b.ethereum.NewTransactOpts(ctx, gasReconcileBet, big.NewInt(0), big.NewFloat(0))
 	if err != nil {
 		return nil, nil, fmt.Errorf("new trans opts: %w", err)
 	}
@@ -239,7 +239,7 @@ func (b *Book) CancelBetModerator(ctx context.Context, betID string, cbm CancelB
 		return nil, nil, fmt.Errorf("validate input: %w", err)
 	}
 
-	tranOpts, err := b.ethereum.NewTransactOpts(ctx, gasCancelBetModerator, big.NewFloat(0))
+	tranOpts, err := b.ethereum.NewTransactOpts(ctx, gasCancelBetModerator, big.NewInt(0), big.NewFloat(0))
 	if err != nil {
 		return nil, nil, fmt.Errorf("new trans opts: %w", err)
 	}
@@ -269,7 +269,7 @@ func (b *Book) CancelBetParticipants(ctx context.Context, betID string, cbp Canc
 		return nil, nil, fmt.Errorf("validate input: %w", err)
 	}
 
-	tranOpts, err := b.ethereum.NewTransactOpts(ctx, gasCancelBetParticipants, big.NewFloat(0))
+	tranOpts, err := b.ethereum.NewTransactOpts(ctx, gasCancelBetParticipants, big.NewInt(0), big.NewFloat(0))
 	if err != nil {
 		return nil, nil, fmt.Errorf("new trans opts: %w", err)
 	}
@@ -299,7 +299,7 @@ func (b *Book) CancelBetOwner(ctx context.Context, betID string, cbo CancelBetOw
 		return nil, nil, fmt.Errorf("validate input: %w", err)
 	}
 
-	tranOpts, err := b.ethereum.NewTransactOpts(ctx, gasCancelBetOwner, big.NewFloat(0))
+	tranOpts, err := b.ethereum.NewTransactOpts(ctx, gasCancelBetOwner, big.NewInt(0), big.NewFloat(0))
 	if err != nil {
 		return nil, nil, fmt.Errorf("new trans opts: %w", err)
 	}
@@ -327,7 +327,7 @@ func (b *Book) CancelBetOwner(ctx context.Context, betID string, cbo CancelBetOw
 // CancelBetExpired allows any participant to cancel the bet after the bet as
 // expired for 30 days and it isn't reconciled.
 func (b *Book) CancelBetExpired(ctx context.Context, betID string) (*types.Transaction, *types.Receipt, error) {
-	tranOpts, err := b.ethereum.NewTransactOpts(ctx, gasCancelBetExpired, big.NewFloat(0))
+	tranOpts, err := b.ethereum.NewTransactOpts(ctx, gasCancelBetExpired, big.NewInt(0), big.NewFloat(0))
 	if err != nil {
 		return nil, nil, fmt.Errorf("new trans opts: %w", err)
 	}
@@ -365,7 +365,7 @@ func (b *Book) Balance(ctx context.Context) (GWei *big.Float, err error) {
 
 // Deposit will add the given amount to the account's contract balance.
 func (b *Book) Deposit(ctx context.Context, amountGWei *big.Float) (*types.Transaction, *types.Receipt, error) {
-	tranOpts, err := b.ethereum.NewTransactOpts(ctx, gasDeposit, amountGWei)
+	tranOpts, err := b.ethereum.NewTransactOpts(ctx, gasDeposit, big.NewInt(0), amountGWei)
 	if err != nil {
 		return nil, nil, fmt.Errorf("new trans opts: %w", err)
 	}
@@ -385,7 +385,7 @@ func (b *Book) Deposit(ctx context.Context, amountGWei *big.Float) (*types.Trans
 
 // Withdraw will move all the account's balance in the contract, to the account's wallet.
 func (b *Book) Withdraw(ctx context.Context) (*types.Transaction, *types.Receipt, error) {
-	tranOpts, err := b.ethereum.NewTransactOpts(ctx, gasWithdraw, big.NewFloat(0))
+	tranOpts, err := b.ethereum.NewTransactOpts(ctx, gasWithdraw, big.NewInt(0), big.NewFloat(0))
 	if err != nil {
 		return nil, nil, fmt.Errorf("new trans opts: %w", err)
 	}

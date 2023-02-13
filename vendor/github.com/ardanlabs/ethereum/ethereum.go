@@ -94,15 +94,17 @@ func (clt *Client) NewCallOpts(ctx context.Context) (*bind.CallOpts, error) {
 // NewTransactOpts constructs a new TransactOpts which is the collection of
 // authorization data required to create a valid Ethereum transaction. If the
 // gasLimit is set to 0, an estimate will be made for the amount of gas needed.
-func (clt *Client) NewTransactOpts(ctx context.Context, gasLimit uint64, valueGWei *big.Float) (*bind.TransactOpts, error) {
+func (clt *Client) NewTransactOpts(ctx context.Context, gasLimit uint64, gasPrice *big.Int, valueGWei *big.Float) (*bind.TransactOpts, error) {
 	nonce, err := clt.PendingNonceAt(ctx, clt.address)
 	if err != nil {
 		return nil, fmt.Errorf("retrieving next nonce: %w", err)
 	}
 
-	gasPrice, err := clt.SuggestGasPrice(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("retrieving suggested gas price: %w", err)
+	if gasPrice == nil || gasPrice.Cmp(big.NewInt(0)) == 0 {
+		gasPrice, err = clt.SuggestGasPrice(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("retrieving suggested gas price: %w", err)
+		}
 	}
 
 	tranOpts, err := bind.NewKeyedTransactorWithChainID(clt.privateKey, clt.Backend.ChainID())

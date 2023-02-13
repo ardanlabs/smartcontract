@@ -51,7 +51,7 @@ func TestSimpleCoin(t *testing.T) {
 	// =========================================================================
 
 	t.Run("deploy simplecoin", func(t *testing.T) {
-		deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewInt(0), big.NewFloat(valueGwei))
 		if err != nil {
 			t.Fatalf("unable to create transaction opts for deploy: %s", err)
 		}
@@ -87,7 +87,7 @@ func TestSimpleCoin(t *testing.T) {
 	// =========================================================================
 
 	t.Run("check transfer", func(t *testing.T) {
-		transferTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		transferTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewInt(0), big.NewFloat(valueGwei))
 		if err != nil {
 			t.Fatalf("unable to create transaction opts for deploy: %s", err)
 		}
@@ -151,7 +151,7 @@ func TestSimpleCoin(t *testing.T) {
 	// =========================================================================
 
 	t.Run("freeze account", func(t *testing.T) {
-		freezeTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		freezeTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewInt(0), big.NewFloat(valueGwei))
 		if err != nil {
 			t.Fatalf("unable to create transaction opts for deploy: %s", err)
 		}
@@ -182,7 +182,7 @@ func TestSimpleCoin(t *testing.T) {
 	// =========================================================================
 
 	t.Run("thaw account", func(t *testing.T) {
-		thawTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		thawTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewInt(0), big.NewFloat(valueGwei))
 		if err != nil {
 			t.Fatalf("unable to create transaction opts for deploy: %s", err)
 		}
@@ -213,7 +213,7 @@ func TestSimpleCoin(t *testing.T) {
 	// =========================================================================
 
 	t.Run("check minting", func(t *testing.T) {
-		mintTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		mintTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewInt(0), big.NewFloat(valueGwei))
 		if err != nil {
 			t.Fatalf("unable to create transaction opts for deploy: %s", err)
 		}

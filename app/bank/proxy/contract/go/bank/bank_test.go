@@ -67,7 +67,7 @@ func TestBankProxy(t *testing.T) {
 	// =========================================================================
 
 	t.Run("deploy bank", func(t *testing.T) {
-		deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewInt(0), big.NewFloat(valueGwei))
 		if err != nil {
 			t.Fatalf("unable to create transaction opts for deploy: %s", err)
 		}
@@ -86,7 +86,7 @@ func TestBankProxy(t *testing.T) {
 	// =========================================================================
 
 	t.Run("deploy bank api", func(t *testing.T) {
-		deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		deployTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewInt(0), big.NewFloat(valueGwei))
 		if err != nil {
 			t.Fatalf("unable to create transaction opts for deploy: %s", err)
 		}
@@ -114,7 +114,7 @@ func TestBankProxy(t *testing.T) {
 	// =========================================================================
 
 	t.Run("set contract", func(t *testing.T) {
-		setContractTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		setContractTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewInt(0), big.NewFloat(valueGwei))
 		if err != nil {
 			t.Fatalf("unable to create transaction opts for deploy: %s", err)
 		}
@@ -150,7 +150,7 @@ func TestBankProxy(t *testing.T) {
 			t.Fatalf("should get the initial balance: %s", err)
 		}
 
-		depositTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		depositTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewInt(0), big.NewFloat(valueGwei))
 		if err != nil {
 			t.Fatalf("unable to create transaction opts for deposit: %s", err)
 		}
@@ -184,7 +184,7 @@ func TestBankProxy(t *testing.T) {
 			t.Fatalf("should get the initial balance: %s", err)
 		}
 
-		withdrawTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		withdrawTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewInt(0), big.NewFloat(valueGwei))
 		if err != nil {
 			t.Fatalf("unable to create transaction opts for withdraw: %s", err)
 		}
@@ -213,7 +213,7 @@ func TestBankProxy(t *testing.T) {
 	// =========================================================================
 
 	t.Run("check reconciliation", func(t *testing.T) {
-		reconcileTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewFloat(valueGwei))
+		reconcileTranOpts, err := deployer.NewTransactOpts(ctx, gasLimit, big.NewInt(0), big.NewFloat(valueGwei))
 		if err != nil {
 			t.Fatalf("unable to create transaction opts for reconcile: %s", err)
 		}
