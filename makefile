@@ -39,6 +39,9 @@
 # https://goerlifaucet.com/
 # Endpoint: https://rpc.goerli.mudit.blog/
 #
+# Gas Oracle
+# https://owlracle.info/eth
+#
 # Visibility Quantifiers
 # external − External functions are meant to be called by other contracts. They cannot be used for internal calls.
 # public   − Public functions/variables can be used both externally and internally. For public state variables, Solidity automatically creates a getter function.

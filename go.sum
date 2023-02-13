@@ -7,8 +7,8 @@ github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuy
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/allegro/bigcache v1.2.1-0.20190218064605-e24eb225f156/go.mod h1:Cb/ax3seSYIx7SuZdm2G2xzfwmv3TPSk2ucNfQESPXM=
 github.com/allegro/bigcache v1.2.1 h1:hg1sY1raCwic3Vnsvje6TT7/pnZba83LeFck5NrFKSc=
-github.com/ardanlabs/ethereum v0.16.0 h1:GSK/UP3MbL1SZCU9qAIV56CM3sBzUrDrDV8Z3Ue6UQo=
-github.com/ardanlabs/ethereum v0.16.0/go.mod h1:+OIUAK8YF50DcRPkkdR3bzQCdb+ElYCP1PDv6izZ85Q=
+github.com/ardanlabs/ethereum v0.17.0 h1:3JeZoud2vM2Ykkid/JCnJW8Nxrwewp4sZsUg5GM9jz8=
+github.com/ardanlabs/ethereum v0.17.0/go.mod h1:+OIUAK8YF50DcRPkkdR3bzQCdb+ElYCP1PDv6izZ85Q=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/btcsuite/btcd/btcec/v2 v2.3.2 h1:5n0X6hX0Zk+6omWcihdYvdAlGf2DfasC0GMf7DClJ3U=

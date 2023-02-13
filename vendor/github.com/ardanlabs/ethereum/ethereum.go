@@ -94,6 +94,8 @@ func (clt *Client) NewCallOpts(ctx context.Context) (*bind.CallOpts, error) {
 // NewTransactOpts constructs a new TransactOpts which is the collection of
 // authorization data required to create a valid Ethereum transaction. If the
 // gasLimit is set to 0, an estimate will be made for the amount of gas needed.
+// If the gasPrice is set to 0, then the connected geth service  is consulted
+// for the suggested gas price.
 func (clt *Client) NewTransactOpts(ctx context.Context, gasLimit uint64, gasPrice *big.Int, valueGWei *big.Float) (*bind.TransactOpts, error) {
 	nonce, err := clt.PendingNonceAt(ctx, clt.address)
 	if err != nil {
