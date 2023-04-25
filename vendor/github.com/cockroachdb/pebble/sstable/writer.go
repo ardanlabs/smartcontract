@@ -119,7 +119,7 @@ type Writer struct {
 	// the cache, providing a defense in depth against bugs which cause cache
 	// collisions.
 	cacheID uint64
-	fileNum base.FileNum
+	fileNum base.DiskFileNum
 	// The following fields are copied from Options.
 	blockSize               int
 	blockSizeThreshold      int
@@ -930,7 +930,7 @@ func (w *Writer) addPoint(key InternalKey, value []byte) error {
 
 	w.props.NumEntries++
 	switch key.Kind() {
-	case InternalKeyKindDelete:
+	case InternalKeyKindDelete, InternalKeyKindSingleDelete:
 		w.props.NumDeletions++
 	case InternalKeyKindMerge:
 		w.props.NumMergeOperands++
@@ -1660,7 +1660,7 @@ func compressAndChecksum(b []byte, compression Compression, blockBuf *blockBuf) 
 func (w *Writer) writeCompressedBlock(block []byte, blockTrailerBuf []byte) (BlockHandle, error) {
 	bh := BlockHandle{Offset: w.meta.Size, Length: uint64(len(block))}
 
-	if w.cacheID != 0 && w.fileNum != 0 {
+	if w.cacheID != 0 && w.fileNum.FileNum() != 0 {
 		// Remove the block being written from the cache. This provides defense in
 		// depth against bugs which cause cache collisions.
 		//
@@ -1687,7 +1687,7 @@ func (w *Writer) writeCompressedBlock(block []byte, blockTrailerBuf []byte) (Blo
 // return a BlockHandle.
 func (w *Writer) Write(blockWithTrailer []byte) (n int, err error) {
 	offset := w.meta.Size
-	if w.cacheID != 0 && w.fileNum != 0 {
+	if w.cacheID != 0 && w.fileNum.FileNum() != 0 {
 		// Remove the block being written from the cache. This provides defense in
 		// depth against bugs which cause cache collisions.
 		//
@@ -2071,17 +2071,6 @@ func (o *PreviousPointKeyOpt) writerApply(w *Writer) {
 	o.w = w
 }
 
-// internalTableOpt is a WriterOption that sets properties for sstables being
-// created by the db itself (i.e. through flushes and compactions), as opposed
-// to those meant for ingestion.
-type internalTableOpt struct{}
-
-func (i internalTableOpt) writerApply(w *Writer) {
-	// Set the external sst version to 0. This is what RocksDB expects for
-	// db-internal sstables; otherwise, it could apply a global sequence number.
-	w.props.ExternalFormatVersion = 0
-}
-
 // NewWriter returns a new table writer for the file. Closing the writer will
 // close the file.
 func NewWriter(writable objstorage.Writable, o WriterOptions, extraOpts ...WriterOption) *Writer {
@@ -2143,7 +2132,7 @@ func NewWriter(writable objstorage.Writable, o WriterOptions, extraOpts ...Write
 	}
 
 	// Note that WriterOptions are applied in two places; the ones with a
-	// preApply() method are applied here, and the rest are applied after
+	// preApply() method are applied here. The rest are applied down below after
 	// default properties are set.
 	type preApply interface{ preApply() }
 	for _, opt := range extraOpts {
@@ -2212,9 +2201,10 @@ func NewWriter(writable objstorage.Writable, o WriterOptions, extraOpts ...Write
 
 	// Apply the remaining WriterOptions that do not have a preApply() method.
 	for _, opt := range extraOpts {
-		if _, ok := opt.(preApply); !ok {
-			opt.writerApply(w)
+		if _, ok := opt.(preApply); ok {
+			continue
 		}
+		opt.writerApply(w)
 	}
 
 	// Initialize the range key fragmenter and encoder.
@@ -2223,10 +2213,18 @@ func NewWriter(writable objstorage.Writable, o WriterOptions, extraOpts ...Write
 	return w
 }
 
+// internalGetProperties is a private, internal-use-only function that takes a
+// Writer and returns a pointer to its Properties, allowing direct mutation.
+// It's used by internal Pebble flushes and compactions to set internal
+// properties. It gets installed in private.
+func internalGetProperties(w *Writer) *Properties {
+	return &w.props
+}
+
 func init() {
 	private.SSTableWriterDisableKeyOrderChecks = func(i interface{}) {
 		w := i.(*Writer)
 		w.disableKeyOrderChecks = true
 	}
-	private.SSTableInternalTableOpt = internalTableOpt{}
+	private.SSTableInternalProperties = internalGetProperties
 }

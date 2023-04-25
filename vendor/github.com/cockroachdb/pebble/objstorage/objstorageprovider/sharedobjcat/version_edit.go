@@ -11,6 +11,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble/internal/base"
+	"github.com/cockroachdb/pebble/objstorage"
 )
 
 // versionEdit is a modification to the shared object state which can be encoded
@@ -19,12 +20,13 @@ import (
 // TODO(radu): consider adding creation and deletion time for debugging purposes.
 type versionEdit struct {
 	NewObjects     []SharedObjectMetadata
-	DeletedObjects []base.FileNum
-	CreatorID      CreatorID
+	DeletedObjects []base.DiskFileNum
+	CreatorID      objstorage.CreatorID
 }
 
 const (
-	// tagNewObject is followed by the FileNum, creator ID and creator FileNum.
+	// tagNewObject is followed by the FileNum, creator ID, creator FileNum, and
+	// cleanup method.
 	tagNewObject = 1
 	// tagDeletedObject is followed by the FileNum.
 	tagDeletedObject = 2
@@ -67,15 +69,16 @@ func (v *versionEdit) Encode(w io.Writer) error {
 			return err
 		}
 		buf = binary.AppendUvarint(buf, uint64(tagNewObject))
-		buf = binary.AppendUvarint(buf, uint64(meta.FileNum))
+		buf = binary.AppendUvarint(buf, uint64(meta.FileNum.FileNum()))
 		buf = binary.AppendUvarint(buf, objType)
 		buf = binary.AppendUvarint(buf, uint64(meta.CreatorID))
-		buf = binary.AppendUvarint(buf, uint64(meta.CreatorFileNum))
+		buf = binary.AppendUvarint(buf, uint64(meta.CreatorFileNum.FileNum()))
+		buf = binary.AppendUvarint(buf, uint64(meta.CleanupMethod))
 	}
 
-	for _, fileNum := range v.DeletedObjects {
+	for _, dfn := range v.DeletedObjects {
 		buf = binary.AppendUvarint(buf, uint64(tagDeletedObject))
-		buf = binary.AppendUvarint(buf, uint64(fileNum))
+		buf = binary.AppendUvarint(buf, uint64(dfn.FileNum()))
 	}
 	if v.CreatorID.IsSet() {
 		buf = binary.AppendUvarint(buf, uint64(tagCreatorID))
@@ -103,7 +106,7 @@ func (v *versionEdit) Decode(r io.Reader) error {
 		err = nil
 		switch tag {
 		case tagNewObject:
-			var fileNum, creatorID, creatorFileNum uint64
+			var fileNum, creatorID, creatorFileNum, cleanupMethod uint64
 			var fileType base.FileType
 			fileNum, err = binary.ReadUvarint(br)
 			if err == nil {
@@ -120,11 +123,15 @@ func (v *versionEdit) Decode(r io.Reader) error {
 				creatorFileNum, err = binary.ReadUvarint(br)
 			}
 			if err == nil {
+				cleanupMethod, err = binary.ReadUvarint(br)
+			}
+			if err == nil {
 				v.NewObjects = append(v.NewObjects, SharedObjectMetadata{
-					FileNum:        base.FileNum(fileNum),
+					FileNum:        base.FileNum(fileNum).DiskFileNum(),
 					FileType:       fileType,
-					CreatorID:      CreatorID(creatorID),
-					CreatorFileNum: base.FileNum(creatorFileNum),
+					CreatorID:      objstorage.CreatorID(creatorID),
+					CreatorFileNum: base.FileNum(creatorFileNum).DiskFileNum(),
+					CleanupMethod:  objstorage.SharedCleanupMethod(cleanupMethod),
 				})
 			}
 
@@ -132,14 +139,14 @@ func (v *versionEdit) Decode(r io.Reader) error {
 			var fileNum uint64
 			fileNum, err = binary.ReadUvarint(br)
 			if err == nil {
-				v.DeletedObjects = append(v.DeletedObjects, base.FileNum(fileNum))
+				v.DeletedObjects = append(v.DeletedObjects, base.FileNum(fileNum).DiskFileNum())
 			}
 
 		case tagCreatorID:
 			var id uint64
 			id, err = binary.ReadUvarint(br)
 			if err == nil {
-				v.CreatorID = CreatorID(id)
+				v.CreatorID = objstorage.CreatorID(id)
 			}
 
 		default:

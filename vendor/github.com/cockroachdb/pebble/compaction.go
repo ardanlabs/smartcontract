@@ -13,7 +13,6 @@ import (
 	"runtime/pprof"
 	"sort"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -25,6 +24,7 @@ import (
 	"github.com/cockroachdb/pebble/internal/rangedel"
 	"github.com/cockroachdb/pebble/internal/rangekey"
 	"github.com/cockroachdb/pebble/objstorage"
+	"github.com/cockroachdb/pebble/objstorage/objstorageprovider/objiotracing"
 	"github.com/cockroachdb/pebble/sstable"
 	"github.com/cockroachdb/pebble/vfs"
 )
@@ -35,6 +35,12 @@ var errFlushInvariant = errors.New("pebble: flush next log number is unset")
 var compactLabels = pprof.Labels("pebble", "compact")
 var flushLabels = pprof.Labels("pebble", "flush")
 var gcLabels = pprof.Labels("pebble", "gc")
+
+// getInternalWriterProperties accesses a private variable (in the
+// internal/private package) initialized by the sstable Writer. This indirection
+// is necessary to ensure non-Pebble users constructing sstables for ingestion
+// are unable to set internal-only properties.
+var getInternalWriterProperties = private.SSTableInternalProperties.(func(*sstable.Writer) *sstable.Properties)
 
 // expandedCompactionByteSizeLimit is the maximum number of bytes in all
 // compacted files. We avoid expanding the lower level file set of a compaction
@@ -1384,7 +1390,9 @@ func (c *compaction) newInputIter(
 			// of range tombstones outside the file's internal key bounds. Skip
 			// any range tombstones completely outside file bounds.
 			rangeDelIter = keyspan.Truncate(
-				c.cmp, rangeDelIter, lowerBound.UserKey, upperBound.UserKey, &f.Smallest, &f.Largest)
+				c.cmp, rangeDelIter, lowerBound.UserKey, upperBound.UserKey,
+				&f.Smallest, &f.Largest,
+			)
 		}
 		if rangeDelIter == nil {
 			rangeDelIter = emptyKeyspanIter
@@ -1661,16 +1669,16 @@ func (d *DB) removeInProgressCompaction(c *compaction, rollback bool) {
 
 func (d *DB) calculateDiskAvailableBytes() uint64 {
 	if space, err := d.opts.FS.GetDiskUsage(d.dirname); err == nil {
-		atomic.StoreUint64(&d.atomic.diskAvailBytes, space.AvailBytes)
+		d.diskAvailBytes.Store(space.AvailBytes)
 		return space.AvailBytes
 	} else if !errors.Is(err, vfs.ErrUnsupported) {
 		d.opts.EventListener.BackgroundError(err)
 	}
-	return atomic.LoadUint64(&d.atomic.diskAvailBytes)
+	return d.diskAvailBytes.Load()
 }
 
 func (d *DB) getDiskAvailableBytesCached() uint64 {
-	return atomic.LoadUint64(&d.atomic.diskAvailBytes)
+	return d.diskAvailBytes.Load()
 }
 
 func (d *DB) getDeletionPacerInfo() deletionPacerInfo {
@@ -1836,12 +1844,12 @@ func (d *DB) runIngestFlush(c *compaction) (*manifest.VersionEdit, error) {
 	for _, file := range c.flushing[0].flushable.(*ingestedFlushable).files {
 		level, err = ingestTargetLevel(
 			d.newIters, d.tableNewRangeKeyIter, iterOpts, d.cmp,
-			c.version, baseLevel, d.mu.compact.inProgress, file,
+			c.version, baseLevel, d.mu.compact.inProgress, file.FileMetadata,
 		)
 		if err != nil {
 			return nil, err
 		}
-		ve.NewFiles = append(ve.NewFiles, newFileEntry{Level: level, Meta: file})
+		ve.NewFiles = append(ve.NewFiles, newFileEntry{Level: level, Meta: file.FileMetadata})
 		levelMetrics := c.metrics[level]
 		if levelMetrics == nil {
 			levelMetrics = &LevelMetrics{}
@@ -1958,7 +1966,8 @@ func (d *DB) flush1() (bytesFlushed uint64, err error) {
 	startTime := d.timeNow()
 
 	var ve *manifest.VersionEdit
-	var pendingOutputs []*manifest.FileMetadata
+	var pendingOutputs []physicalMeta
+	var stats compactStats
 	// To determine the target level of the files in the ingestedFlushable, we
 	// need to acquire the logLock, and not release it for that duration. Since,
 	// we need to acquire the logLock below to perform the logAndApply step
@@ -1966,7 +1975,7 @@ func (d *DB) flush1() (bytesFlushed uint64, err error) {
 	// runCompaction. For all other flush cases, we construct the VersionEdit
 	// inside runCompaction.
 	if c.kind != compactionKindIngestedFlushable {
-		ve, pendingOutputs, err = d.runCompaction(jobID, c)
+		ve, pendingOutputs, stats, err = d.runCompaction(jobID, c)
 	}
 
 	// Acquire logLock. This will be released either on an error, by way of
@@ -2023,7 +2032,18 @@ func (d *DB) flush1() (bytesFlushed uint64, err error) {
 		if err != nil {
 			info.Err = err
 			// TODO(peter): untested.
-			d.mu.versions.obsoleteTables = append(d.mu.versions.obsoleteTables, pendingOutputs...)
+			for _, f := range pendingOutputs {
+				// Note that the FileBacking for the file metadata might not have
+				// been set yet. So, we directly use the FileNum. Since these
+				// files were generated as compaction outputs, these must be
+				// physical files on disk. This property might not hold once
+				// https://github.com/cockroachdb/pebble/issues/389 is
+				// implemented if #389 creates virtual sstables as output files.
+				d.mu.versions.obsoleteTables = append(
+					d.mu.versions.obsoleteTables,
+					fileInfo{f.FileNum.DiskFileNum(), f.Size},
+				)
+			}
 			d.mu.versions.updateObsoleteTableMetricsLocked()
 		}
 	} else {
@@ -2033,6 +2053,9 @@ func (d *DB) flush1() (bytesFlushed uint64, err error) {
 	}
 
 	bytesFlushed = c.bytesIterated
+	d.mu.snapshots.cumulativePinnedCount += stats.cumulativePinnedKeys
+	d.mu.snapshots.cumulativePinnedSize += stats.cumulativePinnedSize
+
 	d.maybeUpdateDeleteCompactionHints(c)
 	d.removeInProgressCompaction(c, err != nil)
 	d.mu.versions.incrementCompactions(c.kind, c.extraLevels)
@@ -2512,7 +2535,7 @@ func (d *DB) compact1(c *compaction, errChannel chan error) (err error) {
 	d.opts.EventListener.CompactionBegin(info)
 	startTime := d.timeNow()
 
-	ve, pendingOutputs, err := d.runCompaction(jobID, c)
+	ve, pendingOutputs, stats, err := d.runCompaction(jobID, c)
 
 	info.Duration = d.timeNow().Sub(startTime)
 	if err == nil {
@@ -2522,7 +2545,18 @@ func (d *DB) compact1(c *compaction, errChannel chan error) (err error) {
 		})
 		if err != nil {
 			// TODO(peter): untested.
-			d.mu.versions.obsoleteTables = append(d.mu.versions.obsoleteTables, pendingOutputs...)
+			for _, f := range pendingOutputs {
+				// Note that the FileBacking for the file metadata might not have
+				// been set yet. So, we directly use the FileNum. Since these
+				// files were generated as compaction outputs, these must be
+				// physical files on disk. This property might not hold once
+				// https://github.com/cockroachdb/pebble/issues/389 is
+				// implemented if #389 creates virtual sstables as output files.
+				d.mu.versions.obsoleteTables = append(
+					d.mu.versions.obsoleteTables,
+					fileInfo{f.FileNum.DiskFileNum(), f.Size},
+				)
+			}
 			d.mu.versions.updateObsoleteTableMetricsLocked()
 		}
 	}
@@ -2535,6 +2569,9 @@ func (d *DB) compact1(c *compaction, errChannel chan error) (err error) {
 			info.Output.Tables = append(info.Output.Tables, e.Meta.TableInfo())
 		}
 	}
+
+	d.mu.snapshots.cumulativePinnedCount += stats.cumulativePinnedKeys
+	d.mu.snapshots.cumulativePinnedSize += stats.cumulativePinnedSize
 
 	d.maybeUpdateDeleteCompactionHints(c)
 	d.removeInProgressCompaction(c, err != nil)
@@ -2557,6 +2594,11 @@ func (d *DB) compact1(c *compaction, errChannel chan error) (err error) {
 	return err
 }
 
+type compactStats struct {
+	cumulativePinnedKeys uint64
+	cumulativePinnedSize uint64
+}
+
 // runCompactions runs a compaction that produces new on-disk tables from
 // memtables or old on-disk tables.
 //
@@ -2564,7 +2606,7 @@ func (d *DB) compact1(c *compaction, errChannel chan error) (err error) {
 // re-acquired during the course of this method.
 func (d *DB) runCompaction(
 	jobID int, c *compaction,
-) (ve *versionEdit, pendingOutputs []*fileMetadata, retErr error) {
+) (ve *versionEdit, pendingOutputs []physicalMeta, stats compactStats, retErr error) {
 	// As a sanity check, confirm that the smallest / largest keys for new and
 	// deleted files in the new versionEdit pass a validation function before
 	// returning the edit.
@@ -2600,7 +2642,7 @@ func (d *DB) runCompaction(
 			}
 			c.metrics[cl.level] = levelMetrics
 		}
-		return ve, nil, nil
+		return ve, nil, stats, nil
 	}
 
 	if c.kind == compactionKindIngestedFlushable {
@@ -2634,7 +2676,7 @@ func (d *DB) runCompaction(
 				{Level: c.outputLevel.level, Meta: meta},
 			},
 		}
-		return ve, nil, nil
+		return ve, nil, stats, nil
 	}
 
 	defer func() {
@@ -2653,7 +2695,7 @@ func (d *DB) runCompaction(
 
 	iiter, err := c.newInputIter(d.newIters, d.tableNewRangeKeyIter, snapshots)
 	if err != nil {
-		return nil, pendingOutputs, err
+		return nil, pendingOutputs, stats, err
 	}
 	c.allowedZeroSeqNum = c.allowZeroSeqNum()
 	iter := newCompactionIter(c.cmp, c.equal, c.formatKey, d.merge, iiter, snapshots,
@@ -2661,8 +2703,11 @@ func (d *DB) runCompaction(
 		c.elideRangeTombstone, d.FormatMajorVersion())
 
 	var (
-		createdFiles []base.FileNum
-		tw           *sstable.Writer
+		createdFiles    []base.DiskFileNum
+		tw              *sstable.Writer
+		pinnedKeySize   uint64
+		pinnedValueSize uint64
+		pinnedCount     uint64
 	)
 	defer func() {
 		if iter != nil {
@@ -2745,10 +2790,33 @@ func (d *DB) runCompaction(
 		d.mu.Lock()
 		fileNum := d.mu.versions.getNextFileNum()
 		fileMeta.FileNum = fileNum
-		pendingOutputs = append(pendingOutputs, fileMeta)
+		pendingOutputs = append(pendingOutputs, fileMeta.PhysicalMeta())
 		d.mu.Unlock()
 
-		writable, objMeta, err := d.objProvider.Create(context.TODO(), fileTypeTable, fileNum, objstorage.CreateOptions{} /* TODO */)
+		ctx := context.TODO()
+		if objiotracing.Enabled {
+			ctx = objiotracing.WithLevel(ctx, c.outputLevel.level)
+			switch c.kind {
+			case compactionKindFlush:
+				ctx = objiotracing.WithReason(ctx, objiotracing.ForFlush)
+			case compactionKindIngestedFlushable:
+				ctx = objiotracing.WithReason(ctx, objiotracing.ForIngestion)
+			default:
+				ctx = objiotracing.WithReason(ctx, objiotracing.ForCompaction)
+			}
+		}
+		// Prefer shared storage if present.
+		//
+		// TODO(bilal): This might be inefficient for short-lived files in higher
+		// levels if we're only writing to shared storage and not double-writing
+		// to local storage. Either implement double-writing functionality, or
+		// set PreferSharedStorage to c.outputLevel.level >= 5. The latter needs
+		// some careful handling around move compactions to ensure all files in
+		// lower levels are in shared storage.
+		createOpts := objstorage.CreateOptions{
+			PreferSharedStorage: true,
+		}
+		writable, objMeta, err := d.objProvider.Create(ctx, fileTypeTable, fileNum.DiskFileNum(), createOpts)
 		if err != nil {
 			return err
 		}
@@ -2768,9 +2836,8 @@ func (d *DB) runCompaction(
 			versions: d.mu.versions,
 			written:  &c.bytesWritten,
 		}
-		createdFiles = append(createdFiles, fileNum)
-		cacheOpts := private.SSTableCacheOpts(d.cacheID, fileNum).(sstable.WriterOption)
-		internalTableOpt := private.SSTableInternalTableOpt.(sstable.WriterOption)
+		createdFiles = append(createdFiles, fileNum.DiskFileNum())
+		cacheOpts := private.SSTableCacheOpts(d.cacheID, fileNum.DiskFileNum()).(sstable.WriterOption)
 
 		const MaxFileWriteAdditionalCPUTime = time.Millisecond * 100
 		cpuWorkHandle = d.opts.Experimental.CPUWorkPermissionGranter.GetPermission(
@@ -2780,7 +2847,7 @@ func (d *DB) runCompaction(
 			d.opts.Experimental.MaxWriterConcurrency > 0 &&
 				(cpuWorkHandle.Permitted() || d.opts.Experimental.ForceWriterParallelism)
 
-		tw = sstable.NewWriter(writable, writerOpts, cacheOpts, internalTableOpt, &prevPointKey)
+		tw = sstable.NewWriter(writable, writerOpts, cacheOpts, &prevPointKey)
 
 		fileMeta.CreationTime = time.Now().Unix()
 		ve.NewFiles = append(ve.NewFiles, newFileEntry{
@@ -2879,7 +2946,22 @@ func (d *DB) runCompaction(
 		if tw == nil {
 			return nil
 		}
-
+		{
+			// Set internal sstable properties.
+			p := getInternalWriterProperties(tw)
+			// Set the external sst version to 0. This is what RocksDB expects for
+			// db-internal sstables; otherwise, it could apply a global sequence number.
+			p.ExternalFormatVersion = 0
+			// Set the snapshot pinned totals.
+			p.SnapshotPinnedKeys = pinnedCount
+			p.SnapshotPinnedKeySize = pinnedKeySize
+			p.SnapshotPinnedValueSize = pinnedValueSize
+			stats.cumulativePinnedKeys += pinnedCount
+			stats.cumulativePinnedSize += pinnedKeySize + pinnedValueSize
+			pinnedCount = 0
+			pinnedKeySize = 0
+			pinnedValueSize = 0
+		}
 		if err := tw.Close(); err != nil {
 			tw = nil
 			return err
@@ -2896,9 +2978,13 @@ func (d *DB) runCompaction(
 		meta.Size = writerMeta.Size
 		meta.SmallestSeqNum = writerMeta.SmallestSeqNum
 		meta.LargestSeqNum = writerMeta.LargestSeqNum
+		meta.InitPhysicalBacking()
+
 		// If the file didn't contain any range deletions, we can fill its
 		// table stats now, avoiding unnecessarily loading the table later.
-		maybeSetStatsFromProperties(meta, &writerMeta.Properties)
+		maybeSetStatsFromProperties(
+			meta.PhysicalMeta(), &writerMeta.Properties,
+		)
 
 		if c.flushing == nil {
 			outputMetrics.TablesCompacted++
@@ -3124,11 +3210,19 @@ func (d *DB) runCompaction(
 			}
 			if tw == nil {
 				if err := newOutput(); err != nil {
-					return nil, pendingOutputs, err
+					return nil, pendingOutputs, stats, err
 				}
 			}
 			if err := tw.Add(*key, val); err != nil {
-				return nil, pendingOutputs, err
+				return nil, pendingOutputs, stats, err
+			}
+			if iter.snapshotPinned {
+				// The kv pair we just added to the sstable was only surfaced by
+				// the compaction iterator because an open snapshot prevented
+				// its elision. Increment the stats.
+				pinnedCount++
+				pinnedKeySize += uint64(len(key.UserKey)) + base.InternalTrailerLen
+				pinnedValueSize += uint64(len(val))
 			}
 		}
 
@@ -3156,7 +3250,7 @@ func (d *DB) runCompaction(
 			splitKey = key.UserKey
 		}
 		if err := finishOutput(splitKey); err != nil {
-			return nil, pendingOutputs, err
+			return nil, pendingOutputs, stats, err
 		}
 	}
 
@@ -3173,14 +3267,14 @@ func (d *DB) runCompaction(
 	}
 
 	if err := d.objProvider.Sync(); err != nil {
-		return nil, pendingOutputs, err
+		return nil, pendingOutputs, stats, err
 	}
 
 	// Refresh the disk available statistic whenever a compaction/flush
 	// completes, before re-acquiring the mutex.
 	_ = d.calculateDiskAvailableBytes()
 
-	return ve, pendingOutputs, nil
+	return ve, pendingOutputs, stats, nil
 }
 
 // validateVersionEdit validates that start and end keys across new and deleted
@@ -3231,7 +3325,7 @@ func (d *DB) scanObsoleteFiles(list []string) {
 		d.mu.compact.cond.Wait()
 	}
 
-	liveFileNums := make(map[FileNum]struct{})
+	liveFileNums := make(map[base.DiskFileNum]struct{})
 	d.mu.versions.addLiveFileNums(liveFileNums)
 	// Protect against files which are only referred to by the ingestedFlushable
 	// from being deleted. These are added to the flushable queue on WAL replay
@@ -3241,7 +3335,7 @@ func (d *DB) scanObsoleteFiles(list []string) {
 	for _, fEntry := range d.mu.mem.queue {
 		if f, ok := fEntry.flushable.(*ingestedFlushable); ok {
 			for _, file := range f.files {
-				liveFileNums[file.FileNum] = struct{}{}
+				liveFileNums[file.FileBacking.DiskFileNum] = struct{}{}
 			}
 		}
 	}
@@ -3250,39 +3344,39 @@ func (d *DB) scanObsoleteFiles(list []string) {
 	manifestFileNum := d.mu.versions.manifestFileNum
 
 	var obsoleteLogs []fileInfo
-	var obsoleteTables []*fileMetadata
+	var obsoleteTables []fileInfo
 	var obsoleteManifests []fileInfo
 	var obsoleteOptions []fileInfo
 
 	for _, filename := range list {
-		fileType, fileNum, ok := base.ParseFilename(d.opts.FS, filename)
+		fileType, diskFileNum, ok := base.ParseFilename(d.opts.FS, filename)
 		if !ok {
 			continue
 		}
 		switch fileType {
 		case fileTypeLog:
-			if fileNum >= minUnflushedLogNum {
+			if diskFileNum.FileNum() >= minUnflushedLogNum {
 				continue
 			}
-			fi := fileInfo{fileNum: fileNum}
+			fi := fileInfo{fileNum: diskFileNum}
 			if stat, err := d.opts.FS.Stat(filename); err == nil {
 				fi.fileSize = uint64(stat.Size())
 			}
 			obsoleteLogs = append(obsoleteLogs, fi)
 		case fileTypeManifest:
-			if fileNum >= manifestFileNum {
+			if diskFileNum.FileNum() >= manifestFileNum {
 				continue
 			}
-			fi := fileInfo{fileNum: fileNum}
+			fi := fileInfo{fileNum: diskFileNum}
 			if stat, err := d.opts.FS.Stat(filename); err == nil {
 				fi.fileSize = uint64(stat.Size())
 			}
 			obsoleteManifests = append(obsoleteManifests, fi)
 		case fileTypeOptions:
-			if fileNum >= d.optionsFileNum {
+			if diskFileNum.FileNum() >= d.optionsFileNum.FileNum() {
 				continue
 			}
-			fi := fileInfo{fileNum: fileNum}
+			fi := fileInfo{fileNum: diskFileNum}
 			if stat, err := d.opts.FS.Stat(filename); err == nil {
 				fi.fileSize = uint64(stat.Size())
 			}
@@ -3298,16 +3392,16 @@ func (d *DB) scanObsoleteFiles(list []string) {
 	for _, obj := range objects {
 		switch obj.FileType {
 		case fileTypeTable:
-			if _, ok := liveFileNums[obj.FileNum]; ok {
+			if _, ok := liveFileNums[obj.DiskFileNum]; ok {
 				continue
 			}
-			fileMeta := &fileMetadata{
-				FileNum: obj.FileNum,
+			fileInfo := fileInfo{
+				fileNum: obj.DiskFileNum,
 			}
 			if size, err := d.objProvider.Size(obj); err == nil {
-				fileMeta.Size = uint64(size)
+				fileInfo.fileSize = uint64(size)
 			}
-			obsoleteTables = append(obsoleteTables, fileMeta)
+			obsoleteTables = append(obsoleteTables, fileInfo)
 
 		default:
 			// Ignore object types we don't know about.
@@ -3316,7 +3410,7 @@ func (d *DB) scanObsoleteFiles(list []string) {
 
 	d.mu.log.queue = merge(d.mu.log.queue, obsoleteLogs)
 	d.mu.versions.metrics.WAL.Files = int64(len(d.mu.log.queue))
-	d.mu.versions.obsoleteTables = mergeFileMetas(d.mu.versions.obsoleteTables, obsoleteTables)
+	d.mu.versions.obsoleteTables = mergeFileInfo(d.mu.versions.obsoleteTables, obsoleteTables)
 	d.mu.versions.updateObsoleteTableMetricsLocked()
 	d.mu.versions.obsoleteManifests = merge(d.mu.versions.obsoleteManifests, obsoleteManifests)
 	d.mu.versions.obsoleteOptions = merge(d.mu.versions.obsoleteOptions, obsoleteOptions)
@@ -3397,13 +3491,13 @@ func (d *DB) deleteObsoleteFiles(jobID int, waitForOngoing bool) {
 // obsoleteFile holds information about a file that needs to be deleted soon.
 type obsoleteFile struct {
 	dir      string
-	fileNum  base.FileNum
+	fileNum  base.DiskFileNum
 	fileType fileType
 	fileSize uint64
 }
 
 type fileInfo struct {
-	fileNum  FileNum
+	fileNum  base.DiskFileNum
 	fileSize uint64
 }
 
@@ -3424,7 +3518,7 @@ func (d *DB) doDeleteObsoleteFiles(jobID int) {
 		// log that has not had its contents flushed to an sstable. We can recycle
 		// the prefix of d.mu.log.queue with log numbers less than
 		// minUnflushedLogNum.
-		if d.mu.log.queue[i].fileNum >= d.mu.versions.minUnflushedLogNum {
+		if d.mu.log.queue[i].fileNum.FileNum() >= d.mu.versions.minUnflushedLogNum {
 			obsoleteLogs = d.mu.log.queue[:i]
 			d.mu.log.queue = d.mu.log.queue[i:]
 			d.mu.versions.metrics.WAL.Files -= int64(len(obsoleteLogs))
@@ -3432,19 +3526,14 @@ func (d *DB) doDeleteObsoleteFiles(jobID int) {
 		}
 	}
 
-	for _, table := range d.mu.versions.obsoleteTables {
-		obsoleteTables = append(obsoleteTables, fileInfo{
-			fileNum:  table.FileNum,
-			fileSize: table.Size,
-		})
-	}
+	obsoleteTables = append(obsoleteTables, d.mu.versions.obsoleteTables...)
 	d.mu.versions.obsoleteTables = nil
 
 	// Sort the manifests cause we want to delete some contiguous prefix
 	// of the older manifests.
 	sort.Slice(d.mu.versions.obsoleteManifests, func(i, j int) bool {
-		return d.mu.versions.obsoleteManifests[i].fileNum <
-			d.mu.versions.obsoleteManifests[j].fileNum
+		return d.mu.versions.obsoleteManifests[i].fileNum.FileNum() <
+			d.mu.versions.obsoleteManifests[j].fileNum.FileNum()
 	})
 
 	var obsoleteManifests []fileInfo
@@ -3480,7 +3569,7 @@ func (d *DB) doDeleteObsoleteFiles(jobID int) {
 		// We sort to make the order of deletions deterministic, which is nice for
 		// tests.
 		sort.Slice(f.obsolete, func(i, j int) bool {
-			return f.obsolete[i].fileNum < f.obsolete[j].fileNum
+			return f.obsolete[i].fileNum.FileNum() < f.obsolete[j].fileNum.FileNum()
 		})
 		for _, fi := range f.obsolete {
 			dir := d.dirname
@@ -3561,7 +3650,7 @@ func (d *DB) maybeScheduleObsoleteTableDeletion() {
 	}()
 }
 
-func (d *DB) deleteObsoleteObject(fileType fileType, jobID int, fileNum FileNum) {
+func (d *DB) deleteObsoleteObject(fileType fileType, jobID int, fileNum base.DiskFileNum) {
 	if fileType != fileTypeTable {
 		panic("not an object")
 	}
@@ -3574,7 +3663,7 @@ func (d *DB) deleteObsoleteObject(fileType fileType, jobID int, fileNum FileNum)
 		path = d.objProvider.Path(meta)
 		err = d.objProvider.Remove(fileType, fileNum)
 	}
-	if objstorage.IsNotExistError(err) {
+	if d.objProvider.IsNotExistError(err) {
 		return
 	}
 
@@ -3583,14 +3672,16 @@ func (d *DB) deleteObsoleteObject(fileType fileType, jobID int, fileNum FileNum)
 		d.opts.EventListener.TableDeleted(TableDeleteInfo{
 			JobID:   jobID,
 			Path:    path,
-			FileNum: fileNum,
+			FileNum: fileNum.FileNum(),
 			Err:     err,
 		})
 	}
 }
 
 // deleteObsoleteFile deletes a (non-object) file that is no longer needed.
-func (d *DB) deleteObsoleteFile(fileType fileType, jobID int, path string, fileNum FileNum) {
+func (d *DB) deleteObsoleteFile(
+	fileType fileType, jobID int, path string, fileNum base.DiskFileNum,
+) {
 	// TODO(peter): need to handle this error, probably by re-adding the
 	// file that couldn't be deleted to one of the obsolete slices map.
 	err := d.opts.Cleaner.Clean(d.opts.FS, fileType, path)
@@ -3603,14 +3694,14 @@ func (d *DB) deleteObsoleteFile(fileType fileType, jobID int, path string, fileN
 		d.opts.EventListener.WALDeleted(WALDeleteInfo{
 			JobID:   jobID,
 			Path:    path,
-			FileNum: fileNum,
+			FileNum: fileNum.FileNum(),
 			Err:     err,
 		})
 	case fileTypeManifest:
 		d.opts.EventListener.ManifestDeleted(ManifestDeleteInfo{
 			JobID:   jobID,
 			Path:    path,
-			FileNum: fileNum,
+			FileNum: fileNum.FileNum(),
 			Err:     err,
 		})
 	case fileTypeTable:
@@ -3625,7 +3716,7 @@ func merge(a, b []fileInfo) []fileInfo {
 
 	a = append(a, b...)
 	sort.Slice(a, func(i, j int) bool {
-		return a[i].fileNum < a[j].fileNum
+		return a[i].fileNum.FileNum() < a[j].fileNum.FileNum()
 	})
 
 	n := 0
@@ -3638,19 +3729,19 @@ func merge(a, b []fileInfo) []fileInfo {
 	return a[:n]
 }
 
-func mergeFileMetas(a, b []*fileMetadata) []*fileMetadata {
+func mergeFileInfo(a, b []fileInfo) []fileInfo {
 	if len(b) == 0 {
 		return a
 	}
 
 	a = append(a, b...)
 	sort.Slice(a, func(i, j int) bool {
-		return a[i].FileNum < a[j].FileNum
+		return a[i].fileNum.FileNum() < a[j].fileNum.FileNum()
 	})
 
 	n := 0
 	for i := 0; i < len(a); i++ {
-		if n == 0 || a[i].FileNum != a[n-1].FileNum {
+		if n == 0 || a[i].fileNum != a[n-1].fileNum {
 			a[n] = a[i]
 			n++
 		}

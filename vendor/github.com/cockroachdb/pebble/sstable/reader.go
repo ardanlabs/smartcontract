@@ -26,6 +26,7 @@ import (
 	"github.com/cockroachdb/pebble/internal/keyspan"
 	"github.com/cockroachdb/pebble/internal/private"
 	"github.com/cockroachdb/pebble/objstorage"
+	"github.com/cockroachdb/pebble/objstorage/objstorageprovider/objiotracing"
 )
 
 var errCorruptIndexEntry = base.CorruptionErrorf("pebble/table: corrupt index entry")
@@ -534,7 +535,8 @@ func (i *singleLevelIterator) loadBlock(dir int8) loadBlockResult {
 		}
 		// blockIntersects
 	}
-	block, err := i.readBlockWithStats(i.dataBH, i.dataRH)
+	ctx := objiotracing.WithBlockType(i.ctx, objiotracing.DataBlock)
+	block, err := i.reader.readBlock(ctx, i.dataBH, nil /* transform */, i.dataRH, i.stats)
 	if err != nil {
 		i.err = err
 		return loadBlockFailed
@@ -554,6 +556,7 @@ func (i *singleLevelIterator) loadBlock(dir int8) loadBlockResult {
 func (i *singleLevelIterator) readBlockForVBR(
 	ctx context.Context, h BlockHandle, stats *base.InternalIteratorStats,
 ) (cache.Handle, error) {
+	ctx = objiotracing.WithBlockType(ctx, objiotracing.ValueBlock)
 	return i.reader.readBlock(ctx, h, nil, i.vbRH, stats)
 }
 
@@ -622,12 +625,6 @@ func (i *singleLevelIterator) resolveMaybeExcluded(dir int8) intersectsResult {
 	}
 	_, _ = i.index.Next()
 	return blockIntersects
-}
-
-func (i *singleLevelIterator) readBlockWithStats(
-	bh BlockHandle, rh objstorage.ReadHandle,
-) (cache.Handle, error) {
-	return i.reader.readBlock(i.ctx, bh, nil, rh, i.stats)
 }
 
 func (i *singleLevelIterator) initBoundsForAlreadyLoadedBlock() {
@@ -1596,7 +1593,8 @@ func (i *twoLevelIterator) loadIndex(dir int8) loadBlockResult {
 		}
 		// blockIntersects
 	}
-	indexBlock, err := i.readBlockWithStats(bhp.BlockHandle, nil /* readHandle */)
+	ctx := objiotracing.WithBlockType(i.ctx, objiotracing.MetadataBlock)
+	indexBlock, err := i.reader.readBlock(ctx, bhp.BlockHandle, nil /* transform */, nil /* readHandle */, i.stats)
 	if err != nil {
 		i.err = err
 		return loadBlockFailed
@@ -2524,7 +2522,7 @@ func (m Mergers) readerApply(r *Reader) {
 // number. If not specified, a unique cache ID will be used.
 type cacheOpts struct {
 	cacheID uint64
-	fileNum base.FileNum
+	fileNum base.DiskFileNum
 }
 
 // Marker function to indicate the option should be applied before reading the
@@ -2536,7 +2534,7 @@ func (c *cacheOpts) readerApply(r *Reader) {
 	if r.cacheID == 0 {
 		r.cacheID = c.cacheID
 	}
-	if r.fileNum == 0 {
+	if r.fileNum.FileNum() == 0 {
 		r.fileNum = c.fileNum
 	}
 }
@@ -2545,7 +2543,7 @@ func (c *cacheOpts) writerApply(w *Writer) {
 	if w.cacheID == 0 {
 		w.cacheID = c.cacheID
 	}
-	if w.fileNum == 0 {
+	if w.fileNum.FileNum() == 0 {
 		w.fileNum = c.fileNum
 	}
 }
@@ -2563,7 +2561,7 @@ func (rawTombstonesOpt) readerApply(r *Reader) {
 }
 
 func init() {
-	private.SSTableCacheOpts = func(cacheID uint64, fileNum base.FileNum) interface{} {
+	private.SSTableCacheOpts = func(cacheID uint64, fileNum base.DiskFileNum) interface{} {
 		return &cacheOpts{cacheID, fileNum}
 	}
 	private.SSTableRawTombstonesOpt = rawTombstonesOpt{}
@@ -2573,7 +2571,7 @@ func init() {
 type Reader struct {
 	readable          objstorage.Readable
 	cacheID           uint64
-	fileNum           base.FileNum
+	fileNum           base.DiskFileNum
 	err               error
 	indexBH           BlockHandle
 	filterBH          BlockHandle
@@ -2757,23 +2755,25 @@ func (i *rangeKeyFragmentBlockIter) Close() error {
 func (r *Reader) readIndex(
 	ctx context.Context, stats *base.InternalIteratorStats,
 ) (cache.Handle, error) {
+	ctx = objiotracing.WithBlockType(ctx, objiotracing.MetadataBlock)
 	return r.readBlock(ctx, r.indexBH, nil, nil, stats)
 }
 
 func (r *Reader) readFilter(
 	ctx context.Context, stats *base.InternalIteratorStats,
 ) (cache.Handle, error) {
+	ctx = objiotracing.WithBlockType(ctx, objiotracing.FilterBlock)
 	return r.readBlock(ctx, r.filterBH, nil /* transform */, nil /* readHandle */, stats)
 }
 
 func (r *Reader) readRangeDel(stats *base.InternalIteratorStats) (cache.Handle, error) {
-	return r.readBlock(
-		context.Background(), r.rangeDelBH, r.rangeDelTransform, nil /* readHandle */, stats)
+	ctx := objiotracing.WithBlockType(context.Background(), objiotracing.MetadataBlock)
+	return r.readBlock(ctx, r.rangeDelBH, r.rangeDelTransform, nil /* readHandle */, stats)
 }
 
 func (r *Reader) readRangeKey(stats *base.InternalIteratorStats) (cache.Handle, error) {
-	return r.readBlock(
-		context.Background(), r.rangeKeyBH, nil /* transform */, nil /* readHandle */, stats)
+	ctx := objiotracing.WithBlockType(context.Background(), objiotracing.MetadataBlock)
+	return r.readBlock(ctx, r.rangeKeyBH, nil /* transform */, nil /* readHandle */, stats)
 }
 
 func checkChecksum(
@@ -2822,9 +2822,9 @@ func (r *Reader) readBlock(
 	readStartTime := time.Now()
 	var err error
 	if readHandle != nil {
-		_, err = readHandle.ReadAt(ctx, b, int64(bh.Offset))
+		err = readHandle.ReadAt(ctx, b, int64(bh.Offset))
 	} else {
-		_, err = r.readable.ReadAt(ctx, b, int64(bh.Offset))
+		err = r.readable.ReadAt(ctx, b, int64(bh.Offset))
 	}
 	readDuration := time.Since(readStartTime)
 	// TODO(sumeer): should the threshold be configurable.
@@ -2847,7 +2847,7 @@ func (r *Reader) readBlock(
 		return cache.Handle{}, err
 	}
 
-	if err := checkChecksum(r.checksumType, b, bh, r.fileNum); err != nil {
+	if err := checkChecksum(r.checksumType, b, bh, r.fileNum.FileNum()); err != nil {
 		r.opts.Cache.Free(v)
 		return cache.Handle{}, err
 	}
@@ -3495,7 +3495,7 @@ func (l *Layout) Describe(
 
 		if b.name == "footer" || b.name == "leveldb-footer" {
 			trailer, offset := make([]byte, b.Length), b.Offset
-			_, _ = r.readable.ReadAt(ctx, trailer, int64(offset))
+			_ = r.readable.ReadAt(ctx, trailer, int64(offset))
 
 			if b.name == "footer" {
 				checksumType := ChecksumType(trailer[0])
@@ -3568,7 +3568,7 @@ func (l *Layout) Describe(
 		formatTrailer := func() {
 			trailer := make([]byte, blockTrailerLen)
 			offset := int64(b.Offset + b.Length)
-			_, _ = r.readable.ReadAt(ctx, trailer, offset)
+			_ = r.readable.ReadAt(ctx, trailer, offset)
 			bt := blockType(trailer[0])
 			checksum := binary.LittleEndian.Uint32(trailer[1:])
 			fmt.Fprintf(w, "%10d    [trailer compression=%s checksum=0x%04x]\n", offset, bt, checksum)
@@ -3730,8 +3730,12 @@ type simpleReadable struct {
 var _ objstorage.Readable = (*simpleReadable)(nil)
 
 // ReadAt is part of the objstorage.Readable interface.
-func (s *simpleReadable) ReadAt(_ context.Context, p []byte, off int64) (n int, err error) {
-	return s.f.ReadAt(p, off)
+func (s *simpleReadable) ReadAt(_ context.Context, p []byte, off int64) error {
+	n, err := s.f.ReadAt(p, off)
+	if invariants.Enabled && err == nil && n != len(p) {
+		panic("short read")
+	}
+	return err
 }
 
 // Close is part of the objstorage.Readable interface.
