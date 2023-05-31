@@ -151,8 +151,20 @@ const (
 	// compactions for files marked for compaction are complete.
 	FormatPrePebblev1MarkedCompacted
 
+	// ExperimentalFormatDeleteSized is a format major version that adds support for
+	// deletion tombstones that encode the size of the value they're expected to
+	// delete. This format major version is required before the associated key
+	// kind may be committed through batch applications or ingests.
+	ExperimentalFormatDeleteSized
+
+	// internalFormatNewest holds the newest format major version, including
+	// experimental ones excluded from the exported FormatNewest constant until
+	// they've stabilized. Used in tests.
+	internalFormatNewest FormatMajorVersion = iota - 1
+
 	// FormatNewest always contains the most recent format major version.
-	FormatNewest FormatMajorVersion = iota - 1
+	// TODO(jackson): restore FormatNewest to internalFormatNewest.
+	FormatNewest FormatMajorVersion = FormatPrePebblev1MarkedCompacted
 )
 
 // MaxTableFormat returns the maximum sstable.TableFormat that can be used at
@@ -168,9 +180,10 @@ func (v FormatMajorVersion) MaxTableFormat() sstable.TableFormat {
 	case FormatRangeKeys, FormatMinTableFormatPebblev1, FormatPrePebblev1Marked,
 		FormatUnusedPrePebblev1MarkedCompacted:
 		return sstable.TableFormatPebblev2
-	case FormatSSTableValueBlocks, FormatFlushableIngest,
-		FormatPrePebblev1MarkedCompacted:
+	case FormatSSTableValueBlocks, FormatFlushableIngest, FormatPrePebblev1MarkedCompacted:
 		return sstable.TableFormatPebblev3
+	case ExperimentalFormatDeleteSized:
+		return sstable.TableFormatPebblev4
 	default:
 		panic(fmt.Sprintf("pebble: unsupported format major version: %s", v))
 	}
@@ -187,7 +200,8 @@ func (v FormatMajorVersion) MinTableFormat() sstable.TableFormat {
 		return sstable.TableFormatLevelDB
 	case FormatMinTableFormatPebblev1, FormatPrePebblev1Marked,
 		FormatUnusedPrePebblev1MarkedCompacted, FormatSSTableValueBlocks,
-		FormatFlushableIngest, FormatPrePebblev1MarkedCompacted:
+		FormatFlushableIngest, FormatPrePebblev1MarkedCompacted,
+		ExperimentalFormatDeleteSized:
 		return sstable.TableFormatPebblev1
 	default:
 		panic(fmt.Sprintf("pebble: unsupported format major version: %s", v))
@@ -320,6 +334,9 @@ var formatMajorVersionMigrations = map[FormatMajorVersion]func(*DB) error{
 		}
 		return d.finalizeFormatVersUpgrade(FormatPrePebblev1MarkedCompacted)
 	},
+	ExperimentalFormatDeleteSized: func(d *DB) error {
+		return d.finalizeFormatVersUpgrade(ExperimentalFormatDeleteSized)
+	},
 }
 
 const formatVersionMarkerName = `format-version`
@@ -342,7 +359,7 @@ func lookupFormatMajorVersion(
 	if vers == FormatDefault {
 		return 0, nil, errors.Newf("pebble: default format major version should not persisted", vers)
 	}
-	if vers > FormatNewest {
+	if vers > internalFormatNewest {
 		return 0, nil, errors.Newf("pebble: database %q written in format major version %d", dirname, vers)
 	}
 	return vers, m, nil
@@ -378,8 +395,8 @@ func (d *DB) ratchetFormatMajorVersionLocked(formatVers FormatMajorVersion) erro
 	if d.opts.ReadOnly {
 		return ErrReadOnly
 	}
-	if formatVers > FormatNewest {
-		// Guard against accidentally forgetting to update FormatNewest.
+	if formatVers > internalFormatNewest {
+		// Guard against accidentally forgetting to update internalFormatNewest.
 		return errors.Errorf("pebble: unknown format version %d", formatVers)
 	}
 	if d.mu.formatVers.vers > formatVers {
@@ -521,17 +538,24 @@ var markFilesPrePebblev1 = func(tc *tableCacheContainer) findFilesFunc {
 		for l := numLevels - 1; l > 0; l-- {
 			iter := v.Levels[l].Iter()
 			for f := iter.First(); f != nil; f = iter.Next() {
-				err = tc.withReader(f, func(r *sstable.Reader) error {
-					tf, err := r.TableFormat()
-					if err != nil {
-						return err
-					}
-					if tf < sstable.TableFormatPebblev1 {
-						found = true
-						files[l] = append(files[l], f)
-					}
-					return nil
-				})
+				if f.Virtual {
+					// Any physical sstable which has been virtualized must
+					// have already undergone this migration, and we don't
+					// need to worry about the virtual sstable themselves.
+					panic("pebble: unexpected virtual sstable during migration")
+				}
+				err = tc.withReader(
+					f.PhysicalMeta(), func(r *sstable.Reader) error {
+						tf, err := r.TableFormat()
+						if err != nil {
+							return err
+						}
+						if tf < sstable.TableFormatPebblev1 {
+							found = true
+							files[l] = append(files[l], f)
+						}
+						return nil
+					})
 				if err != nil {
 					return
 				}

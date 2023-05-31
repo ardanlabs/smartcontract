@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"runtime/debug"
 	"runtime/pprof"
 	"sync"
@@ -21,6 +22,7 @@ import (
 	"github.com/cockroachdb/pebble/internal/keyspan"
 	"github.com/cockroachdb/pebble/internal/manifest"
 	"github.com/cockroachdb/pebble/internal/private"
+	"github.com/cockroachdb/pebble/internal/rangekey"
 	"github.com/cockroachdb/pebble/objstorage"
 	"github.com/cockroachdb/pebble/objstorage/objstorageprovider/objiotracing"
 	"github.com/cockroachdb/pebble/sstable"
@@ -138,13 +140,15 @@ func (c *tableCacheContainer) newIters(
 }
 
 func (c *tableCacheContainer) newRangeKeyIter(
-	file *manifest.FileMetadata, opts *keyspan.SpanIterOptions,
+	file *manifest.FileMetadata, opts keyspan.SpanIterOptions,
 ) (keyspan.FragmentIterator, error) {
 	return c.tableCache.getShard(file.FileBacking.DiskFileNum).newRangeKeyIter(file, opts, &c.dbOpts)
 }
 
-func (c *tableCacheContainer) getTableProperties(file physicalMeta) (*sstable.Properties, error) {
-	return c.tableCache.getShard(file.FileBacking.DiskFileNum).getTableProperties(file.FileMetadata, &c.dbOpts)
+// getTableProperties returns the properties associated with the backing physical
+// table if the input metadata belongs to a virtual sstable.
+func (c *tableCacheContainer) getTableProperties(file *fileMetadata) (*sstable.Properties, error) {
+	return c.tableCache.getShard(file.FileBacking.DiskFileNum).getTableProperties(file, &c.dbOpts)
 }
 
 func (c *tableCacheContainer) evict(fileNum base.DiskFileNum) {
@@ -166,14 +170,27 @@ func (c *tableCacheContainer) metrics() (CacheMetrics, FilterMetrics) {
 	return m, f
 }
 
-func (c *tableCacheContainer) withReader(meta *fileMetadata, fn func(*sstable.Reader) error) error {
+func (c *tableCacheContainer) withReader(meta physicalMeta, fn func(*sstable.Reader) error) error {
 	s := c.tableCache.getShard(meta.FileBacking.DiskFileNum)
-	v := s.findNode(meta, &c.dbOpts)
+	v := s.findNode(meta.FileMetadata, &c.dbOpts)
 	defer s.unrefValue(v)
 	if v.err != nil {
 		return v.err
 	}
 	return fn(v.reader)
+}
+
+// withVirtualReader fetches a VirtualReader associated with a virtual sstable.
+func (c *tableCacheContainer) withVirtualReader(
+	meta virtualMeta, fn func(sstable.VirtualReader) error,
+) error {
+	s := c.tableCache.getShard(meta.FileBacking.DiskFileNum)
+	v := s.findNode(meta.FileMetadata, &c.dbOpts)
+	defer s.unrefValue(v)
+	if v.err != nil {
+		return v.err
+	}
+	return fn(sstable.MakeVirtualReader(v.reader, meta))
 }
 
 func (c *tableCacheContainer) iterCount() int64 {
@@ -370,9 +387,64 @@ func (c *tableCacheShard) newIters(
 		return nil, nil, err
 	}
 
+	type iterCreator interface {
+		NewFixedSeqnumRangeDelIter(seqNum uint64) (keyspan.FragmentIterator, error)
+		NewRawRangeDelIter() (keyspan.FragmentIterator, error)
+		NewIterWithBlockPropertyFiltersAndContext(
+			ctx context.Context,
+			lower, upper []byte,
+			filterer *sstable.BlockPropertiesFilterer,
+			useFilterBlock bool,
+			stats *base.InternalIteratorStats,
+			rp sstable.ReaderProvider,
+		) (sstable.Iterator, error)
+		NewCompactionIter(
+			bytesIterated *uint64,
+			rp sstable.ReaderProvider,
+		) (sstable.Iterator, error)
+	}
+
+	// TODO(bananabrick): We suffer an allocation if file is a virtual sstable.
+	var ic iterCreator = v.reader
+	if file.Virtual {
+		virtualReader := sstable.MakeVirtualReader(
+			v.reader, file.VirtualMeta(),
+		)
+		ic = &virtualReader
+	}
+
+	provider := dbOpts.objProvider
+	// Check if this file is a foreign file.
+	objMeta, err := provider.Lookup(fileTypeTable, file.FileBacking.DiskFileNum)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	// NB: range-del iterator does not maintain a reference to the table, nor
 	// does it need to read from it after creation.
-	rangeDelIter, err := v.reader.NewRawRangeDelIter()
+	var rangeDelIter keyspan.FragmentIterator
+	if provider.IsForeign(objMeta) {
+		if opts == nil {
+			panic("unexpected nil opts when reading foreign file")
+		}
+		if !file.Virtual {
+			// Foreign sstables must be virtual by definition.
+			panic(fmt.Sprintf("sstable is foreign but not virtual: %s", file.FileNum))
+		}
+		switch manifest.LevelToInt(opts.level) {
+		case 5:
+			rangeDelIter, err = ic.NewFixedSeqnumRangeDelIter(base.SeqNumL5RangeDel)
+		case 6:
+		// Let rangeDelIter remain nil. We don't need to return rangedels from
+		// this file as they will not apply to any other files. For the purpose
+		// of collapsing rangedels within this file, we create another rangeDelIter
+		// below for use with the interleaving iter.
+		default:
+			panic(fmt.Sprintf("unexpected level for foreign sstable: %d", manifest.LevelToInt(opts.level)))
+		}
+	} else {
+		rangeDelIter, err = ic.NewRawRangeDelIter()
+	}
 	if err != nil {
 		c.unrefValue(v)
 		return nil, nil, err
@@ -405,14 +477,18 @@ func (c *tableCacheShard) newIters(
 		return nil, nil, err
 	}
 	var rp sstable.ReaderProvider
-	if tableFormat == sstable.TableFormatPebblev3 && v.reader.Properties.NumValueBlocks > 0 {
+	if tableFormat >= sstable.TableFormatPebblev3 && v.reader.Properties.NumValueBlocks > 0 {
 		rp = &tableCacheShardReaderProvider{c: c, file: file, dbOpts: dbOpts}
 	}
+
 	if internalOpts.bytesIterated != nil {
-		iter, err = v.reader.NewCompactionIter(internalOpts.bytesIterated, rp)
+		iter, err = ic.NewCompactionIter(internalOpts.bytesIterated, rp)
 	} else {
-		iter, err = v.reader.NewIterWithBlockPropertyFiltersAndContext(
-			ctx, opts.GetLowerBound(), opts.GetUpperBound(), filterer, useFilter, internalOpts.stats, rp)
+		iter, err = ic.NewIterWithBlockPropertyFiltersAndContext(
+			ctx,
+			opts.GetLowerBound(), opts.GetUpperBound(),
+			filterer, useFilter, internalOpts.stats, rp,
+		)
 	}
 	if err != nil {
 		if rangeDelIter != nil {
@@ -424,6 +500,35 @@ func (c *tableCacheShard) newIters(
 	// NB: v.closeHook takes responsibility for calling unrefValue(v) here. Take
 	// care to avoid introducing an allocation here by adding a closure.
 	iter.SetCloseHook(v.closeHook)
+	if provider.IsForeign(objMeta) {
+		// NB: IsForeign() guarantees IsShared, so opts must not be nil as we've
+		// already panicked on the nil case above.
+		pointKeySeqNum := base.PointSeqNumForLevel(manifest.LevelToInt(opts.level))
+		pcIter := pointCollapsingIterator{
+			comparer:          dbOpts.opts.Comparer,
+			merge:             dbOpts.opts.Merge,
+			seqNum:            math.MaxUint64,
+			elideRangeDeletes: true,
+			fixedSeqNum:       pointKeySeqNum,
+		}
+		// Open a second rangedel iter. This is solely for the interleaving iter to
+		// be able to efficiently delete covered range deletes. We don't need to fix
+		// the sequence number in this iter, as these range deletes will not be
+		// exposed to anything other than the interleaving iter and
+		// pointCollapsingIter.
+		rangeDelIter, err := v.reader.NewRawRangeDelIter()
+		if err != nil {
+			c.unrefValue(v)
+			return nil, nil, err
+		}
+		if rangeDelIter == nil {
+			rangeDelIter = emptyKeyspanIter
+		}
+		pcIter.iter.Init(dbOpts.opts.Comparer, iter, rangeDelIter, nil /* mask */, opts.LowerBound, opts.UpperBound)
+		pcSSTIter := pcSSTIterPool.Get().(*pointCollapsingSSTIterator)
+		*pcSSTIter = pointCollapsingSSTIterator{pointCollapsingIterator: pcIter, childIter: iter}
+		iter = pcSSTIter
+	}
 
 	c.iterCount.Add(1)
 	dbOpts.iterCount.Add(1)
@@ -436,7 +541,7 @@ func (c *tableCacheShard) newIters(
 }
 
 func (c *tableCacheShard) newRangeKeyIter(
-	file *manifest.FileMetadata, opts *keyspan.SpanIterOptions, dbOpts *tableCacheOpts,
+	file *manifest.FileMetadata, opts keyspan.SpanIterOptions, dbOpts *tableCacheOpts,
 ) (keyspan.FragmentIterator, error) {
 	// Calling findNode gives us the responsibility of decrementing v's
 	// refCount. If opening the underlying table resulted in error, then we
@@ -455,7 +560,7 @@ func (c *tableCacheShard) newRangeKeyIter(
 	// file's range key blocks may surface deleted range keys below. This is
 	// done here, rather than deferring to the block-property collector in order
 	// to maintain parity with point keys and the treatment of RANGEDELs.
-	if opts != nil && v.reader.Properties.NumRangeKeyDels == 0 {
+	if v.reader.Properties.NumRangeKeyDels == 0 {
 		ok, _, err = c.checkAndIntersectFilters(v, nil, opts.RangeKeyFilters, nil)
 	}
 	if err != nil {
@@ -470,7 +575,15 @@ func (c *tableCacheShard) newRangeKeyIter(
 	}
 
 	var iter keyspan.FragmentIterator
-	iter, err = v.reader.NewRawRangeKeyIter()
+	if file.Virtual {
+		virtualReader := sstable.MakeVirtualReader(
+			v.reader, file.VirtualMeta(),
+		)
+		iter, err = virtualReader.NewRawRangeKeyIter()
+	} else {
+		iter, err = v.reader.NewRawRangeKeyIter()
+	}
+
 	// iter is a block iter that holds the entire value of the block in memory.
 	// No need to hold onto a ref of the cache value.
 	c.unrefValue(v)
@@ -483,6 +596,29 @@ func (c *tableCacheShard) newRangeKeyIter(
 		// NewRawRangeKeyIter can return nil even if there's no error. However,
 		// the keyspan.LevelIter expects a non-nil iterator if err is nil.
 		return emptyKeyspanIter, nil
+	}
+
+	objMeta, err := dbOpts.objProvider.Lookup(fileTypeTable, file.FileBacking.DiskFileNum)
+	if err != nil {
+		return nil, err
+	}
+	if dbOpts.objProvider.IsForeign(objMeta) {
+		if opts.Level == 0 {
+			panic("unexpected zero level when reading foreign file")
+		}
+		transform := &rangekey.ForeignSSTTransformer{
+			Comparer: dbOpts.opts.Comparer,
+			Level:    manifest.LevelToInt(opts.Level),
+		}
+		if iter == nil {
+			iter = emptyKeyspanIter
+		}
+		transformIter := &keyspan.TransformerIter{
+			FragmentIterator: iter,
+			Transformer:      transform,
+			Compare:          dbOpts.opts.Comparer.Compare,
+		}
+		return transformIter, nil
 	}
 
 	return iter, nil
@@ -504,6 +640,13 @@ var _ sstable.ReaderProvider = &tableCacheShardReaderProvider{}
 // being deleted.
 //
 // The caller must call tableCacheShardReaderProvider.Close.
+//
+// Note that currently the Reader returned here is only used to read value
+// blocks. This reader shouldn't be used for other purposes like reading keys
+// outside of virtual sstable bounds.
+//
+// TODO(bananabrick): We could return a wrapper over the Reader to ensure
+// that the reader isn't used for other purposes.
 func (rp *tableCacheShardReaderProvider) GetReader() (*sstable.Reader, error) {
 	// Calling findNode gives us the responsibility of decrementing v's
 	// refCount.
@@ -549,7 +692,7 @@ func (c *tableCacheShard) releaseNode(n *tableCacheNode) {
 //
 // c.mu must be held when calling this.
 func (c *tableCacheShard) unlinkNode(n *tableCacheNode) {
-	key := tableCacheKey{n.cacheID, n.meta.FileBacking.DiskFileNum}
+	key := tableCacheKey{n.cacheID, n.fileNum}
 	delete(c.mu.nodes, key)
 
 	switch n.ptype {
@@ -628,8 +771,8 @@ func (c *tableCacheShard) findNode(meta *fileMetadata, dbOpts *tableCacheOpts) *
 	case n == nil:
 		// Slow-path miss of a non-existent node.
 		n = &tableCacheNode{
-			meta:  meta,
-			ptype: tableCacheNodeCold,
+			fileNum: meta.FileBacking.DiskFileNum,
+			ptype:   tableCacheNodeCold,
 		}
 		c.addNode(n, dbOpts)
 		c.mu.sizeCold++
@@ -686,7 +829,12 @@ func (c *tableCacheShard) findNode(meta *fileMetadata, dbOpts *tableCacheOpts) *
 	// Note adding to the cache lists must complete before we begin loading the
 	// table as a failure during load will result in the node being unlinked.
 	pprof.Do(context.Background(), tableCacheLabels, func(context.Context) {
-		v.load(meta, c, dbOpts)
+		v.load(
+			loadInfo{
+				backingFileNum: meta.FileBacking.DiskFileNum,
+				smallestSeqNum: meta.SmallestSeqNum,
+				largestSeqNum:  meta.LargestSeqNum,
+			}, c, dbOpts)
 	})
 	return v
 }
@@ -694,7 +842,7 @@ func (c *tableCacheShard) findNode(meta *fileMetadata, dbOpts *tableCacheOpts) *
 func (c *tableCacheShard) addNode(n *tableCacheNode, dbOpts *tableCacheOpts) {
 	c.evictNodes()
 	n.cacheID = dbOpts.cacheID
-	key := tableCacheKey{n.cacheID, n.meta.FileBacking.DiskFileNum}
+	key := tableCacheKey{n.cacheID, n.fileNum}
 	c.mu.nodes[key] = n
 
 	n.links.next = n
@@ -836,7 +984,7 @@ func (c *tableCacheShard) removeDB(dbOpts *tableCacheOpts) {
 		}
 
 		if node.cacheID == dbOpts.cacheID {
-			fileNums = append(fileNums, node.meta.FileBacking.DiskFileNum)
+			fileNums = append(fileNums, node.fileNum)
 		}
 		node = node.next()
 	}
@@ -911,19 +1059,32 @@ type tableCacheValue struct {
 	refCount atomic.Int32
 }
 
-func (v *tableCacheValue) load(meta *fileMetadata, c *tableCacheShard, dbOpts *tableCacheOpts) {
+type loadInfo struct {
+	backingFileNum base.DiskFileNum
+	largestSeqNum  uint64
+	smallestSeqNum uint64
+}
+
+func (v *tableCacheValue) load(loadInfo loadInfo, c *tableCacheShard, dbOpts *tableCacheOpts) {
 	// Try opening the file first.
 	var f objstorage.Readable
-	f, v.err = dbOpts.objProvider.OpenForReading(
-		context.TODO(), fileTypeTable, meta.FileBacking.DiskFileNum, objstorage.OpenOptions{MustExist: true},
+	var err error
+	f, err = dbOpts.objProvider.OpenForReading(
+		context.TODO(), fileTypeTable, loadInfo.backingFileNum, objstorage.OpenOptions{MustExist: true},
 	)
+	if err != nil {
+		v.err = errors.Wrap(
+			err,
+			fmt.Sprintf("pebble: could not open backing file %s", errors.Safe(loadInfo.backingFileNum.FileNum())),
+		)
+	}
 	if v.err == nil {
-		cacheOpts := private.SSTableCacheOpts(dbOpts.cacheID, meta.FileBacking.DiskFileNum).(sstable.ReaderOption)
+		cacheOpts := private.SSTableCacheOpts(dbOpts.cacheID, loadInfo.backingFileNum).(sstable.ReaderOption)
 		v.reader, v.err = sstable.NewReader(f, dbOpts.opts, cacheOpts, dbOpts.filterMetrics)
 	}
 	if v.err == nil {
-		if meta.SmallestSeqNum == meta.LargestSeqNum {
-			v.reader.Properties.GlobalSeqNum = meta.LargestSeqNum
+		if loadInfo.smallestSeqNum == loadInfo.largestSeqNum {
+			v.reader.Properties.GlobalSeqNum = loadInfo.largestSeqNum
 		}
 	}
 	if v.err != nil {
@@ -931,7 +1092,7 @@ func (v *tableCacheValue) load(meta *fileMetadata, c *tableCacheShard, dbOpts *t
 		defer c.mu.Unlock()
 		// Lookup the node in the cache again as it might have already been
 		// removed.
-		key := tableCacheKey{dbOpts.cacheID, meta.FileBacking.DiskFileNum}
+		key := tableCacheKey{dbOpts.cacheID, loadInfo.backingFileNum}
 		n := c.mu.nodes[key]
 		if n != nil && n.value == v {
 			c.releaseNode(n)
@@ -971,8 +1132,8 @@ func (p tableCacheNodeType) String() string {
 }
 
 type tableCacheNode struct {
-	meta  *fileMetadata
-	value *tableCacheValue
+	fileNum base.DiskFileNum
+	value   *tableCacheValue
 
 	links struct {
 		next *tableCacheNode

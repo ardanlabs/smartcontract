@@ -932,6 +932,22 @@ func (w *Writer) addPoint(key InternalKey, value []byte) error {
 	switch key.Kind() {
 	case InternalKeyKindDelete, InternalKeyKindSingleDelete:
 		w.props.NumDeletions++
+		w.props.RawPointTombstoneKeySize += uint64(len(key.UserKey))
+	case InternalKeyKindDeleteSized:
+		var size uint64
+		if len(value) > 0 {
+			var n int
+			size, n = binary.Uvarint(value)
+			if n <= 0 {
+				w.err = errors.Newf("%s key's value (%x) does not parse as uvarint",
+					errors.Safe(key.Kind().String()), value)
+				return w.err
+			}
+		}
+		w.props.NumDeletions++
+		w.props.NumSizedDeletions++
+		w.props.RawPointTombstoneKeySize += uint64(len(key.UserKey))
+		w.props.RawPointTombstoneValueSize += size
 	case InternalKeyKindMerge:
 		w.props.NumMergeOperands++
 	}
@@ -1728,11 +1744,19 @@ func (w *Writer) assertFormatCompatibility() error {
 		)
 	}
 
+	// PebbleDBv3: value blocks.
 	if (w.props.NumValueBlocks > 0 || w.props.NumValuesInValueBlocks > 0 ||
 		w.props.ValueBlocksSize > 0) && w.tableFormat < TableFormatPebblev3 {
 		return errors.Newf(
 			"table format version %s is less than the minimum required version %s for value blocks",
 			w.tableFormat, TableFormatPebblev3)
+	}
+
+	// PebbleDBv4: DELSIZED tombstones.
+	if w.props.NumSizedDeletions > 0 && w.tableFormat < TableFormatPebblev4 {
+		return errors.Newf(
+			"table format version %s is less than the minimum required version %s for sized deletion tombstones",
+			w.tableFormat, TableFormatPebblev4)
 	}
 	return nil
 }
@@ -1948,7 +1972,7 @@ func (w *Writer) Close() (err error) {
 		// reduces table size without a significant impact on performance.
 		raw.restartInterval = propertiesBlockRestartInterval
 		w.props.CompressionOptions = rocksDBCompressionOptions
-		w.props.save(&raw)
+		w.props.save(w.tableFormat, &raw)
 		bh, err := w.writeBlock(raw.finish(), NoCompression, &w.blockBuf)
 		if err != nil {
 			return err
@@ -2109,7 +2133,7 @@ func NewWriter(writable objstorage.Writable, o WriterOptions, extraOpts ...Write
 			Format: o.Comparer.FormatKey,
 		},
 	}
-	if w.tableFormat == TableFormatPebblev3 {
+	if w.tableFormat >= TableFormatPebblev3 {
 		w.shortAttributeExtractor = o.ShortAttributeExtractor
 		w.requiredInPlaceValueBound = o.RequiredInPlaceValueBound
 		w.valueBlockWriter = newValueBlockWriter(

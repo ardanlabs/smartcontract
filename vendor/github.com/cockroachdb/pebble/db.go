@@ -96,6 +96,22 @@ type Writer interface {
 	// It is safe to modify the contents of the arguments after Delete returns.
 	Delete(key []byte, o *WriteOptions) error
 
+	// DeleteSized behaves identically to Delete, but takes an additional
+	// argument indicating the size of the value being deleted. DeleteSized
+	// should be preferred when the caller has the expectation that there exists
+	// a single internal KV pair for the key (eg, the key has not been
+	// overwritten recently), and the caller knows the size of its value.
+	//
+	// DeleteSized will record the value size within the tombstone and use it to
+	// inform compaction-picking heuristics which strive to reduce space
+	// amplification in the LSM. This "calling your shot" mechanic allows the
+	// storage engine to more accurately estimate and reduce space
+	// amplification.
+	//
+	// It is safe to modify the contents of the arguments after DeleteSized
+	// returns.
+	DeleteSized(key []byte, valueSize uint32, _ *WriteOptions) error
+
 	// SingleDelete is similar to Delete in that it deletes the value for the given key. Like Delete,
 	// it is a blind operation that will succeed even if the given key does not exist.
 	//
@@ -264,7 +280,7 @@ type DB struct {
 	// objProvider is used to access and manage SSTs.
 	objProvider objstorage.Provider
 
-	fileLock io.Closer
+	fileLock *Lock
 	dataDir  vfs.File
 	walDir   vfs.File
 
@@ -369,9 +385,6 @@ type DB struct {
 		}
 
 		mem struct {
-			// Condition variable used to serialize memtable switching. See
-			// DB.makeRoomForWrite().
-			cond sync.Cond
 			// The current mutable memTable.
 			mutable *memTable
 			// Queue of flushables (the mutable memtable is at end). Elements are
@@ -403,6 +416,10 @@ type DB struct {
 			// is at the start of the list. New entries are added to the end.
 			manual []*manualCompaction
 			// inProgress is the set of in-progress flushes and compactions.
+			// It's used in the calculation of some metrics and to initialize L0
+			// sublevels' state. Some of the compactions contained within this
+			// map may have already committed an edit to the version but are
+			// lingering performing cleanup, like deleting obsolete files.
 			inProgress map[*compaction]struct{}
 
 			// rescheduleReadCompaction indicates to an iterator that a read compaction
@@ -413,6 +430,9 @@ type DB struct {
 			// compactions which we might have to perform.
 			readCompactions readCompactionQueue
 
+			// The cumulative duration of all completed compactions since Open.
+			// Does not include flushes.
+			duration time.Duration
 			// Flush throughput metric.
 			flushWriteThroughput ThroughputMetric
 			// The idle start time for the flush "loop", i.e., when the flushing
@@ -478,6 +498,9 @@ type DB struct {
 
 	// Normally equal to time.Now() but may be overridden in tests.
 	timeNow func() time.Time
+	// the time at database Open; may be used to compute metrics like effective
+	// compaction concurrency
+	openedAt time.Time
 }
 
 var _ Reader = (*DB)(nil)
@@ -605,6 +628,30 @@ func (d *DB) Set(key, value []byte, opts *WriteOptions) error {
 func (d *DB) Delete(key []byte, opts *WriteOptions) error {
 	b := newBatch(d)
 	_ = b.Delete(key, opts)
+	if err := d.Apply(b, opts); err != nil {
+		return err
+	}
+	// Only release the batch on success.
+	b.release()
+	return nil
+}
+
+// DeleteSized behaves identically to Delete, but takes an additional
+// argument indicating the size of the value being deleted. DeleteSized
+// should be preferred when the caller has the expectation that there exists
+// a single internal KV pair for the key (eg, the key has not been
+// overwritten recently), and the caller knows the size of its value.
+//
+// DeleteSized will record the value size within the tombstone and use it to
+// inform compaction-picking heuristics which strive to reduce space
+// amplification in the LSM. This "calling your shot" mechanic allows the
+// storage engine to more accurately estimate and reduce space amplification.
+//
+// It is safe to modify the contents of the arguments after DeleteSized
+// returns.
+func (d *DB) DeleteSized(key []byte, valueSize uint32, opts *WriteOptions) error {
+	b := newBatch(d)
+	_ = b.DeleteSized(key, valueSize, opts)
 	if err := d.Apply(b, opts); err != nil {
 		return err
 	}
@@ -779,17 +826,19 @@ func (d *DB) applyInternal(batch *Batch, opts *WriteOptions, noSyncWait bool) er
 		return errors.New("pebble: WAL disabled")
 	}
 
+	if batch.minimumFormatMajorVersion != FormatMostCompatible {
+		if fmv := d.FormatMajorVersion(); fmv < batch.minimumFormatMajorVersion {
+			panic(fmt.Sprintf(
+				"pebble: batch requires at least format major version %d (current: %d)",
+				batch.minimumFormatMajorVersion, fmv,
+			))
+		}
+	}
+
 	if batch.countRangeKeys > 0 {
 		if d.split == nil {
 			return errNoSplit
 		}
-		if d.FormatMajorVersion() < FormatRangeKeys {
-			panic(fmt.Sprintf(
-				"pebble: range keys require at least format major version %d (current: %d)",
-				FormatRangeKeys, d.FormatMajorVersion(),
-			))
-		}
-
 		// TODO(jackson): Assert that all range key operands are suffixless.
 	}
 
@@ -1516,6 +1565,16 @@ func (d *DB) Close() error {
 	d.mu.Unlock()
 	d.deleters.Wait()
 	d.compactionSchedulers.Wait()
+
+	// Sanity check metrics.
+	if invariants.Enabled {
+		m := d.Metrics()
+		if m.Compact.NumInProgress > 0 || m.Compact.InProgressBytes > 0 {
+			d.mu.Lock()
+			panic(fmt.Sprintf("invalid metrics on close:\n%s", m))
+		}
+	}
+
 	d.mu.Lock()
 
 	// As a sanity check, ensure that there are no zombie tables. A non-zero count
@@ -1731,6 +1790,13 @@ func (d *DB) Metrics() *Metrics {
 	metrics.Compact.InProgressBytes = d.mu.versions.atomicInProgressBytes.Load()
 	metrics.Compact.NumInProgress = int64(d.mu.compact.compactingCount)
 	metrics.Compact.MarkedFiles = vers.Stats.MarkedForCompaction
+	metrics.Compact.Duration = d.mu.compact.duration
+	for c := range d.mu.compact.inProgress {
+		if c.kind != compactionKindFlush {
+			metrics.Compact.Duration += d.timeNow().Sub(c.beganAt)
+		}
+	}
+
 	for _, m := range d.mu.mem.queue {
 		metrics.MemTable.Size += m.totalBytes()
 	}
@@ -1801,6 +1867,7 @@ func (d *DB) Metrics() *Metrics {
 	metrics.BlockCache = d.opts.Cache.Metrics()
 	metrics.TableCache, metrics.Filter = d.tableCache.metrics()
 	metrics.TableIters = int64(d.tableCache.iterCount())
+	metrics.Uptime = d.timeNow().Sub(d.openedAt)
 	return metrics
 }
 
@@ -1871,7 +1938,7 @@ func (d *DB) SSTables(opts ...SSTablesOption) ([][]SSTableInfo, error) {
 			destTables[j] = SSTableInfo{TableInfo: m.TableInfo()}
 			if opt.withProperties {
 				p, err := d.tableCache.getTableProperties(
-					m.PhysicalMeta(),
+					m,
 				)
 				if err != nil {
 					return nil, err
@@ -1897,6 +1964,8 @@ func (d *DB) SSTables(opts ...SSTablesOption) ([][]SSTableInfo, error) {
 //     overlap due to abbreviated index keys, the full data block size is included in
 //     the estimation. Note that unlike fully contained sstables, none of the
 //     meta-block space is counted for partially overlapped files.
+//   - For virtual sstables, we use the overlap between start, end and the virtual
+//     sstable bounds to determine disk usage.
 //   - There may also exist WAL entries for unflushed keys in this range. This
 //     estimation currently excludes space used for the range in the WAL.
 func (d *DB) EstimateDiskUsage(start, end []byte) (uint64, error) {
@@ -1932,13 +2001,24 @@ func (d *DB) EstimateDiskUsage(start, end []byte) (uint64, error) {
 			} else if d.opts.Comparer.Compare(file.Smallest.UserKey, end) <= 0 &&
 				d.opts.Comparer.Compare(start, file.Largest.UserKey) <= 0 {
 				var size uint64
-				err := d.tableCache.withReader(
-					file,
-					func(r *sstable.Reader) (err error) {
-						size, err = r.EstimateDiskUsage(start, end)
-						return err
-					},
-				)
+				var err error
+				if file.Virtual {
+					err = d.tableCache.withVirtualReader(
+						file.VirtualMeta(),
+						func(r sstable.VirtualReader) (err error) {
+							size, err = r.EstimateDiskUsage(start, end)
+							return err
+						},
+					)
+				} else {
+					err = d.tableCache.withReader(
+						file.PhysicalMeta(),
+						func(r *sstable.Reader) (err error) {
+							size, err = r.EstimateDiskUsage(start, end)
+							return err
+						},
+					)
+				}
 				if err != nil {
 					return 0, err
 				}
@@ -2265,7 +2345,6 @@ func (d *DB) recycleWAL() (newLogNum FileNum, prevLogSize uint64) {
 	})
 
 	d.mu.Lock()
-	d.mu.mem.cond.Broadcast()
 
 	d.mu.versions.metrics.WAL.Files++
 
@@ -2306,10 +2385,11 @@ func (d *DB) getInProgressCompactionInfoLocked(finishing *compaction) (rv []comp
 	for c := range d.mu.compact.inProgress {
 		if len(c.flushing) == 0 && (finishing == nil || c != finishing) {
 			info := compactionInfo{
-				inputs:      c.inputs,
-				smallest:    c.smallest,
-				largest:     c.largest,
-				outputLevel: -1,
+				versionEditApplied: c.versionEditApplied,
+				inputs:             c.inputs,
+				smallest:           c.smallest,
+				largest:            c.largest,
+				outputLevel:        -1,
 			}
 			if c.outputLevel != nil {
 				info.outputLevel = c.outputLevel.level
@@ -2323,6 +2403,14 @@ func (d *DB) getInProgressCompactionInfoLocked(finishing *compaction) (rv []comp
 func inProgressL0Compactions(inProgress []compactionInfo) []manifest.L0Compaction {
 	var compactions []manifest.L0Compaction
 	for _, info := range inProgress {
+		// Skip in-progress compactions that have already committed; the L0
+		// sublevels initialization code requires the set of in-progress
+		// compactions to be consistent with the current version. Compactions
+		// with versionEditApplied=true are already applied to the current
+		// version and but are performing cleanup without the database mutex.
+		if info.versionEditApplied {
+			continue
+		}
 		l0 := false
 		for _, cl := range info.inputs {
 			l0 = l0 || cl.level == 0
@@ -2359,4 +2447,10 @@ func (d *DB) SetCreatorID(creatorID uint64) error {
 		return nil
 	}
 	return d.objProvider.SetCreatorID(objstorage.CreatorID(creatorID))
+}
+
+// ObjProvider returns the objstorage.Provider for this database. Meant to be
+// used for internal purposes only.
+func (d *DB) ObjProvider() objstorage.Provider {
+	return d.objProvider
 }

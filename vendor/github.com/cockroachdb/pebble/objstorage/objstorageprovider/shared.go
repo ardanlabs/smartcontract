@@ -6,7 +6,7 @@ package objstorageprovider
 
 import (
 	"context"
-	"fmt"
+	"runtime"
 	"sync"
 	"sync/atomic"
 
@@ -14,6 +14,7 @@ import (
 	"github.com/cockroachdb/pebble/internal/base"
 	"github.com/cockroachdb/pebble/internal/invariants"
 	"github.com/cockroachdb/pebble/objstorage"
+	"github.com/cockroachdb/pebble/objstorage/objstorageprovider/sharedcache"
 	"github.com/cockroachdb/pebble/objstorage/objstorageprovider/sharedobjcat"
 	"github.com/cockroachdb/pebble/objstorage/shared"
 )
@@ -22,6 +23,7 @@ import (
 // All fields remain unset if shared storage is not configured.
 type sharedSubsystem struct {
 	catalog *sharedobjcat.Catalog
+	cache   *sharedcache.Cache
 
 	// checkRefsOnOpen controls whether we check the ref marker file when opening
 	// an object. Normally this is true when invariants are enabled (but the provider
@@ -66,6 +68,24 @@ func (p *provider) sharedInit() error {
 		p.st.Logger.Infof("shared storage configured; no creatorID yet")
 	}
 
+	if p.st.Shared.CacheSizeBytes > 0 {
+		const defaultBlockSize = 32 * 1024
+		blockSize := p.st.Shared.CacheBlockSize
+		if blockSize == 0 {
+			blockSize = defaultBlockSize
+		}
+
+		numShards := p.st.Shared.CacheShardCount
+		if numShards == 0 {
+			numShards = 2 * runtime.GOMAXPROCS(0)
+		}
+
+		p.shared.cache, err = sharedcache.Open(p.st.FS, p.st.FSDirName, blockSize, p.st.Shared.CacheSizeBytes, numShards)
+		if err != nil {
+			return errors.Wrapf(err, "pebble: could not open shared object cache")
+		}
+	}
+
 	for _, meta := range contents.Objects {
 		o := objstorage.ObjectMetadata{
 			DiskFileNum: meta.FileNum,
@@ -94,6 +114,14 @@ func (p *provider) SetCreatorID(creatorID objstorage.CreatorID) error {
 		p.shared.init(creatorID)
 	}
 	return nil
+}
+
+// IsForeign is part of the objstorage.Provider interface.
+func (p *provider) IsForeign(meta objstorage.ObjectMetadata) bool {
+	if !p.shared.initialized.Load() {
+		return false
+	}
+	return meta.IsShared() && p.shared.creatorID != meta.Shared.CreatorID
 }
 
 func (p *provider) sharedCheckInitialized() error {
@@ -134,50 +162,6 @@ func (p *provider) sharedSync() error {
 
 func (p *provider) sharedPath(meta objstorage.ObjectMetadata) string {
 	return "shared://" + sharedObjectName(meta)
-}
-
-// sharedObjectName returns the name of an object on shared storage.
-//
-// For sstables, the format is: <creator-id>-<file-num>.sst
-// For example: 00000000000000000002-000001.sst
-func sharedObjectName(meta objstorage.ObjectMetadata) string {
-	// TODO(radu): prepend a "shard" value for better distribution within the bucket?
-	return fmt.Sprintf(
-		"%s-%s",
-		meta.Shared.CreatorID, base.MakeFilename(meta.FileType, meta.Shared.CreatorFileNum),
-	)
-}
-
-// sharedObjectRefName returns the name of the object's ref marker associated
-// with this provider. This name is the object's name concatenated with
-// ".ref.<provider-id>.<local-file-num>".
-//
-// For example: 00000000000000000002-000001.sst.ref.00000000000000000005.000008
-func (p *provider) sharedObjectRefName(meta objstorage.ObjectMetadata) string {
-	if meta.Shared.CleanupMethod != objstorage.SharedRefTracking {
-		panic("ref object used when ref tracking disabled")
-	}
-	return sharedObjectRefName(meta, p.shared.creatorID, meta.DiskFileNum)
-}
-
-func sharedObjectRefName(
-	meta objstorage.ObjectMetadata, refCreatorID objstorage.CreatorID, refFileNum base.DiskFileNum,
-) string {
-	if meta.Shared.CleanupMethod != objstorage.SharedRefTracking {
-		panic("ref object used when ref tracking disabled")
-	}
-	return fmt.Sprintf(
-		"%s-%s.ref.%s.%s",
-		meta.Shared.CreatorID, base.MakeFilename(meta.FileType, meta.Shared.CreatorFileNum), refCreatorID, refFileNum,
-	)
-
-}
-
-func sharedObjectRefPrefix(meta objstorage.ObjectMetadata) string {
-	return fmt.Sprintf(
-		"%s-%s.ref.",
-		meta.Shared.CreatorID, base.MakeFilename(meta.FileType, meta.Shared.CreatorFileNum),
-	)
 }
 
 // sharedCreateRef creates a reference marker object.
@@ -248,7 +232,7 @@ func (p *provider) sharedOpenForReading(
 		}
 	}
 	objName := sharedObjectName(meta)
-	size, err := p.sharedStorage().Size(objName)
+	reader, size, err := p.sharedStorage().ReadObject(ctx, objName)
 	if err != nil {
 		if opts.MustExist && p.sharedStorage().IsNotExistError(err) {
 			p.st.Logger.Fatalf("object %q does not exist", objName)
@@ -256,7 +240,7 @@ func (p *provider) sharedOpenForReading(
 		}
 		return nil, err
 	}
-	return newSharedReadable(p.sharedStorage(), objName, size), nil
+	return newSharedReadable(reader, size), nil
 }
 
 func (p *provider) sharedSize(meta objstorage.ObjectMetadata) (int64, error) {

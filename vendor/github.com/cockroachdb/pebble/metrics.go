@@ -179,6 +179,14 @@ type Metrics struct {
 		// compaction. Such files are compacted in a rewrite compaction
 		// when no other compactions are picked.
 		MarkedFiles int
+		// Duration records the cumulative duration of all compactions since the
+		// database was opened.
+		Duration time.Duration
+	}
+
+	Ingest struct {
+		// The total number of ingestions
+		Count uint64
 	}
 
 	Flush struct {
@@ -256,6 +264,8 @@ type Metrics struct {
 
 	// Count of the number of open sstable iterators.
 	TableIters int64
+	// Uptime is the total time since this DB was opened.
+	Uptime time.Duration
 
 	WAL struct {
 		// Number of live WAL files.
@@ -499,6 +509,9 @@ func (m *Metrics) SafeFormat(w redact.SafePrinter, _ rune) {
 		notApplicable,
 		notApplicable,
 		redact.Safe(hitRate(m.Filter.Hits, m.Filter.Misses)))
+	w.Printf(" ingest %9d\n",
+		redact.Safe(m.Ingest.Count),
+	)
 }
 
 func hitRate(hits, misses int64) float64 {

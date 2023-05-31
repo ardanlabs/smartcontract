@@ -44,7 +44,7 @@ github.com/cockroachdb/errors/withstack
 # github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b
 ## explicit; go 1.16
 github.com/cockroachdb/logtags
-# github.com/cockroachdb/pebble v0.0.0-20230424164215-fd5c12919ba1
+# github.com/cockroachdb/pebble v0.0.0-20230530230020-1880f18801dd
 ## explicit; go 1.19
 github.com/cockroachdb/pebble
 github.com/cockroachdb/pebble/bloom
@@ -70,13 +70,14 @@ github.com/cockroachdb/pebble/internal/testkeys
 github.com/cockroachdb/pebble/objstorage
 github.com/cockroachdb/pebble/objstorage/objstorageprovider
 github.com/cockroachdb/pebble/objstorage/objstorageprovider/objiotracing
+github.com/cockroachdb/pebble/objstorage/objstorageprovider/sharedcache
 github.com/cockroachdb/pebble/objstorage/objstorageprovider/sharedobjcat
 github.com/cockroachdb/pebble/objstorage/shared
 github.com/cockroachdb/pebble/record
 github.com/cockroachdb/pebble/sstable
 github.com/cockroachdb/pebble/vfs
 github.com/cockroachdb/pebble/vfs/atomicfs
-# github.com/cockroachdb/redact v1.1.3
+# github.com/cockroachdb/redact v1.1.4
 ## explicit; go 1.14
 github.com/cockroachdb/redact
 github.com/cockroachdb/redact/builder
@@ -98,10 +99,7 @@ github.com/deckarep/golang-set/v2
 ## explicit; go 1.17
 github.com/decred/dcrd/dcrec/secp256k1/v4
 github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa
-# github.com/edsrzf/mmap-go v1.1.0
-## explicit; go 1.17
-github.com/edsrzf/mmap-go
-# github.com/ethereum/go-ethereum v1.11.6
+# github.com/ethereum/go-ethereum v1.12.0
 ## explicit; go 1.19
 github.com/ethereum/go-ethereum
 github.com/ethereum/go-ethereum/accounts
@@ -167,13 +165,15 @@ github.com/ethereum/go-ethereum/rlp/internal/rlpstruct
 github.com/ethereum/go-ethereum/rpc
 github.com/ethereum/go-ethereum/signer/core/apitypes
 github.com/ethereum/go-ethereum/trie
+github.com/ethereum/go-ethereum/trie/triedb/hashdb
+github.com/ethereum/go-ethereum/trie/trienode
 # github.com/fsnotify/fsnotify v1.6.0
 ## explicit; go 1.16
 github.com/fsnotify/fsnotify
 # github.com/gballet/go-libpcsclite v0.0.0-20191108122812-4678299bea08
 ## explicit
 github.com/gballet/go-libpcsclite
-# github.com/getsentry/sentry-go v0.20.0
+# github.com/getsentry/sentry-go v0.21.0
 ## explicit; go 1.18
 github.com/getsentry/sentry-go
 github.com/getsentry/sentry-go/internal/debug
@@ -200,7 +200,6 @@ github.com/gogo/protobuf/types
 # github.com/golang/protobuf v1.5.3
 ## explicit; go 1.9
 github.com/golang/protobuf/proto
-github.com/golang/protobuf/ptypes/timestamp
 # github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb
 ## explicit
 github.com/golang/snappy
@@ -216,7 +215,7 @@ github.com/holiman/bloomfilter/v2
 # github.com/holiman/uint256 v1.2.2
 ## explicit; go 1.18
 github.com/holiman/uint256
-# github.com/huin/goupnp v1.1.0
+# github.com/huin/goupnp v1.2.0
 ## explicit; go 1.14
 github.com/huin/goupnp
 github.com/huin/goupnp/dcps/internetgateway1
@@ -255,20 +254,20 @@ github.com/olekukonko/tablewriter
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
-# github.com/prometheus/client_golang v1.15.0
+# github.com/prometheus/client_golang v1.15.1
 ## explicit; go 1.17
 github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/internal
-# github.com/prometheus/client_model v0.3.0
-## explicit; go 1.9
+# github.com/prometheus/client_model v0.4.0
+## explicit; go 1.18
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.42.0
+# github.com/prometheus/common v0.44.0
 ## explicit; go 1.18
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
 github.com/prometheus/common/model
-# github.com/prometheus/procfs v0.9.0
-## explicit; go 1.18
+# github.com/prometheus/procfs v0.10.1
+## explicit; go 1.19
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
@@ -309,24 +308,24 @@ github.com/tklauser/numcpus
 ## explicit; go 1.14
 github.com/tyler-smith/go-bip39
 github.com/tyler-smith/go-bip39/wordlists
-# github.com/yusufpapurcu/wmi v1.2.2
+# github.com/yusufpapurcu/wmi v1.2.3
 ## explicit; go 1.16
 github.com/yusufpapurcu/wmi
-# golang.org/x/crypto v0.8.0
+# golang.org/x/crypto v0.9.0
 ## explicit; go 1.17
 golang.org/x/crypto/hkdf
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/ripemd160
 golang.org/x/crypto/scrypt
 golang.org/x/crypto/sha3
-# golang.org/x/exp v0.0.0-20230425010034-47ecfdc1ba53
+# golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/rand
-# golang.org/x/sync v0.1.0
+# golang.org/x/sync v0.2.0
 ## explicit
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.7.0
+# golang.org/x/sys v0.8.0
 ## explicit; go 1.17
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs

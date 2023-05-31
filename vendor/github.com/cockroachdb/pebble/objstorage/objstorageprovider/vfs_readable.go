@@ -15,7 +15,10 @@ import (
 	"github.com/cockroachdb/pebble/vfs"
 )
 
-// fileReadable implements objstorage.Readable on top of vfs.File.
+// fileReadable implements objstorage.Readable on top of a vfs.File.
+//
+// The implementation might use Prealloc and might reopen the file with
+// SequentialReadsOption.
 type fileReadable struct {
 	file vfs.File
 	size int64
@@ -72,6 +75,7 @@ func (r *fileReadable) Size() int64 {
 func (r *fileReadable) NewReadHandle(_ context.Context) objstorage.ReadHandle {
 	rh := readHandlePool.Get().(*vfsReadHandle)
 	rh.r = r
+	rh.rs = makeReadaheadState()
 	return rh
 }
 
@@ -125,7 +129,7 @@ func (rh *vfsReadHandle) ReadAt(_ context.Context, p []byte, offset int64) error
 			if readaheadSize >= maxReadaheadSize {
 				// We've reached the maximum readahead size. Beyond this point, rely on
 				// OS-level readahead.
-				rh.MaxReadahead()
+				rh.switchToOSReadahead()
 			} else {
 				_ = rh.r.file.Prefetch(offset, readaheadSize)
 			}
@@ -138,8 +142,12 @@ func (rh *vfsReadHandle) ReadAt(_ context.Context, p []byte, offset int64) error
 	return err
 }
 
-// MaxReadahead is part of the objstorage.ReadHandle interface.
-func (rh *vfsReadHandle) MaxReadahead() {
+// SetupForCompaction is part of the objstorage.ReadHandle interface.
+func (rh *vfsReadHandle) SetupForCompaction() {
+	rh.switchToOSReadahead()
+}
+
+func (rh *vfsReadHandle) switchToOSReadahead() {
 	if rh.sequentialFile != nil {
 		return
 	}
@@ -161,63 +169,46 @@ func (rh *vfsReadHandle) RecordCacheHit(_ context.Context, offset, size int64) {
 	rh.rs.recordCacheHit(offset, size)
 }
 
-// genericFileReadable implements objstorage.Readable on top of any vfs.File.
-// This implementation does not support read-ahead.
-type genericFileReadable struct {
-	file vfs.File
-	size int64
-
-	rh objstorage.NoopReadHandle
-}
-
-var _ objstorage.Readable = (*genericFileReadable)(nil)
-
-func newGenericFileReadable(file vfs.File) (*genericFileReadable, error) {
-	info, err := file.Stat()
-	if err != nil {
-		return nil, err
-	}
-	r := &genericFileReadable{
-		file: file,
-		size: info.Size(),
-	}
-	r.rh = objstorage.MakeNoopReadHandle(r)
-	invariants.SetFinalizer(r, func(obj interface{}) {
-		if obj.(*genericFileReadable).file != nil {
-			fmt.Fprintf(os.Stderr, "Readable was not closed")
-			os.Exit(1)
-		}
-	})
-	return r, nil
-}
-
-// ReadAt is part of the objstorage.Readable interface.
-func (r *genericFileReadable) ReadAt(_ context.Context, p []byte, off int64) error {
-	n, err := r.file.ReadAt(p, off)
-	if invariants.Enabled && err == nil && n != len(p) {
-		panic("short read")
-	}
-	return err
-}
-
-// Close is part of the objstorage.Readable interface.
-func (r *genericFileReadable) Close() error {
-	defer func() { r.file = nil }()
-	return r.file.Close()
-}
-
-// Size is part of the objstorage.Readable interface.
-func (r *genericFileReadable) Size() int64 {
-	return r.size
-}
-
-// NewReadHandle is part of the objstorage.Readable interface.
-func (r *genericFileReadable) NewReadHandle(_ context.Context) objstorage.ReadHandle {
-	return &r.rh
-}
-
 // TestingCheckMaxReadahead returns true if the ReadHandle has switched to
 // OS-level read-ahead.
 func TestingCheckMaxReadahead(rh objstorage.ReadHandle) bool {
-	return rh.(*vfsReadHandle).sequentialFile != nil
+	switch rh := rh.(type) {
+	case *vfsReadHandle:
+		return rh.sequentialFile != nil
+	case *PreallocatedReadHandle:
+		return rh.sequentialFile != nil
+	default:
+		panic("unknown ReadHandle type")
+	}
+}
+
+// PreallocatedReadHandle is used to avoid an allocation in NewReadHandle; see
+// UsePreallocatedReadHandle.
+type PreallocatedReadHandle struct {
+	vfsReadHandle
+}
+
+// Close is part of the objstorage.ReadHandle interface.
+func (rh *PreallocatedReadHandle) Close() error {
+	var err error
+	if rh.sequentialFile != nil {
+		err = rh.sequentialFile.Close()
+	}
+	rh.vfsReadHandle = vfsReadHandle{}
+	return err
+}
+
+// UsePreallocatedReadHandle is equivalent to calling readable.NewReadHandle()
+// but uses the existing storage of a PreallocatedReadHandle when possible
+// (currently this happens if we are reading from a local file).
+// The returned handle still needs to be closed.
+func UsePreallocatedReadHandle(
+	ctx context.Context, readable objstorage.Readable, rh *PreallocatedReadHandle,
+) objstorage.ReadHandle {
+	if r, ok := readable.(*fileReadable); ok {
+		// See fileReadable.NewReadHandle.
+		rh.vfsReadHandle = vfsReadHandle{r: r}
+		return rh
+	}
+	return readable.NewReadHandle(ctx)
 }
