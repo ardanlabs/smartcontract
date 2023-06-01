@@ -56,7 +56,7 @@
 # NFT ERC721 Template
 # https://github.com/OpenZeppelin/openzeppelin-contracts/tree/master/contracts/token/ERC721
 
-SOLC_EVM_VERSION := homestead
+SOLC_EVM_VERSION := london
 
 # ==============================================================================
 # Install dependencies
