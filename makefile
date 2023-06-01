@@ -56,6 +56,8 @@
 # NFT ERC721 Template
 # https://github.com/OpenZeppelin/openzeppelin-contracts/tree/master/contracts/token/ERC721
 
+SOLC_EVM_VERSION := homestead
+
 # ==============================================================================
 # Install dependencies
 # https://geth.ethereum.org/docs/install-and-build/installing-geth
@@ -78,8 +80,8 @@ dev.update:
 # abi and binary code, a Go source code file can be generated for Go API access.
 
 basic-build:
-	solc --abi app/basic/contract/src/basic/basic.sol -o app/basic/contract/abi/basic --overwrite
-	solc --bin app/basic/contract/src/basic/basic.sol -o app/basic/contract/abi/basic --overwrite
+	solc --evm-version $(SOLC_EVM_VERSION) --abi app/basic/contract/src/basic/basic.sol -o app/basic/contract/abi/basic --overwrite
+	solc --evm-version $(SOLC_EVM_VERSION) --bin app/basic/contract/src/basic/basic.sol -o app/basic/contract/abi/basic --overwrite
 	abigen --bin=app/basic/contract/abi/basic/Basic.bin --abi=app/basic/contract/abi/basic/Basic.abi --pkg=basic --out=app/basic/contract/go/basic/basic.go
 
 # This will deploy the smart contract to the locally running Ethereum environment.
@@ -99,8 +101,8 @@ basic-read:
 # These commands build, deploy, and run the simplecoin smart contract.
 
 scoin-build:
-	solc --abi app/simplecoin/contract/src/simplecoin/simplecoin.sol -o app/simplecoin/contract/abi/simplecoin --overwrite
-	solc --bin app/simplecoin/contract/src/simplecoin/simplecoin.sol -o app/simplecoin/contract/abi/simplecoin --overwrite
+	solc --evm-version $(SOLC_EVM_VERSION) --abi app/simplecoin/contract/src/simplecoin/simplecoin.sol -o app/simplecoin/contract/abi/simplecoin --overwrite
+	solc --evm-version $(SOLC_EVM_VERSION) --bin app/simplecoin/contract/src/simplecoin/simplecoin.sol -o app/simplecoin/contract/abi/simplecoin --overwrite
 	abigen --bin=app/simplecoin/contract/abi/simplecoin/SimpleCoin.bin --abi=app/simplecoin/contract/abi/simplecoin/SimpleCoin.abi --pkg=simplecoin --out=app/simplecoin/contract/go/simplecoin/simplecoin.go
 
 scoin-deploy:
@@ -116,8 +118,8 @@ scoin-trancheck:
 # These commands build, deploy, and run the bank-single smart contract.
 
 bank-single-build:
-	solc --abi app/bank/single/contract/src/bank/bank.sol -o app/bank/single/contract/abi/bank --overwrite
-	solc --bin app/bank/single/contract/src/bank/bank.sol -o app/bank/single/contract/abi/bank --overwrite
+	solc --evm-version $(SOLC_EVM_VERSION) --abi app/bank/single/contract/src/bank/bank.sol -o app/bank/single/contract/abi/bank --overwrite
+	solc --evm-version $(SOLC_EVM_VERSION) --bin app/bank/single/contract/src/bank/bank.sol -o app/bank/single/contract/abi/bank --overwrite
 	abigen --bin=app/bank/single/contract/abi/bank/Bank.bin --abi=app/bank/single/contract/abi/bank/Bank.abi --pkg=bank --out=app/bank/single/contract/go/bank/bank.go
 
 bank-single-deploy:
@@ -127,23 +129,23 @@ bank-single-deploy:
 # These commands build and deploy different version of the proxy bank smart contract.
 
 bank-proxy-build:
-	solc --abi app/bank/proxy/contract/src/bank/bank.sol -o app/bank/proxy/contract/abi/bank --overwrite
-	solc --bin app/bank/proxy/contract/src/bank/bank.sol -o app/bank/proxy/contract/abi/bank --overwrite
+	solc --evm-version $(SOLC_EVM_VERSION) --abi app/bank/proxy/contract/src/bank/bank.sol -o app/bank/proxy/contract/abi/bank --overwrite
+	solc --evm-version $(SOLC_EVM_VERSION) --bin app/bank/proxy/contract/src/bank/bank.sol -o app/bank/proxy/contract/abi/bank --overwrite
 	abigen --bin=app/bank/proxy/contract/abi/bank/Bank.bin --abi=app/bank/proxy/contract/abi/bank/Bank.abi --pkg=bank --out=app/bank/proxy/contract/go/bank/bank.go
 
 bank-api-v1-build:
-	solc --abi app/bank/proxy/contract/src/bankapi/v1/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
-	solc --bin app/bank/proxy/contract/src/bankapi/v1/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
+	solc --evm-version $(SOLC_EVM_VERSION) --abi app/bank/proxy/contract/src/bankapi/v1/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
+	solc --evm-version $(SOLC_EVM_VERSION) --bin app/bank/proxy/contract/src/bankapi/v1/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
 	abigen --bin=app/bank/proxy/contract/abi/bankapi/BankAPI.bin --abi=app/bank/proxy/contract/abi/bankapi/BankAPI.abi --pkg=bankapi --out=app/bank/proxy/contract/go/bankapi/bankapi.go
 
 bank-api-v2-build:
-	solc --abi app/bank/proxy/contract/src/bankapi/v2/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
-	solc --bin app/bank/proxy/contract/src/bankapi/v2/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
+	solc --evm-version $(SOLC_EVM_VERSION) --abi app/bank/proxy/contract/src/bankapi/v2/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
+	solc --evm-version $(SOLC_EVM_VERSION) --bin app/bank/proxy/contract/src/bankapi/v2/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
 	abigen --bin=app/bank/proxy/contract/abi/bankapi/BankAPI.bin --abi=app/bank/proxy/contract/abi/bankapi/BankAPI.abi --pkg=bankapi --out=app/bank/proxy/contract/go/bankapi/bankapi.go
 
 bank-api-v3-build:
-	solc --abi app/bank/proxy/contract/src/bankapi/v3/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
-	solc --bin app/bank/proxy/contract/src/bankapi/v3/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
+	solc --evm-version $(SOLC_EVM_VERSION) --abi app/bank/proxy/contract/src/bankapi/v3/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
+	solc --evm-version $(SOLC_EVM_VERSION) --bin app/bank/proxy/contract/src/bankapi/v3/api.sol -o app/bank/proxy/contract/abi/bankapi --overwrite
 	abigen --bin=app/bank/proxy/contract/abi/bankapi/BankAPI.bin --abi=app/bank/proxy/contract/abi/bankapi/BankAPI.abi --pkg=bankapi --out=app/bank/proxy/contract/go/bankapi/bankapi.go
 
 bank-proxy-deploy:
@@ -189,8 +191,8 @@ bank-proxy-reconcile:
 # These commands build, deploy, and run the verify smart contract.
 
 sig-verify-build:
-	solc --abi app/signature/contract/src/verify/verify.sol -o app/signature/contract/abi/verify --overwrite
-	solc --bin app/signature/contract/src/verify/verify.sol -o app/signature/contract/abi/verify --overwrite
+	solc --evm-version $(SOLC_EVM_VERSION) --abi app/signature/contract/src/verify/verify.sol -o app/signature/contract/abi/verify --overwrite
+	solc --evm-version $(SOLC_EVM_VERSION) --bin app/signature/contract/src/verify/verify.sol -o app/signature/contract/abi/verify --overwrite
 	abigen --bin=app/signature/contract/abi/verify/Verify.bin --abi=app/signature/contract/abi/verify/Verify.abi --pkg=verify --out=app/signature/contract/go/verify/verify.go
 
 # This will deploy the smart contract to the locally running Ethereum environment.
@@ -205,8 +207,8 @@ sig-verify-confirm:
 # These commands build, deploy, and run the book smart contract.
 
 book-build:
-	solc --abi app/book/contract/src/book/book.sol -o app/book/contract/abi/book --overwrite
-	solc --bin app/book/contract/src/book/book.sol -o app/book/contract/abi/book --overwrite
+	solc --evm-version $(SOLC_EVM_VERSION) --abi app/book/contract/src/book/book.sol -o app/book/contract/abi/book --overwrite
+	solc --evm-version $(SOLC_EVM_VERSION) --bin app/book/contract/src/book/book.sol -o app/book/contract/abi/book --overwrite
 	abigen --bin=app/book/contract/abi/book/Book.bin --abi=app/book/contract/abi/book/Book.abi --pkg=book --out=app/book/contract/go/book/book.go
 
 # This will deploy the smart contract to the locally running Ethereum environment.
