@@ -56,7 +56,7 @@ func TestBankSingle(t *testing.T) {
 
 	// =========================================================================
 
-	const gasLimit = 1700000
+	const gasLimit = 2000000
 	const valueGwei = 0.0
 
 	var testBank *bank.Bank
