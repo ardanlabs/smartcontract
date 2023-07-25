@@ -15,6 +15,7 @@ import (
 	"github.com/cockroachdb/pebble/internal/keyspan"
 	"github.com/cockroachdb/pebble/internal/manifest"
 	"github.com/cockroachdb/pebble/objstorage"
+	"github.com/cockroachdb/pebble/rangekey"
 	"github.com/cockroachdb/pebble/sstable"
 )
 
@@ -27,13 +28,14 @@ const (
 // ErrInvalidSkipSharedIteration is returned by ScanInternal if it was called
 // with a shared file visitor function, and a file in a shareable level (i.e.
 // level >= sharedLevelsStart) was found to not be in shared storage according
-// to objstorage.Provider.
-var ErrInvalidSkipSharedIteration = errors.New("pebble: cannot use skip-shared iteration due to non-shared files in lower levels")
+// to objstorage.Provider, or not shareable for another reason such as for
+// containing keys newer than the snapshot sequence number.
+var ErrInvalidSkipSharedIteration = errors.New("pebble: cannot use skip-shared iteration due to non-shareable files in lower levels")
 
 // SharedSSTMeta represents an sstable on shared storage that can be ingested
 // by another pebble instance. This struct must contain all fields that are
 // required for a Pebble instance to ingest a foreign sstable on shared storage,
-// including constructing any relevant objstorage.Provider / sharedobjcat.Catalog
+// including constructing any relevant objstorage.Provider / remoteobjcat.Catalog
 // data structures, as well as creating virtual FileMetadatas.
 //
 // Note that the Pebble instance creating and returning a SharedSSTMeta might
@@ -43,7 +45,7 @@ var ErrInvalidSkipSharedIteration = errors.New("pebble: cannot use skip-shared i
 type SharedSSTMeta struct {
 	// Backing is the shared object underlying this SST. Can be attached to an
 	// objstorage.Provider.
-	Backing objstorage.SharedObjectBackingHandle
+	Backing objstorage.RemoteObjectBackingHandle
 
 	// Smallest and Largest internal keys for the overall bounds. The kind and
 	// SeqNum of these will reflect what is physically present on the source Pebble
@@ -167,8 +169,6 @@ type pointCollapsingIterator struct {
 	//    position of the child iterator.
 	savedKey    InternalKey
 	savedKeyBuf []byte
-	// Saved key for substituting sequence numbers. Reused to avoid an allocation.
-	seqNumKey InternalKey
 	// elideRangeDeletes ignores range deletes returned by the interleaving
 	// iterator if true.
 	elideRangeDeletes bool
@@ -180,8 +180,8 @@ type pointCollapsingIterator struct {
 	// Used for Merge keys only.
 	valueMerger ValueMerger
 	valueBuf    []byte
-	// If fixedSeqNum is non-zero, all emitted points have this fixed sequence
-	// number.
+	// If fixedSeqNum is non-zero, all emitted points are verified to have this
+	// fixed sequence number.
 	fixedSeqNum uint64
 }
 
@@ -227,21 +227,23 @@ func (p *pointCollapsingIterator) SeekLT(
 func (p *pointCollapsingIterator) resetKey() {
 	p.savedKey.UserKey = p.savedKeyBuf[:0]
 	p.savedKey.Trailer = 0
-	p.seqNumKey = InternalKey{}
 	p.valueMerger = nil
 	p.valueBuf = p.valueBuf[:0]
 	p.iterKey = nil
 	p.pos = pcIterPosCur
 }
 
-func (p *pointCollapsingIterator) subSeqNum(key *base.InternalKey) *base.InternalKey {
+func (p *pointCollapsingIterator) verifySeqNum(key *base.InternalKey) *base.InternalKey {
+	if !invariants.Enabled {
+		return key
+	}
 	if p.fixedSeqNum == 0 || key == nil || key.Kind() == InternalKeyKindRangeDelete {
 		return key
 	}
-	// Reuse seqNumKey. This avoids an allocation.
-	p.seqNumKey.UserKey = key.UserKey
-	p.seqNumKey.Trailer = base.MakeTrailer(p.fixedSeqNum, key.Kind())
-	return &p.seqNumKey
+	if key.SeqNum() != p.fixedSeqNum {
+		panic(fmt.Sprintf("expected foreign point key to have seqnum %d, got %d", p.fixedSeqNum, key.SeqNum()))
+	}
+	return key
 }
 
 // finishAndReturnMerge finishes off the valueMerger and returns the saved key.
@@ -257,7 +259,7 @@ func (p *pointCollapsingIterator) finishAndReturnMerge() (*base.InternalKey, bas
 	}
 	p.valueMerger = nil
 	val := base.MakeInPlaceValue(p.valueBuf)
-	return p.subSeqNum(&p.savedKey), val
+	return p.verifySeqNum(&p.savedKey), val
 }
 
 // findNextEntry is called to return the next key. p.iter must be positioned at the
@@ -316,7 +318,7 @@ func (p *pointCollapsingIterator) findNextEntry() (*base.InternalKey, base.LazyV
 			// of blocks and can determine user key changes without doing key saves
 			// or comparisons.
 			p.pos = pcIterPosCur
-			return p.subSeqNum(p.iterKey), p.iterValue
+			return p.verifySeqNum(p.iterKey), p.iterValue
 		case InternalKeyKindSingleDelete:
 			// Panic, as this iterator is not expected to observe single deletes.
 			panic("cannot process singledel key in point collapsing iterator")
@@ -377,7 +379,7 @@ func (p *pointCollapsingIterator) findNextEntry() (*base.InternalKey, base.LazyV
 			// We should pass them as-is, but also account for any points ahead of
 			// them.
 			p.pos = pcIterPosCur
-			return p.subSeqNum(p.iterKey), p.iterValue
+			return p.verifySeqNum(p.iterKey), p.iterValue
 		default:
 			panic(fmt.Sprintf("unexpected kind: %d", p.iterKey.Kind()))
 		}
@@ -405,7 +407,7 @@ func (p *pointCollapsingIterator) findPrevEntry() (*base.InternalKey, base.LazyV
 	for p.iterKey != nil {
 		if !firstIteration && !p.comparer.Equal(p.iterKey.UserKey, p.savedKey.UserKey) {
 			p.pos = pcIterPosPrev
-			return p.subSeqNum(&p.savedKey), p.savedValue
+			return p.verifySeqNum(&p.savedKey), p.savedValue
 		}
 		firstIteration = false
 		if s := p.iter.Span(); s != nil && s.CoversAt(p.seqNum, p.iterKey.SeqNum()) {
@@ -458,7 +460,7 @@ func (p *pointCollapsingIterator) findPrevEntry() (*base.InternalKey, base.LazyV
 				// Prev() we encounter and return this rangedel. For now return the point ahead of
 				// this range del (if any).
 				p.pos = pcIterPosPrev
-				return p.subSeqNum(&p.savedKey), p.savedValue
+				return p.verifySeqNum(&p.savedKey), p.savedValue
 			}
 			// We take advantage of the fact that a Prev() *on* a RangeDel iterKey
 			// always takes us to a different user key, so on the next iteration
@@ -494,7 +496,7 @@ func (p *pointCollapsingIterator) findPrevEntry() (*base.InternalKey, base.LazyV
 		}
 	}
 	p.pos = pcIterPosPrev
-	return p.subSeqNum(&p.savedKey), p.savedValue
+	return p.verifySeqNum(&p.savedKey), p.savedValue
 }
 
 // First implements the InternalIterator interface.
@@ -591,10 +593,10 @@ func (p *pointCollapsingIterator) Next() (*base.InternalKey, base.LazyValue) {
 
 // NextPrefix implements the InternalIterator interface.
 func (p *pointCollapsingIterator) NextPrefix(succKey []byte) (*base.InternalKey, base.LazyValue) {
-	// TODO(bilal): Implement this. It'll be similar to SeekGE, except we'll call
+	// TODO(bilal): Implement this optimally. It'll be similar to SeekGE, except we'll call
 	// the child iterator's NextPrefix, and have some special logic in case pos
 	// is pcIterPosNext.
-	panic("unimplemented")
+	return p.SeekGE(succKey, base.SeekGEFlagsNone)
 }
 
 // Prev implements the InternalIterator interface.
@@ -723,7 +725,7 @@ func (d *DB) truncateSharedFile(
 	sst = &SharedSSTMeta{}
 	sst.cloneFromFileMeta(file)
 	sst.Level = uint8(level)
-	sst.Backing, err = d.objProvider.SharedObjectBacking(&objMeta)
+	sst.Backing, err = d.objProvider.RemoteObjectBacking(&objMeta)
 	if err != nil {
 		return nil, false, err
 	}
@@ -736,10 +738,6 @@ func (d *DB) truncateSharedFile(
 
 	// We will need to truncate file bounds in at least one direction. Open all
 	// relevant iterators.
-	//
-	// TODO(bilal): Once virtual sstables go in, verify that the constraining of
-	// bounds to virtual sstable bounds happens below this method, so we aren't
-	// unintentionally exposing keys we shouldn't be exposing.
 	iter, rangeDelIter, err := d.newIters(ctx, file, &IterOptions{
 		LowerBound: lower,
 		UpperBound: upper,
@@ -752,7 +750,7 @@ func (d *DB) truncateSharedFile(
 	if rangeDelIter != nil {
 		rangeDelIter = keyspan.Truncate(
 			cmp, rangeDelIter, lower, upper, nil, nil,
-			false, /* panicOnPartialOverlap */
+			false, /* panicOnUpperTruncate */
 		)
 		defer rangeDelIter.Close()
 	}
@@ -763,7 +761,7 @@ func (d *DB) truncateSharedFile(
 	if rangeKeyIter != nil {
 		rangeKeyIter = keyspan.Truncate(
 			cmp, rangeKeyIter, lower, upper, nil, nil,
-			false, /* panicOnPartialOverlap */
+			false, /* panicOnUpperTruncate */
 		)
 		defer rangeKeyIter.Close()
 	}
@@ -773,6 +771,7 @@ func (d *DB) truncateSharedFile(
 		sst.SmallestPointKey.UserKey = sst.SmallestPointKey.UserKey[:0]
 		sst.SmallestPointKey.Trailer = 0
 		key, _ := iter.SeekGE(lower, base.SeekGEFlagsNone)
+		foundPointKey := key != nil
 		if key != nil {
 			sst.SmallestPointKey.CopyFrom(*key)
 		}
@@ -780,7 +779,13 @@ func (d *DB) truncateSharedFile(
 			span := rangeDelIter.SeekGE(lower)
 			if span != nil && (len(sst.SmallestPointKey.UserKey) == 0 || base.InternalCompare(cmp, span.SmallestKey(), sst.SmallestPointKey) < 0) {
 				sst.SmallestPointKey.CopyFrom(span.SmallestKey())
+				foundPointKey = true
 			}
+		}
+		if !foundPointKey {
+			// There are no point keys in the span we're interested in.
+			sst.SmallestPointKey = InternalKey{}
+			sst.LargestPointKey = InternalKey{}
 		}
 		sst.SmallestRangeKey.UserKey = sst.SmallestRangeKey.UserKey[:0]
 		sst.SmallestRangeKey.Trailer = 0
@@ -788,6 +793,10 @@ func (d *DB) truncateSharedFile(
 			span := rangeKeyIter.SeekGE(lower)
 			if span != nil {
 				sst.SmallestRangeKey.CopyFrom(span.SmallestKey())
+			} else {
+				// There are no range keys in the span we're interested in.
+				sst.SmallestRangeKey = InternalKey{}
+				sst.LargestRangeKey = InternalKey{}
 			}
 		}
 	}
@@ -797,6 +806,7 @@ func (d *DB) truncateSharedFile(
 		sst.LargestPointKey.UserKey = sst.LargestPointKey.UserKey[:0]
 		sst.LargestPointKey.Trailer = 0
 		key, _ := iter.SeekLT(upper, base.SeekLTFlagsNone)
+		foundPointKey := key != nil
 		if key != nil {
 			sst.LargestPointKey.CopyFrom(*key)
 		}
@@ -804,7 +814,13 @@ func (d *DB) truncateSharedFile(
 			span := rangeDelIter.SeekLT(upper)
 			if span != nil && (len(sst.LargestPointKey.UserKey) == 0 || base.InternalCompare(cmp, span.LargestKey(), sst.LargestPointKey) > 0) {
 				sst.LargestPointKey.CopyFrom(span.LargestKey())
+				foundPointKey = true
 			}
+		}
+		if !foundPointKey {
+			// There are no point keys in the span we're interested in.
+			sst.SmallestPointKey = InternalKey{}
+			sst.LargestPointKey = InternalKey{}
 		}
 		sst.LargestRangeKey.UserKey = sst.LargestRangeKey.UserKey[:0]
 		sst.LargestRangeKey.Trailer = 0
@@ -812,6 +828,10 @@ func (d *DB) truncateSharedFile(
 			span := rangeKeyIter.SeekLT(upper)
 			if span != nil {
 				sst.LargestRangeKey.CopyFrom(span.LargestKey())
+			} else {
+				// There are no range keys in the span we're interested in.
+				sst.SmallestRangeKey = InternalKey{}
+				sst.LargestRangeKey = InternalKey{}
 			}
 		}
 	}
@@ -843,6 +863,16 @@ func (d *DB) truncateSharedFile(
 	if len(sst.Smallest.UserKey) == 0 {
 		return nil, true, nil
 	}
+	sst.Size, err = d.tableCache.estimateSize(file, sst.Smallest.UserKey, sst.Largest.UserKey)
+	if err != nil {
+		return nil, false, err
+	}
+	// On occasion, estimateSize gives us a low estimate, i.e. a 0 file size. This
+	// can cause panics in places where we divide by file sizes. Correct for it
+	// here.
+	if sst.Size == 0 {
+		sst.Size = 1
+	}
 	return sst, false, nil
 }
 
@@ -852,7 +882,7 @@ func scanInternalImpl(
 	iter *scanInternalIterator,
 	visitPointKey func(key *InternalKey, value LazyValue) error,
 	visitRangeDel func(start, end []byte, seqNum uint64) error,
-	visitRangeKey func(start, end []byte, keys []keyspan.Key) error,
+	visitRangeKey func(start, end []byte, keys []rangekey.Key) error,
 	visitSharedFile func(sst *SharedSSTMeta) error,
 ) error {
 	if visitSharedFile != nil && (lower == nil || upper == nil) {
@@ -866,6 +896,7 @@ func scanInternalImpl(
 	cmp := iter.comparer.Compare
 	db := iter.readState.db
 	provider := db.objProvider
+	seqNum := iter.seqNum
 	if visitSharedFile != nil {
 		if provider == nil {
 			panic("expected non-nil Provider in skip-shared iteration mode")
@@ -875,12 +906,15 @@ func scanInternalImpl(
 			for f := files.SeekGE(cmp, lower); f != nil && cmp(f.Smallest.UserKey, upper) < 0; f = files.Next() {
 				var objMeta objstorage.ObjectMetadata
 				var err error
-				objMeta, err = provider.Lookup(fileTypeTable, f.FileNum.DiskFileNum())
+				objMeta, err = provider.Lookup(fileTypeTable, f.FileBacking.DiskFileNum)
 				if err != nil {
 					return err
 				}
 				if !objMeta.IsShared() {
-					return errors.Wrapf(ErrInvalidSkipSharedIteration, "when processing file %s", objMeta.DiskFileNum)
+					return errors.Wrapf(ErrInvalidSkipSharedIteration, "file %s is not shared", objMeta.DiskFileNum)
+				}
+				if !base.Visible(f.LargestSeqNum, seqNum, base.InternalKeySeqNumMax) {
+					return errors.Wrapf(ErrInvalidSkipSharedIteration, "file %s contains keys newer than snapshot", objMeta.DiskFileNum)
 				}
 				var sst *SharedSSTMeta
 				var skip bool
@@ -977,6 +1011,7 @@ func (i *scanInternalIterator) constructPointIter(memtables flushableList, buf *
 	mlevels = mlevels[:numMergingLevels]
 	levels = levels[:numLevelIters]
 	rangeDelLevels = rangeDelLevels[:numLevelIters]
+	i.opts.IterOptions.snapshotForHideObsoletePoints = i.seqNum
 	addLevelIterForFiles := func(files manifest.LevelIterator, level manifest.Level) {
 		li := &levels[levelsIndex]
 		rli := &rangeDelLevels[levelsIndex]

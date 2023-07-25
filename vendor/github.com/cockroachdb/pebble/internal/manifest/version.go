@@ -227,6 +227,8 @@ type FileMetadata struct {
 	// we'd have to write virtual sstable stats to the version edit.
 	Stats TableStats
 
+	// For L0 files only. Protected by DB.mu. Used to generate L0 sublevels and
+	// pick L0 compactions. Only accurate for the most recent Version.
 	SubLevel         int
 	L0Index          int
 	minIntervalIndex int
@@ -235,9 +237,6 @@ type FileMetadata struct {
 	// NB: the alignment of this struct is 8 bytes. We pack all the bools to
 	// ensure an optimal packing.
 
-	// For L0 files only. Protected by DB.mu. Used to generate L0 sublevels and
-	// pick L0 compactions. Only accurate for the most recent Version.
-	//
 	// IsIntraL0Compacting is set to True if this file is part of an intra-L0
 	// compaction. When it's true, IsCompacting must also return true. If
 	// Compacting is true and IsIntraL0Compacting is false for an L0 file, the
@@ -288,6 +287,33 @@ type PhysicalFileMeta struct {
 
 // VirtualFileMeta is used by functions which want a guarantee that their input
 // belongs to a virtual sst and not a physical sst.
+//
+// A VirtualFileMeta inherits all the same fields as a FileMetadata. These
+// fields have additional invariants imposed on them, and/or slightly varying
+// meanings:
+//   - Smallest and Largest (and their counterparts
+//     {Smallest, Largest}{Point,Range}Key) remain tight bounds that represent a
+//     key at that exact bound. We make the effort to determine the next smallest
+//     or largest key in an sstable after virtualizing it, to maintain this
+//     tightness. If the largest is a sentinel key (IsExclusiveSentinel()), it
+//     could mean that a rangedel or range key ends at that user key, or has been
+//     truncated to that user key.
+//   - One invariant is that if a rangedel or range key is truncated on its
+//     upper bound, the virtual sstable *must* have a rangedel or range key
+//     sentinel key as its upper bound. This is because truncation yields
+//     an exclusive upper bound for the rangedel/rangekey, and if there are
+//     any points at that exclusive upper bound within the same virtual
+//     sstable, those could get uncovered by this truncation. We enforce this
+//     invariant in calls to keyspan.Truncate.
+//   - Size is an estimate of the size of the virtualized portion of this sstable.
+//     The underlying file's size is stored in FileBacking.Size, though it could
+//     also be estimated or could correspond to just the referenced portion of
+//     a file (eg. if the file originated on another node).
+//   - SmallestSeqNum and LargestSeqNum are loose bounds for virtual sstables.
+//     This means that all keys in the virtual sstable must have seqnums within
+//     [SmallestSeqNum, LargestSeqNum], however there's no guarantee that there's
+//     a key with a seqnum at either of the bounds. Calculating tight seqnum
+//     bounds would be too expensive and deliver little value.
 //
 // NB: This type should only be constructed by calling FileMetadata.VirtualMeta.
 type VirtualFileMeta struct {
@@ -367,6 +393,17 @@ func (m *FileMetadata) InitPhysicalBacking() {
 	}
 	if m.FileBacking == nil {
 		m.FileBacking = &FileBacking{Size: m.Size, DiskFileNum: m.FileNum.DiskFileNum()}
+	}
+}
+
+// InitProviderBacking creates a new FileBacking for a file backed by
+// an objstorage.Provider.
+func (m *FileMetadata) InitProviderBacking(fileNum base.DiskFileNum) {
+	if !m.Virtual {
+		panic("pebble: provider-backed sstables must be virtual")
+	}
+	if m.FileBacking == nil {
+		m.FileBacking = &FileBacking{DiskFileNum: fileNum}
 	}
 }
 
@@ -575,6 +612,13 @@ func (m *FileMetadata) Overlaps(cmp Compare, start []byte, end []byte, exclusive
 	return true
 }
 
+// ContainedWithinSpan returns true if the file key range completely overlaps with the
+// given range ("end" is assumed to exclusive).
+func (m *FileMetadata) ContainedWithinSpan(cmp Compare, start, end []byte) bool {
+	lowerCmp, upperCmp := cmp(m.Smallest.UserKey, start), cmp(m.Largest.UserKey, end)
+	return lowerCmp >= 0 && (upperCmp < 0 || (upperCmp == 0 && m.Largest.IsExclusiveSentinel()))
+}
+
 // ContainsKeyType returns whether or not the file contains keys of the provided
 // type.
 func (m *FileMetadata) ContainsKeyType(kt KeyType) bool {
@@ -672,6 +716,7 @@ func (m *FileMetadata) DebugString(format base.FormatKey, verbose bool) string {
 	if !verbose {
 		return b.String()
 	}
+	fmt.Fprintf(&b, " seqnums:[%d-%d]", m.SmallestSeqNum, m.LargestSeqNum)
 	if m.HasPointKeys {
 		fmt.Fprintf(&b, " points:[%s-%s]",
 			m.SmallestPointKey.Pretty(format), m.LargestPointKey.Pretty(format))
@@ -687,7 +732,7 @@ func (m *FileMetadata) DebugString(format base.FormatKey, verbose bool) string {
 // representation.
 func ParseFileMetadataDebug(s string) (*FileMetadata, error) {
 	// Split lines of the form:
-	//  000000:[a#0,SET-z#0,SET] points:[...] ranges:[...]
+	//  000000:[a#0,SET-z#0,SET] seqnums:[5-5] points:[...] ranges:[...]
 	fields := strings.FieldsFunc(s, func(c rune) bool {
 		switch c {
 		case ':', '[', '-', ']':
@@ -702,6 +747,19 @@ func ParseFileMetadataDebug(s string) (*FileMetadata, error) {
 	m := &FileMetadata{}
 	for len(fields) > 0 {
 		prefix := fields[0]
+		if prefix == "seqnums" {
+			smallestSeqNum, err := strconv.ParseUint(fields[1], 10, 64)
+			if err != nil {
+				return m, errors.Newf("malformed input: %s: %s", s, err)
+			}
+			largestSeqNum, err := strconv.ParseUint(fields[2], 10, 64)
+			if err != nil {
+				return m, errors.Newf("malformed input: %s: %s", s, err)
+			}
+			m.SmallestSeqNum, m.LargestSeqNum = smallestSeqNum, largestSeqNum
+			fields = fields[3:]
+			continue
+		}
 		smallest := base.ParsePrettyInternalKey(fields[1])
 		largest := base.ParsePrettyInternalKey(fields[2])
 		switch prefix {
@@ -1001,7 +1059,7 @@ func NewVersion(
 // key in a higher level table that has both the same user key and a higher
 // sequence number.
 type Version struct {
-	refs int32
+	refs atomic.Int32
 
 	// The level 0 sstables are organized in a series of sublevels. Similar to
 	// the seqnum invariant in normal levels, there is no internal key in a
@@ -1131,12 +1189,12 @@ func ParseVersionDebug(
 
 // Refs returns the number of references to the version.
 func (v *Version) Refs() int32 {
-	return atomic.LoadInt32(&v.refs)
+	return v.refs.Load()
 }
 
 // Ref increments the version refcount.
 func (v *Version) Ref() {
-	atomic.AddInt32(&v.refs, 1)
+	v.refs.Add(1)
 }
 
 // Unref decrements the version refcount. If the last reference to the version
@@ -1144,7 +1202,7 @@ func (v *Version) Ref() {
 // Deleted callback is invoked. Requires that the VersionList mutex is NOT
 // locked.
 func (v *Version) Unref() {
-	if atomic.AddInt32(&v.refs, -1) == 0 {
+	if v.refs.Add(-1) == 0 {
 		l := v.list
 		l.mu.Lock()
 		l.Remove(v)
@@ -1163,7 +1221,7 @@ func (v *Version) Unref() {
 // the Deleted callback is invoked. Requires that the VersionList mutex is
 // already locked.
 func (v *Version) UnrefLocked() {
-	if atomic.AddInt32(&v.refs, -1) == 0 {
+	if v.refs.Add(-1) == 0 {
 		v.list.Remove(v)
 		obsolete := v.unrefFiles()
 		fileBacking := make([]*FileBacking, len(obsolete))

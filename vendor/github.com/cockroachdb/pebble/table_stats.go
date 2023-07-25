@@ -186,6 +186,11 @@ func (d *DB) loadNewFileStats(
 			continue
 		}
 
+		if nf.Meta.Virtual {
+			// cannot load virtual table stats
+			continue
+		}
+
 		stats, newHints, err := d.loadTableStats(
 			rs.current, nf.Level,
 			nf.Meta.PhysicalMeta(),
@@ -217,12 +222,23 @@ func (d *DB) scanReadStateTableStats(
 	for l, levelMetadata := range rs.current.Levels {
 		iter := levelMetadata.Iter()
 		for f := iter.First(); f != nil; f = iter.Next() {
+			if f.Virtual {
+				// TODO(bananabrick): Support stats collection for virtual
+				// sstables.
+				continue
+			}
+
 			// NB: We're not holding d.mu which protects f.Stats, but only the
 			// active stats collection job updates f.Stats for active files,
 			// and we ensure only one goroutine runs it at a time through
 			// d.mu.tableStats.loading. This makes it safe to read validity
 			// through f.Stats.ValidLocked despite not holding d.mu.
 			if f.StatsValid() {
+				continue
+			}
+			// TODO(bilal): Remove this guard when table stats collection is
+			// implemented for virtual sstables.
+			if f.Virtual {
 				continue
 			}
 
@@ -870,7 +886,7 @@ func newCombinedDeletionKeyspanIter(
 		// See docs/range_deletions.md for why this is necessary.
 		iter = keyspan.Truncate(
 			comparer.Compare, iter, m.Smallest.UserKey, m.Largest.UserKey,
-			nil, nil, false, /* panicOnPartialOverlap */
+			nil, nil, false, /* panicOnUpperTruncate */
 		)
 		mIter.AddLevel(iter)
 	}

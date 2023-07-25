@@ -44,7 +44,7 @@ var ErrNotIndexed = errors.New("pebble: batch not indexed")
 var ErrInvalidBatch = errors.New("pebble: invalid batch")
 
 // ErrBatchTooLarge indicates that a batch is invalid or otherwise corrupted.
-var ErrBatchTooLarge = errors.Newf("pebble: batch too large: >= %s", humanize.Uint64(maxBatchSize))
+var ErrBatchTooLarge = errors.Newf("pebble: batch too large: >= %s", humanize.Bytes.Uint64(maxBatchSize))
 
 // DeferredBatchOp represents a batch operation (eg. set, merge, delete) that is
 // being inserted into the batch. Indexing is not performed on the specified key
@@ -319,7 +319,11 @@ type BatchCommitStats struct {
 	// commitPipeline.Commit.
 	SemaphoreWaitDuration time.Duration
 	// WALQueueWaitDuration is the wait time for allocating memory blocks in the
-	// LogWriter (due to the LogWriter not writing fast enough).
+	// LogWriter (due to the LogWriter not writing fast enough). At the moment
+	// this is duration is always zero because a single WAL will allow
+	// allocating memory blocks up to the entire memtable size. In the future,
+	// we may pipeline WALs and bound the WAL queued blocks separately, so this
+	// field is preserved for that possibility.
 	WALQueueWaitDuration time.Duration
 	// MemTableWriteStallDuration is the wait caused by a write stall due to too
 	// many memtables (due to not flushing fast enough).
@@ -432,8 +436,8 @@ func (b *Batch) refreshMemTableSize() {
 		case InternalKeyKindRangeKeySet, InternalKeyKindRangeKeyUnset, InternalKeyKindRangeKeyDelete:
 			b.countRangeKeys++
 		case InternalKeyKindDeleteSized:
-			if b.minimumFormatMajorVersion < ExperimentalFormatDeleteSized {
-				b.minimumFormatMajorVersion = ExperimentalFormatDeleteSized
+			if b.minimumFormatMajorVersion < ExperimentalFormatDeleteSizedAndObsolete {
+				b.minimumFormatMajorVersion = ExperimentalFormatDeleteSizedAndObsolete
 			}
 		case InternalKeyKindIngestSST:
 			if b.minimumFormatMajorVersion < FormatFlushableIngest {
@@ -616,6 +620,41 @@ func (b *Batch) prepareDeferredKeyRecord(keyLen int, kind InternalKeyKind) {
 	b.data = b.data[:pos+keyLen]
 }
 
+// AddInternalKey allows the caller to add an internal key of point key kinds to
+// a batch. Passing in an internal key of kind RangeKey* or RangeDelete will
+// result in a panic. Note that the seqnum in the internal key is effectively
+// ignored, even though the Kind is preserved. This is because the batch format
+// does not allow for a per-key seqnum to be specified, only a batch-wide one.
+//
+// Note that non-indexed keys (IngestKeyKind{LogData,IngestSST}) are not
+// supported with this method as they require specialized logic.
+func (b *Batch) AddInternalKey(key *base.InternalKey, value []byte, _ *WriteOptions) error {
+	keyLen := len(key.UserKey)
+	hasValue := false
+	switch key.Kind() {
+	case InternalKeyKindRangeDelete, InternalKeyKindRangeKeySet, InternalKeyKindRangeKeyUnset, InternalKeyKindRangeKeyDelete:
+		panic("unexpected range delete or range key kind in AddInternalKey")
+	case InternalKeyKindSingleDelete, InternalKeyKindDelete:
+		b.prepareDeferredKeyRecord(len(key.UserKey), key.Kind())
+	default:
+		b.prepareDeferredKeyValueRecord(keyLen, len(value), key.Kind())
+		hasValue = true
+	}
+	b.deferredOp.index = b.index
+	copy(b.deferredOp.Key, key.UserKey)
+	if hasValue {
+		copy(b.deferredOp.Value, value)
+	}
+	// TODO(peter): Manually inline DeferredBatchOp.Finish(). Mid-stack inlining
+	// in go1.13 will remove the need for this.
+	if b.index != nil {
+		if err := b.index.Add(b.deferredOp.offset); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Set adds an action to the batch that sets the key to map to the value.
 //
 // It is safe to modify the contents of the arguments after Set returns.
@@ -729,8 +768,8 @@ func (b *Batch) DeleteSized(key []byte, deletedValueSize uint32, _ *WriteOptions
 // complete key slice, letting the caller encode into the DeferredBatchOp.Key
 // slice and then call Finish() on the returned object.
 func (b *Batch) DeleteSizedDeferred(keyLen int, deletedValueSize uint32) *DeferredBatchOp {
-	if b.minimumFormatMajorVersion < ExperimentalFormatDeleteSized {
-		b.minimumFormatMajorVersion = ExperimentalFormatDeleteSized
+	if b.minimumFormatMajorVersion < ExperimentalFormatDeleteSizedAndObsolete {
+		b.minimumFormatMajorVersion = ExperimentalFormatDeleteSizedAndObsolete
 	}
 
 	// Encode the sum of the key length and the value in the value.

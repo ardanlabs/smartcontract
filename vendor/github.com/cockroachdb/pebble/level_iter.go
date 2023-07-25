@@ -51,6 +51,7 @@ func tableNewRangeDelIter(ctx context.Context, newIters tableNewIters) keyspan.T
 
 type internalIterOpts struct {
 	bytesIterated      *uint64
+	bufferPool         *sstable.BufferPool
 	stats              *base.InternalIteratorStats
 	boundLimitedFilter sstable.BoundLimitedBlockPropertyFilter
 }
@@ -200,6 +201,11 @@ type levelIter struct {
 	// cache when constructing new table iterators.
 	internalOpts internalIterOpts
 
+	// Scratch space for the obsolete keys filter, when there are no other block
+	// property filters specified. See the performance note where
+	// IterOptions.PointKeyFilters is declared.
+	filtersBuf [1]BlockPropertyFilter
+
 	// Disable invariant checks even if they are otherwise enabled. Used by tests
 	// which construct "impossible" situations (e.g. seeking to a key before the
 	// lower bound).
@@ -241,11 +247,11 @@ func newLevelIter(
 	newIters tableNewIters,
 	files manifest.LevelIterator,
 	level manifest.Level,
-	bytesIterated *uint64,
+	internalOpts internalIterOpts,
 ) *levelIter {
 	l := &levelIter{}
 	l.init(context.Background(), opts, cmp, split, newIters, files, level,
-		internalIterOpts{bytesIterated: bytesIterated})
+		internalOpts)
 	return l
 }
 
@@ -267,8 +273,12 @@ func (l *levelIter) init(
 	l.upper = opts.UpperBound
 	l.tableOpts.TableFilter = opts.TableFilter
 	l.tableOpts.PointKeyFilters = opts.PointKeyFilters
+	if len(opts.PointKeyFilters) == 0 {
+		l.tableOpts.PointKeyFilters = l.filtersBuf[:0:1]
+	}
 	l.tableOpts.UseL6Filters = opts.UseL6Filters
 	l.tableOpts.level = l.level
+	l.tableOpts.snapshotForHideObsoletePoints = opts.snapshotForHideObsoletePoints
 	l.cmp = cmp
 	l.split = split
 	l.iterFile = nil
@@ -1066,7 +1076,9 @@ func (l *levelIter) skipEmptyFileForward() (*InternalKey, base.LazyValue) {
 			if *l.rangeDelIterPtr != nil && l.filteredIter != nil &&
 				l.filteredIter.MaybeFilteredKeys() {
 				l.largestBoundary = &l.iterFile.Largest
-				l.boundaryContext.isIgnorableBoundaryKey = true
+				if l.boundaryContext != nil {
+					l.boundaryContext.isIgnorableBoundaryKey = true
+				}
 				return l.largestBoundary, base.LazyValue{}
 			}
 		}
@@ -1155,7 +1167,9 @@ func (l *levelIter) skipEmptyFileBackward() (*InternalKey, base.LazyValue) {
 			// the next file.
 			if *l.rangeDelIterPtr != nil && l.filteredIter != nil && l.filteredIter.MaybeFilteredKeys() {
 				l.smallestBoundary = &l.iterFile.Smallest
-				l.boundaryContext.isIgnorableBoundaryKey = true
+				if l.boundaryContext != nil {
+					l.boundaryContext.isIgnorableBoundaryKey = true
+				}
 				return l.smallestBoundary, base.LazyValue{}
 			}
 		}

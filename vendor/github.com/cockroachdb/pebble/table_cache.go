@@ -170,6 +170,32 @@ func (c *tableCacheContainer) metrics() (CacheMetrics, FilterMetrics) {
 	return m, f
 }
 
+func (c *tableCacheContainer) estimateSize(
+	meta *fileMetadata, lower, upper []byte,
+) (size uint64, err error) {
+	if meta.Virtual {
+		err = c.withVirtualReader(
+			meta.VirtualMeta(),
+			func(r sstable.VirtualReader) (err error) {
+				size, err = r.EstimateDiskUsage(lower, upper)
+				return err
+			},
+		)
+	} else {
+		err = c.withReader(
+			meta.PhysicalMeta(),
+			func(r *sstable.Reader) (err error) {
+				size, err = r.EstimateDiskUsage(lower, upper)
+				return err
+			},
+		)
+	}
+	if err != nil {
+		return 0, err
+	}
+	return size, nil
+}
+
 func (c *tableCacheContainer) withReader(meta physicalMeta, fn func(*sstable.Reader) error) error {
 	s := c.tableCache.getShard(meta.FileBacking.DiskFileNum)
 	v := s.findNode(meta.FileMetadata, &c.dbOpts)
@@ -375,12 +401,33 @@ func (c *tableCacheShard) newIters(
 		return nil, nil, v.err
 	}
 
+	hideObsoletePoints := false
+	var pointKeyFilters []BlockPropertyFilter
+	if opts != nil {
+		// This code is appending (at most one filter) in-place to
+		// opts.PointKeyFilters even though the slice is shared for iterators in
+		// the same iterator tree. This is acceptable since all the following
+		// properties are true:
+		// - The iterator tree is single threaded, so the shared backing for the
+		//   slice is being mutated in a single threaded manner.
+		// - Each shallow copy of the slice has its own notion of length.
+		// - The appended element is always the obsoleteKeyBlockPropertyFilter
+		//   struct, which is stateless, so overwriting that struct when creating
+		//   one sstable iterator is harmless to other sstable iterators that are
+		//   relying on that struct.
+		//
+		// An alternative would be to have different slices for different sstable
+		// iterators, but that requires more work to avoid allocations.
+		hideObsoletePoints, pointKeyFilters =
+			v.reader.TryAddBlockPropertyFilterForHideObsoletePoints(
+				opts.snapshotForHideObsoletePoints, file.LargestSeqNum, opts.PointKeyFilters)
+	}
 	ok := true
 	var filterer *sstable.BlockPropertiesFilterer
 	var err error
 	if opts != nil {
 		ok, filterer, err = c.checkAndIntersectFilters(v, opts.TableFilter,
-			opts.PointKeyFilters, internalOpts.boundLimitedFilter)
+			pointKeyFilters, internalOpts.boundLimitedFilter)
 	}
 	if err != nil {
 		c.unrefValue(v)
@@ -388,19 +435,12 @@ func (c *tableCacheShard) newIters(
 	}
 
 	type iterCreator interface {
-		NewFixedSeqnumRangeDelIter(seqNum uint64) (keyspan.FragmentIterator, error)
 		NewRawRangeDelIter() (keyspan.FragmentIterator, error)
-		NewIterWithBlockPropertyFiltersAndContext(
-			ctx context.Context,
-			lower, upper []byte,
-			filterer *sstable.BlockPropertiesFilterer,
-			useFilterBlock bool,
-			stats *base.InternalIteratorStats,
-			rp sstable.ReaderProvider,
-		) (sstable.Iterator, error)
+		NewIterWithBlockPropertyFiltersAndContextEtc(ctx context.Context, lower, upper []byte, filterer *sstable.BlockPropertiesFilterer, hideObsoletePoints, useFilterBlock bool, stats *base.InternalIteratorStats, rp sstable.ReaderProvider) (sstable.Iterator, error)
 		NewCompactionIter(
 			bytesIterated *uint64,
 			rp sstable.ReaderProvider,
+			bufferPool *sstable.BufferPool,
 		) (sstable.Iterator, error)
 	}
 
@@ -433,7 +473,7 @@ func (c *tableCacheShard) newIters(
 		}
 		switch manifest.LevelToInt(opts.level) {
 		case 5:
-			rangeDelIter, err = ic.NewFixedSeqnumRangeDelIter(base.SeqNumL5RangeDel)
+			rangeDelIter, err = ic.NewRawRangeDelIter()
 		case 6:
 		// Let rangeDelIter remain nil. We don't need to return rangedels from
 		// this file as they will not apply to any other files. For the purpose
@@ -482,13 +522,11 @@ func (c *tableCacheShard) newIters(
 	}
 
 	if internalOpts.bytesIterated != nil {
-		iter, err = ic.NewCompactionIter(internalOpts.bytesIterated, rp)
+		iter, err = ic.NewCompactionIter(internalOpts.bytesIterated, rp, internalOpts.bufferPool)
 	} else {
-		iter, err = ic.NewIterWithBlockPropertyFiltersAndContext(
-			ctx,
-			opts.GetLowerBound(), opts.GetUpperBound(),
-			filterer, useFilter, internalOpts.stats, rp,
-		)
+		iter, err = ic.NewIterWithBlockPropertyFiltersAndContextEtc(
+			ctx, opts.GetLowerBound(), opts.GetUpperBound(), filterer, hideObsoletePoints, useFilter,
+			internalOpts.stats, rp)
 	}
 	if err != nil {
 		if rangeDelIter != nil {
@@ -503,7 +541,7 @@ func (c *tableCacheShard) newIters(
 	if provider.IsForeign(objMeta) {
 		// NB: IsForeign() guarantees IsShared, so opts must not be nil as we've
 		// already panicked on the nil case above.
-		pointKeySeqNum := base.PointSeqNumForLevel(manifest.LevelToInt(opts.level))
+		pointKeySeqNum := base.SeqNumForLevel(manifest.LevelToInt(opts.level))
 		pcIter := pointCollapsingIterator{
 			comparer:          dbOpts.opts.Comparer,
 			merge:             dbOpts.opts.Merge,
@@ -1072,15 +1110,13 @@ func (v *tableCacheValue) load(loadInfo loadInfo, c *tableCacheShard, dbOpts *ta
 	f, err = dbOpts.objProvider.OpenForReading(
 		context.TODO(), fileTypeTable, loadInfo.backingFileNum, objstorage.OpenOptions{MustExist: true},
 	)
-	if err != nil {
-		v.err = errors.Wrap(
-			err,
-			fmt.Sprintf("pebble: could not open backing file %s", errors.Safe(loadInfo.backingFileNum.FileNum())),
-		)
-	}
-	if v.err == nil {
+	if err == nil {
 		cacheOpts := private.SSTableCacheOpts(dbOpts.cacheID, loadInfo.backingFileNum).(sstable.ReaderOption)
-		v.reader, v.err = sstable.NewReader(f, dbOpts.opts, cacheOpts, dbOpts.filterMetrics)
+		v.reader, err = sstable.NewReader(f, dbOpts.opts, cacheOpts, dbOpts.filterMetrics)
+	}
+	if err != nil {
+		v.err = errors.Wrapf(
+			err, "pebble: backing file %s error", errors.Safe(loadInfo.backingFileNum.FileNum()))
 	}
 	if v.err == nil {
 		if loadInfo.smallestSeqNum == loadInfo.largestSeqNum {

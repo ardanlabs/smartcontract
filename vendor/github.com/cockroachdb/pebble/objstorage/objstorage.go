@@ -8,7 +8,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble/internal/base"
+	"github.com/cockroachdb/pebble/objstorage/remote"
 	"github.com/cockroachdb/pebble/vfs"
 )
 
@@ -87,21 +89,71 @@ type ObjectMetadata struct {
 	DiskFileNum base.DiskFileNum
 	FileType    base.FileType
 
-	// The fields below are only set if the object is on shared storage.
-	Shared struct {
+	// The fields below are only set if the object is on remote storage.
+	Remote struct {
 		// CreatorID identifies the DB instance that originally created the object.
+		//
+		// Only used when CustomObjectName is not set.
 		CreatorID CreatorID
 		// CreatorFileNum is the identifier for the object within the context of the
 		// DB instance that originally created the object.
+		//
+		// Only used when CustomObjectName is not set.
 		CreatorFileNum base.DiskFileNum
-
+		// CustomObjectName (if it is set) overrides the object name that is normally
+		// derived from the CreatorID and CreatorFileNum.
+		CustomObjectName string
+		// CleanupMethod indicates the method for cleaning up unused shared objects.
 		CleanupMethod SharedCleanupMethod
+		// Locator identifies the remote.Storage implementation for this object.
+		Locator remote.Locator
+		// Storage is the remote.Storage object corresponding to the Locator. Used
+		// to avoid lookups in hot paths.
+		Storage remote.Storage
 	}
 }
 
-// IsShared returns true if the object is on shared storage.
+// IsRemote returns true if the object is on remote storage.
+func (meta *ObjectMetadata) IsRemote() bool {
+	return meta.IsShared() || meta.IsExternal()
+}
+
+// IsExternal returns true if the object is on remote storage but is not owned
+// by any Pebble instances in the cluster.
+func (meta *ObjectMetadata) IsExternal() bool {
+	return meta.Remote.CustomObjectName != ""
+}
+
+// IsShared returns true if the object is on remote storage and is owned by a
+// Pebble instance in the cluster (potentially shared between multiple
+// instances).
 func (meta *ObjectMetadata) IsShared() bool {
-	return meta.Shared.CreatorID.IsSet()
+	return meta.Remote.CreatorID.IsSet()
+}
+
+// AssertValid checks that the metadata is sane.
+func (meta *ObjectMetadata) AssertValid() {
+	if !meta.IsRemote() {
+		// Verify all Remote fields are empty.
+		if meta.Remote != (ObjectMetadata{}).Remote {
+			panic(errors.AssertionFailedf("meta.Remote not empty: %#v", meta.Remote))
+		}
+	} else {
+		if meta.Remote.CustomObjectName != "" {
+			if meta.Remote.CreatorID == 0 {
+				panic(errors.AssertionFailedf("CreatorID not set"))
+			}
+			if meta.Remote.CreatorFileNum == base.FileNum(0).DiskFileNum() {
+				panic(errors.AssertionFailedf("CreatorFileNum not set"))
+			}
+		}
+		if meta.Remote.CleanupMethod != SharedNoCleanup && meta.Remote.CleanupMethod != SharedRefTracking {
+			panic(errors.AssertionFailedf("invalid CleanupMethod %d", meta.Remote.CleanupMethod))
+		}
+		if meta.Remote.Storage == nil {
+			panic(errors.AssertionFailedf("Storage not set"))
+		}
+	}
 }
 
 // CreatorID identifies the DB instance that originally created a shared object.
@@ -122,7 +174,7 @@ const (
 	// keep track of references via reference marker objects.
 	SharedRefTracking SharedCleanupMethod = iota
 
-	// SharedNoCleanup is used for shared objects that are managed externally; the
+	// SharedNoCleanup is used for remote objects that are managed externally; the
 	// objstorage provider never deletes such objects.
 	SharedNoCleanup
 )
@@ -155,7 +207,7 @@ type CreateOptions struct {
 // created by the provider, or existing objects the Provider was informed about
 // via AddObjects.
 //
-// Objects are currently backed by a vfs.File or a shared.Storage object.
+// Objects are currently backed by a vfs.File or a remote.Storage object.
 type Provider interface {
 	// OpenForReading opens an existing object.
 	OpenForReading(
@@ -210,7 +262,7 @@ type Provider interface {
 	List() []ObjectMetadata
 
 	// SetCreatorID sets the CreatorID which is needed in order to use shared
-	// objects. Shared object usage is disabled until this method is called the
+	// objects. Remote object usage is disabled until this method is called the
 	// first time. Once set, the Creator ID is persisted and cannot change.
 	//
 	// Cannot be called if shared storage is not configured for the provider.
@@ -221,11 +273,16 @@ type Provider interface {
 	// exist in this provider.
 	IsForeign(meta ObjectMetadata) bool
 
-	// SharedObjectBacking encodes the shared object metadata.
-	SharedObjectBacking(meta *ObjectMetadata) (SharedObjectBackingHandle, error)
+	// RemoteObjectBacking encodes the remote object metadata for the given object.
+	RemoteObjectBacking(meta *ObjectMetadata) (RemoteObjectBackingHandle, error)
 
-	// AttachSharedObjects registers existing shared objects with this provider.
-	AttachSharedObjects(objs []SharedObjectToAttach) ([]ObjectMetadata, error)
+	// CreateExternalObjectBacking creates a backing for an existing object with a
+	// custom object name. The object is considered to be managed outside of
+	// Pebble and will never be removed by Pebble.
+	CreateExternalObjectBacking(locator remote.Locator, objName string) (RemoteObjectBacking, error)
+
+	// AttachRemoteObjects registers existing remote objects with this provider.
+	AttachRemoteObjects(objs []RemoteObjectToAttach) ([]ObjectMetadata, error)
 
 	Close() error
 
@@ -234,31 +291,31 @@ type Provider interface {
 	IsNotExistError(err error) bool
 }
 
-// SharedObjectBacking encodes the metadata necessary to incorporate a shared
+// RemoteObjectBacking encodes the metadata necessary to incorporate a shared
 // object into a different Pebble instance. The encoding is specific to a given
 // Provider implementation.
-type SharedObjectBacking []byte
+type RemoteObjectBacking []byte
 
-// SharedObjectBackingHandle is a container for a SharedObjectBacking which
+// RemoteObjectBackingHandle is a container for a RemoteObjectBacking which
 // ensures that the backing stays valid. A backing can otherwise become invalid
-// if this provider unrefs the shared object. The SharedObjectBackingHandle
+// if this provider unrefs the shared object. The RemoteObjectBackingHandle
 // delays any unref until Close.
-type SharedObjectBackingHandle interface {
+type RemoteObjectBackingHandle interface {
 	// Get returns the backing. The backing is only guaranteed to be valid until
 	// Close is called (or until the Provider is closed). If Close was already
 	// called, returns an error.
-	Get() (SharedObjectBacking, error)
+	Get() (RemoteObjectBacking, error)
 	Close()
 }
 
-// SharedObjectToAttach contains the arguments needed to attach an existing shared object.
-type SharedObjectToAttach struct {
+// RemoteObjectToAttach contains the arguments needed to attach an existing remote object.
+type RemoteObjectToAttach struct {
 	// FileNum is the file number that will be used to refer to this object (in
 	// the context of this instance).
 	FileNum  base.DiskFileNum
 	FileType base.FileType
-	// Backing contains the metadata for the shared object backing (normally
+	// Backing contains the metadata for the remote object backing (normally
 	// generated from a different instance, but using the same Provider
 	// implementation).
-	Backing SharedObjectBacking
+	Backing RemoteObjectBacking
 }

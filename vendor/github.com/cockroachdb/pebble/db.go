@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -22,6 +23,8 @@ import (
 	"github.com/cockroachdb/pebble/internal/manifest"
 	"github.com/cockroachdb/pebble/internal/manual"
 	"github.com/cockroachdb/pebble/objstorage"
+	"github.com/cockroachdb/pebble/objstorage/remote"
+	"github.com/cockroachdb/pebble/rangekey"
 	"github.com/cockroachdb/pebble/record"
 	"github.com/cockroachdb/pebble/sstable"
 	"github.com/cockroachdb/pebble/vfs"
@@ -305,14 +308,10 @@ type DB struct {
 	closed   *atomic.Value
 	closedCh chan struct{}
 
-	deletionLimiter limiter
-
-	// Async deletion jobs spawned by cleaners increment this WaitGroup, and
-	// call Done when completed. Once `d.mu.cleaning` is false, the db.Close()
-	// goroutine needs to call Wait on this WaitGroup to ensure all cleaning
-	// and deleting goroutines have finished running. As deletion goroutines
-	// could grab db.mu, it must *not* be held while deleters.Wait() is called.
-	deleters sync.WaitGroup
+	cleanupManager *cleanupManager
+	// testingAlwaysWaitForCleanup is set by some tests to force waiting for
+	// obsolete file deletion (to make events deterministic).
+	testingAlwaysWaitForCleanup bool
 
 	// During an iterator close, we may asynchronously schedule read compactions.
 	// We want to wait for those goroutines to finish, before closing the DB.
@@ -337,7 +336,12 @@ type DB struct {
 			// Backwards-incompatible features are gated behind new
 			// format major versions and not enabled until a database's
 			// version is ratcheted upwards.
-			vers FormatMajorVersion
+			//
+			// Although this is under the `mu` prefix, readers may read vers
+			// atomically without holding d.mu. Writers must only write to this
+			// value through finalizeFormatVersUpgrade which requires d.mu is
+			// held.
+			vers atomic.Uint64
 			// marker is the atomic marker for the format major version.
 			// When a database's version is ratcheted upwards, the
 			// marker is moved in order to atomically record the new
@@ -440,20 +444,10 @@ type DB struct {
 			noOngoingFlushStartTime time.Time
 		}
 
-		cleaner struct {
-			// Condition variable used to signal the completion of a file cleaning
-			// operation or an increment to the value of disabled. File cleaning operations are
-			// serialized, and a caller trying to do a file cleaning operation may wait
-			// until the ongoing one is complete.
-			cond sync.Cond
-			// True when a file cleaning operation is in progress. False does not necessarily
-			// mean all cleaning jobs have completed; see the comment on d.deleters.
-			cleaning bool
-			// Non-zero when file cleaning is disabled. The disabled count acts as a
-			// reference count to prohibit file cleaning. See
-			// DB.{disable,Enable}FileDeletions().
-			disabled int
-		}
+		// Non-zero when file cleaning is disabled. The disabled count acts as a
+		// reference count to prohibit file cleaning. See
+		// DB.{disable,Enable}FileDeletions().
+		disableFileDeletions int
 
 		snapshots struct {
 			// The list of active snapshots.
@@ -508,11 +502,7 @@ var _ Writer = (*DB)(nil)
 
 // TestOnlyWaitForCleaning MUST only be used in tests.
 func (d *DB) TestOnlyWaitForCleaning() {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	for d.mu.cleaner.cleaning {
-		d.mu.cleaner.cond.Wait()
-	}
+	d.cleanupManager.Wait()
 }
 
 // Get gets the value for the given key. It returns ErrNotFound if the DB does
@@ -919,7 +909,7 @@ func (d *DB) commitWrite(b *Batch, syncWG *sync.WaitGroup, syncErr *error) (*mem
 		b.flushable.setSeqNum(b.SeqNum())
 		if !d.opts.DisableWAL {
 			var err error
-			size, b.commitStats.WALQueueWaitDuration, err = d.mu.log.SyncRecord(repr, syncWG, syncErr)
+			size, err = d.mu.log.SyncRecord(repr, syncWG, syncErr)
 			if err != nil {
 				panic(err)
 			}
@@ -957,7 +947,7 @@ func (d *DB) commitWrite(b *Batch, syncWG *sync.WaitGroup, syncErr *error) (*mem
 	}
 
 	if b.flushable == nil {
-		size, b.commitStats.WALQueueWaitDuration, err = d.mu.log.SyncRecord(repr, syncWG, syncErr)
+		size, err = d.mu.log.SyncRecord(repr, syncWG, syncErr)
 		if err != nil {
 			panic(err)
 		}
@@ -1174,16 +1164,18 @@ func finishInitializingIter(ctx context.Context, buf *iterAlloc) *Iterator {
 // their metadatas truncated to [lower, upper) and passed into visitSharedFile.
 // ErrInvalidSkipSharedIteration is returned if visitSharedFile is not nil and an
 // sstable in L5 or L6 is found that is not in shared storage according to
-// provider.IsShared. Examples of when this could happen could be if Pebble
-// started writing sstables before a creator ID was set (as creator IDs are
-// necessary to enable shared storage) resulting in some lower level SSTs being
-// on non-shared storage. Skip-shared iteration is invalid in those cases.
+// provider.IsShared, or an sstable in those levels contains a newer key than the
+// snapshot sequence number (only applicable for snapshot.ScanInternal). Examples
+// of when this could happen could be if Pebble started writing sstables before a
+// creator ID was set (as creator IDs are necessary to enable shared storage)
+// resulting in some lower level SSTs being on non-shared storage. Skip-shared
+// iteration is invalid in those cases.
 func (d *DB) ScanInternal(
 	ctx context.Context,
 	lower, upper []byte,
 	visitPointKey func(key *InternalKey, value LazyValue) error,
 	visitRangeDel func(start, end []byte, seqNum uint64) error,
-	visitRangeKey func(start, end []byte, keys []keyspan.Key) error,
+	visitRangeKey func(start, end []byte, keys []rangekey.Key) error,
 	visitSharedFile func(sst *SharedSSTMeta) error,
 ) error {
 	iter := d.newInternalIter(nil /* snapshot */, &scanInternalOptions{
@@ -1362,6 +1354,7 @@ func (i *Iterator) constructPointIter(
 	levelsIndex := len(levels)
 	mlevels = mlevels[:numMergingLevels]
 	levels = levels[:numLevelIters]
+	i.opts.snapshotForHideObsoletePoints = buf.dbi.seqNum
 	addLevelIterForFiles := func(files manifest.LevelIterator, level manifest.Level) {
 		li := &levels[levelsIndex]
 
@@ -1551,20 +1544,17 @@ func (d *DB) Close() error {
 		err = firstError(err, errors.Errorf("leaked memtable reservation: %d", errors.Safe(reserved)))
 	}
 
-	// No more cleaning can start. Wait for any async cleaning to complete.
-	for d.mu.cleaner.cleaning {
-		d.mu.cleaner.cond.Wait()
-	}
-	// There may still be obsolete tables if an existing async cleaning job
-	// prevented a new cleaning job when a readState was unrefed. If needed,
-	// synchronously delete obsolete files.
+	// Since we called d.readState.val.unrefLocked() above, we are expected to
+	// manually schedule deletion of obsolete files.
 	if len(d.mu.versions.obsoleteTables) > 0 {
-		d.deleteObsoleteFiles(d.mu.nextJobID, true /* waitForOngoing */)
+		d.deleteObsoleteFiles(d.mu.nextJobID)
 	}
-	// Wait for all the deletion goroutines spawned by cleaning jobs to finish.
+
 	d.mu.Unlock()
-	d.deleters.Wait()
 	d.compactionSchedulers.Wait()
+
+	// Wait for all cleaning jobs to finish.
+	d.cleanupManager.Close()
 
 	// Sanity check metrics.
 	if invariants.Enabled {
@@ -1875,6 +1865,12 @@ func (d *DB) Metrics() *Metrics {
 type sstablesOptions struct {
 	// set to true will return the sstable properties in TableInfo
 	withProperties bool
+
+	// if set, return sstables that overlap the key range (end-exclusive)
+	start []byte
+	end   []byte
+
+	withApproximateSpanBytes bool
 }
 
 // SSTablesOption set optional parameter used by `DB.SSTables`.
@@ -1890,7 +1886,49 @@ func WithProperties() SSTablesOption {
 	}
 }
 
-// SSTableInfo export manifest.TableInfo with sstable.Properties
+// WithKeyRangeFilter ensures returned sstables overlap start and end (end-exclusive)
+// if start and end are both nil these properties have no effect.
+func WithKeyRangeFilter(start, end []byte) SSTablesOption {
+	return func(opt *sstablesOptions) {
+		opt.end = end
+		opt.start = start
+	}
+}
+
+// WithApproximateSpanBytes enables capturing the approximate number of bytes that
+// overlap the provided key span for each sstable.
+// NOTE: this option can only be used with WithKeyRangeFilter and WithProperties
+// provided.
+func WithApproximateSpanBytes() SSTablesOption {
+	return func(opt *sstablesOptions) {
+		opt.withApproximateSpanBytes = true
+	}
+}
+
+// BackingType denotes the type of storage backing a given sstable.
+type BackingType int
+
+const (
+	// BackingTypeLocal denotes an sstable stored on local disk according to the
+	// objprovider. This file is completely owned by us.
+	BackingTypeLocal BackingType = iota
+	// BackingTypeShared denotes an sstable stored on shared storage, created
+	// by this Pebble instance and possibly shared by other Pebble instances.
+	// These types of files have lifecycle managed by Pebble.
+	BackingTypeShared
+	// BackingTypeSharedForeign denotes an sstable stored on shared storage,
+	// created by a Pebble instance other than this one. These types of files have
+	// lifecycle managed by Pebble.
+	BackingTypeSharedForeign
+	// BackingTypeExternal denotes an sstable stored on external storage,
+	// not owned by any Pebble instance and with no refcounting/cleanup methods
+	// or lifecycle management. An example of an external file is a file restored
+	// from a backup.
+	BackingTypeExternal
+)
+
+// SSTableInfo export manifest.TableInfo with sstable.Properties alongside
+// other file backing info.
 type SSTableInfo struct {
 	manifest.TableInfo
 	// Virtual indicates whether the sstable is virtual.
@@ -1899,6 +1937,11 @@ type SSTableInfo struct {
 	// backs the sstable associated with this SSTableInfo. If Virtual is false,
 	// then BackingSSTNum == FileNum.
 	BackingSSTNum base.FileNum
+	// BackingType is the type of storage backing this sstable.
+	BackingType BackingType
+	// Locator is the remote.Locator backing this sstable, if the backing type is
+	// not BackingTypeLocal.
+	Locator remote.Locator
 
 	// Properties is the sstable properties of this table. If Virtual is true,
 	// then the Properties are associated with the backing sst.
@@ -1913,6 +1956,13 @@ func (d *DB) SSTables(opts ...SSTablesOption) ([][]SSTableInfo, error) {
 	opt := &sstablesOptions{}
 	for _, fn := range opts {
 		fn(opt)
+	}
+
+	if opt.withApproximateSpanBytes && !opt.withProperties {
+		return nil, errors.Errorf("Cannot use WithApproximateSpanBytes without WithProperties option.")
+	}
+	if opt.withApproximateSpanBytes && (opt.start == nil || opt.end == nil) {
+		return nil, errors.Errorf("Cannot use WithApproximateSpanBytes without WithKeyRangeFilter option.")
 	}
 
 	// Grab and reference the current readState.
@@ -1935,6 +1985,10 @@ func (d *DB) SSTables(opts ...SSTablesOption) ([][]SSTableInfo, error) {
 		iter := srcLevels[i].Iter()
 		j := 0
 		for m := iter.First(); m != nil; m = iter.Next() {
+			if opt.start != nil && opt.end != nil && !m.Overlaps(d.opts.Comparer.Compare, opt.start, opt.end, true /* exclusive end */) {
+				continue
+			}
+
 			destTables[j] = SSTableInfo{TableInfo: m.TableInfo()}
 			if opt.withProperties {
 				p, err := d.tableCache.getTableProperties(
@@ -1947,11 +2001,52 @@ func (d *DB) SSTables(opts ...SSTablesOption) ([][]SSTableInfo, error) {
 			}
 			destTables[j].Virtual = m.Virtual
 			destTables[j].BackingSSTNum = m.FileBacking.DiskFileNum.FileNum()
+			objMeta, err := d.objProvider.Lookup(fileTypeTable, m.FileBacking.DiskFileNum)
+			if err != nil {
+				return nil, err
+			}
+			if objMeta.IsRemote() {
+				if objMeta.IsShared() {
+					if d.objProvider.IsForeign(objMeta) {
+						destTables[j].BackingType = BackingTypeSharedForeign
+					} else {
+						destTables[j].BackingType = BackingTypeShared
+					}
+				} else {
+					destTables[j].BackingType = BackingTypeExternal
+				}
+				destTables[j].Locator = objMeta.Remote.Locator
+			} else {
+				destTables[j].BackingType = BackingTypeLocal
+			}
+
+			if opt.withApproximateSpanBytes {
+				var spanBytes uint64
+				if m.ContainedWithinSpan(d.opts.Comparer.Compare, opt.start, opt.end) {
+					spanBytes = m.Size
+				} else {
+					size, err := d.tableCache.estimateSize(m, opt.start, opt.end)
+					if err != nil {
+						return nil, err
+					}
+					spanBytes = size
+				}
+				propertiesCopy := *destTables[j].Properties
+
+				// Deep copy user properties so approximate span bytes can be added.
+				propertiesCopy.UserProperties = make(map[string]string, len(destTables[j].Properties.UserProperties)+1)
+				for k, v := range destTables[j].Properties.UserProperties {
+					propertiesCopy.UserProperties[k] = v
+				}
+				propertiesCopy.UserProperties["approximate-span-bytes"] = strconv.FormatUint(spanBytes, 10)
+				destTables[j].Properties = &propertiesCopy
+			}
 			j++
 		}
 		destLevels[i] = destTables[:j]
 		destTables = destTables[j:]
 	}
+
 	return destLevels, nil
 }
 
@@ -1969,11 +2064,20 @@ func (d *DB) SSTables(opts ...SSTablesOption) ([][]SSTableInfo, error) {
 //   - There may also exist WAL entries for unflushed keys in this range. This
 //     estimation currently excludes space used for the range in the WAL.
 func (d *DB) EstimateDiskUsage(start, end []byte) (uint64, error) {
+	bytes, _, _, err := d.EstimateDiskUsageByBackingType(start, end)
+	return bytes, err
+}
+
+// EstimateDiskUsageByBackingType is like EstimateDiskUsage but additionally
+// returns the subsets of that size in remote ane external files.
+func (d *DB) EstimateDiskUsageByBackingType(
+	start, end []byte,
+) (totalSize, remoteSize, externalSize uint64, _ error) {
 	if err := d.closed.Load(); err != nil {
 		panic(err)
 	}
 	if d.opts.Comparer.Compare(start, end) > 0 {
-		return 0, errors.New("invalid key-range specified (start > end)")
+		return 0, 0, 0, errors.New("invalid key-range specified (start > end)")
 	}
 
 	// Grab and reference the current readState. This prevents the underlying
@@ -1982,7 +2086,6 @@ func (d *DB) EstimateDiskUsage(start, end []byte) (uint64, error) {
 	readState := d.loadReadState()
 	defer readState.unref()
 
-	var totalSize uint64
 	for level, files := range readState.current.Levels {
 		iter := files.Iter()
 		if level > 0 {
@@ -1997,6 +2100,16 @@ func (d *DB) EstimateDiskUsage(start, end []byte) (uint64, error) {
 				d.opts.Comparer.Compare(file.Largest.UserKey, end) <= 0 {
 				// The range fully contains the file, so skip looking it up in
 				// table cache/looking at its indexes, and add the full file size.
+				meta, err := d.objProvider.Lookup(fileTypeTable, file.FileBacking.DiskFileNum)
+				if err != nil {
+					return 0, 0, 0, err
+				}
+				if meta.IsRemote() {
+					remoteSize += file.Size
+					if meta.Remote.CleanupMethod == objstorage.SharedNoCleanup {
+						externalSize += file.Size
+					}
+				}
 				totalSize += file.Size
 			} else if d.opts.Comparer.Compare(file.Smallest.UserKey, end) <= 0 &&
 				d.opts.Comparer.Compare(start, file.Largest.UserKey) <= 0 {
@@ -2020,13 +2133,23 @@ func (d *DB) EstimateDiskUsage(start, end []byte) (uint64, error) {
 					)
 				}
 				if err != nil {
-					return 0, err
+					return 0, 0, 0, err
+				}
+				meta, err := d.objProvider.Lookup(fileTypeTable, file.FileBacking.DiskFileNum)
+				if err != nil {
+					return 0, 0, 0, err
+				}
+				if meta.IsRemote() {
+					remoteSize += size
+					if meta.Remote.CleanupMethod == objstorage.SharedNoCleanup {
+						externalSize += size
+					}
 				}
 				totalSize += size
 			}
 		}
 	}
-	return totalSize, nil
+	return totalSize, remoteSize, externalSize, nil
 }
 
 func (d *DB) walPreallocateSize() int {
@@ -2077,15 +2200,16 @@ func (d *DB) newMemTable(logNum FileNum, logSeqNum uint64) (*memTable, *flushabl
 }
 
 func (d *DB) newFlushableEntry(f flushable, logNum FileNum, logSeqNum uint64) *flushableEntry {
-	return &flushableEntry{
+	fe := &flushableEntry{
 		flushable:      f,
 		flushed:        make(chan struct{}),
 		logNum:         logNum,
 		logSeqNum:      logSeqNum,
-		readerRefs:     1,
 		deleteFn:       d.mu.versions.addObsolete,
 		deleteFnLocked: d.mu.versions.addObsoleteLocked,
 	}
+	fe.readerRefs.Store(1)
+	return fe
 }
 
 // makeRoomForWrite ensures that the memtable has room to hold the contents of
@@ -2437,13 +2561,13 @@ func firstError(err0, err1 error) error {
 }
 
 // SetCreatorID sets the CreatorID which is needed in order to use shared objects.
-// Shared object usage is disabled until this method is called the first time.
+// Remote object usage is disabled until this method is called the first time.
 // Once set, the Creator ID is persisted and cannot change.
 //
 // Does nothing if SharedStorage was not set in the options when the DB was
 // opened or if the DB is in read-only mode.
 func (d *DB) SetCreatorID(creatorID uint64) error {
-	if d.opts.Experimental.SharedStorage == nil || d.opts.ReadOnly {
+	if d.opts.Experimental.RemoteStorage == nil || d.opts.ReadOnly {
 		return nil
 	}
 	return d.objProvider.SetCreatorID(objstorage.CreatorID(creatorID))

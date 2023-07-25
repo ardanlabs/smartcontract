@@ -2,12 +2,25 @@
 // of this source code is governed by a BSD-style license that can be found in
 // the LICENSE file.
 
-package shared
+package remote
 
 import (
 	"context"
 	"io"
 )
+
+// Locator is an opaque string identifying a remote.Storage implementation.
+//
+// The Locator must not contain secrets (like authentication keys). Locators are
+// stored on disk in the shared object catalog and are passed around as part of
+// RemoteObjectBacking; they can also appear in error messages.
+type Locator string
+
+// StorageFactory is used to return Storage implementations based on locators. A
+// Pebble store that uses shared storage is configured with a StorageFactory.
+type StorageFactory interface {
+	CreateStorage(locator Locator) (Storage, error)
+}
 
 // Storage is an interface for a blob storage driver. This is lower-level
 // than an FS-like interface, however FS/File-like abstractions can be built on
