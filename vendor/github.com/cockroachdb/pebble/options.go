@@ -232,13 +232,12 @@ func (o *IterOptions) getLogger() Logger {
 }
 
 // SpanIterOptions creates a SpanIterOptions from this IterOptions.
-func (o *IterOptions) SpanIterOptions(level manifest.Level) keyspan.SpanIterOptions {
+func (o *IterOptions) SpanIterOptions() keyspan.SpanIterOptions {
 	if o == nil {
-		return keyspan.SpanIterOptions{Level: level}
+		return keyspan.SpanIterOptions{}
 	}
 	return keyspan.SpanIterOptions{
 		RangeKeyFilters: o.RangeKeyFilters,
-		Level:           level,
 	}
 }
 
@@ -261,7 +260,7 @@ type scanInternalOptions struct {
 	includeObsoleteKeys bool
 
 	// rateLimitFunc is used to limit the amount of bytes read per second.
-	rateLimitFunc func(key *InternalKey, value LazyValue)
+	rateLimitFunc func(key *InternalKey, value LazyValue) error
 }
 
 // RangeKeyMasking configures automatic hiding of point keys by range keys. A

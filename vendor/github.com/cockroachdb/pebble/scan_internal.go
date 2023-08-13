@@ -89,6 +89,12 @@ func (s *SharedSSTMeta) cloneFromFileMeta(f *fileMetadata) {
 	}
 }
 
+type sharedByLevel []SharedSSTMeta
+
+func (s sharedByLevel) Len() int           { return len(s) }
+func (s sharedByLevel) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s sharedByLevel) Less(i, j int) bool { return s[i].Level < s[j].Level }
+
 type pcIterPos int
 
 const (
@@ -465,7 +471,7 @@ func (d *DB) truncateSharedFile(
 		)
 		defer rangeDelIter.Close()
 	}
-	rangeKeyIter, err := d.tableNewRangeKeyIter(file, keyspan.SpanIterOptions{Level: manifest.Level(level)})
+	rangeKeyIter, err := d.tableNewRangeKeyIter(file, keyspan.SpanIterOptions{})
 	if err != nil {
 		return nil, false, err
 	}
@@ -641,7 +647,9 @@ func scanInternalImpl(
 		key := iter.unsafeKey()
 
 		if opts.rateLimitFunc != nil {
-			opts.rateLimitFunc(key, iter.lazyValue())
+			if err := opts.rateLimitFunc(key, iter.lazyValue()); err != nil {
+				return err
+			}
 		}
 
 		switch key.Kind() {
@@ -841,7 +849,7 @@ func (i *scanInternalIterator) constructRangeKeyIter() {
 	// around Key Trailer order.
 	iter := current.RangeKeyLevels[0].Iter()
 	for f := iter.Last(); f != nil; f = iter.Prev() {
-		spanIter, err := i.newIterRangeKey(f, i.opts.SpanIterOptions(manifest.Level(0)))
+		spanIter, err := i.newIterRangeKey(f, i.opts.SpanIterOptions())
 		if err != nil {
 			i.rangeKey.iterConfig.AddLevel(&errorKeyspanIter{err: err})
 			continue
@@ -858,7 +866,7 @@ func (i *scanInternalIterator) constructRangeKeyIter() {
 			continue
 		}
 		li := i.rangeKey.iterConfig.NewLevelIter()
-		spanIterOpts := i.opts.SpanIterOptions(manifest.Level(level))
+		spanIterOpts := i.opts.SpanIterOptions()
 		li.Init(spanIterOpts, i.comparer.Compare, i.newIterRangeKey, current.RangeKeyLevels[level].Iter(),
 			manifest.Level(level), manifest.KeyTypeRange)
 		i.rangeKey.iterConfig.AddLevel(li)

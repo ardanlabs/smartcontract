@@ -2046,7 +2046,7 @@ func (d *DB) SSTables(opts ...SSTablesOption) ([][]SSTableInfo, error) {
 			}
 			if objMeta.IsRemote() {
 				if objMeta.IsShared() {
-					if d.objProvider.IsForeign(objMeta) {
+					if d.objProvider.IsSharedForeign(objMeta) {
 						destTables[j].BackingType = BackingTypeSharedForeign
 					} else {
 						destTables[j].BackingType = BackingTypeShared
@@ -2687,21 +2687,14 @@ func (d *DB) ScanStatistics(
 ) (LSMKeyStatistics, error) {
 	stats := LSMKeyStatistics{}
 	var prevKey InternalKey
-	var rateLimitFunc func(key *InternalKey, val LazyValue)
+	var rateLimitFunc func(key *InternalKey, val LazyValue) error
 	tb := tokenbucket.TokenBucket{}
 
 	if opts.LimitBytesPerSecond != 0 {
 		// Each "token" roughly corresponds to a byte that was read.
 		tb.Init(tokenbucket.TokensPerSecond(opts.LimitBytesPerSecond), tokenbucket.Tokens(1024))
-		rateLimitFunc = func(key *InternalKey, val LazyValue) {
-			for {
-				fulfilled, tryAgainAfter := tb.TryToFulfill(tokenbucket.Tokens(key.Size() + val.Len()))
-
-				if fulfilled {
-					break
-				}
-				time.Sleep(tryAgainAfter)
-			}
+		rateLimitFunc = func(key *InternalKey, val LazyValue) error {
+			return tb.WaitCtx(ctx, tokenbucket.Tokens(key.Size()+val.Len()))
 		}
 	}
 
@@ -2765,13 +2758,13 @@ func (d *DB) ObjProvider() objstorage.Provider {
 	return d.objProvider
 }
 
-func (d *DB) checkVirtualBounds(m *fileMetadata, iterOpts *IterOptions) {
+func (d *DB) checkVirtualBounds(m *fileMetadata) {
 	if !invariants.Enabled {
 		return
 	}
 
 	if m.HasPointKeys {
-		pointIter, rangeDelIter, err := d.newIters(context.TODO(), m, iterOpts, internalIterOpts{})
+		pointIter, rangeDelIter, err := d.newIters(context.TODO(), m, nil, internalIterOpts{})
 		if err != nil {
 			panic(errors.Wrap(err, "pebble: error creating point iterator"))
 		}
@@ -2829,11 +2822,7 @@ func (d *DB) checkVirtualBounds(m *fileMetadata, iterOpts *IterOptions) {
 		return
 	}
 
-	spanIterOpts := keyspan.SpanIterOptions{}
-	if iterOpts != nil {
-		spanIterOpts.Level = iterOpts.level
-	}
-	rangeKeyIter, err := d.tableNewRangeKeyIter(m, spanIterOpts)
+	rangeKeyIter, err := d.tableNewRangeKeyIter(m, keyspan.SpanIterOptions{})
 	defer rangeKeyIter.Close()
 
 	if err != nil {
