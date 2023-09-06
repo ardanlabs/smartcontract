@@ -74,7 +74,7 @@ type Reader interface {
 	// NewIter returns an iterator that is unpositioned (Iterator.Valid() will
 	// return false). The iterator can be positioned via a call to SeekGE,
 	// SeekLT, First or Last.
-	NewIter(o *IterOptions) *Iterator
+	NewIter(o *IterOptions) (*Iterator, error)
 
 	// Close closes the Reader. It may or may not close any underlying io.Reader
 	// or io.Writer, depending on how the DB was created.
@@ -280,7 +280,7 @@ type DB struct {
 	abbreviatedKey AbbreviatedKey
 	// The threshold for determining when a batch is "large" and will skip being
 	// inserted into a memtable.
-	largeBatchThreshold int
+	largeBatchThreshold uint64
 	// The current OPTIONS file number.
 	optionsFileNum base.DiskFileNum
 	// The on-disk size of the current OPTIONS file.
@@ -407,7 +407,7 @@ type DB struct {
 			// is allocated up to Options.MemTableSize. This reduces the memory
 			// footprint of memtables when lots of DB instances are used concurrently
 			// in test environments.
-			nextSize int
+			nextSize uint64
 		}
 
 		compact struct {
@@ -560,6 +560,7 @@ func (d *DB) getInternal(key []byte, b *Batch, s *Snapshot) ([]byte, io.Closer, 
 		logger:   d.opts.Logger,
 		cmp:      d.cmp,
 		equal:    d.equal,
+		split:    d.split,
 		newIters: d.newIters,
 		snapshot: seqNum,
 		key:      key,
@@ -841,7 +842,7 @@ func (d *DB) applyInternal(batch *Batch, opts *WriteOptions, noSyncWait bool) er
 	if batch.db == nil {
 		batch.refreshMemTableSize()
 	}
-	if int(batch.memTableSize) >= d.largeBatchThreshold {
+	if batch.memTableSize >= d.largeBatchThreshold {
 		batch.flushable = newFlushableBatch(batch, d.opts.Comparer)
 	}
 	if err := d.commit.Commit(batch, sync, noSyncWait); err != nil {
@@ -980,12 +981,31 @@ var iterAllocPool = sync.Pool{
 	},
 }
 
+// snapshotIterOpts denotes snapshot-related iterator options when calling
+// newIter. These are the possible cases for a snapshotIterOpts:
+//   - No snapshot: All fields are zero values.
+//   - Classic snapshot: Only `seqNum` is set. The latest readState will be used
+//     and the specified seqNum will be used as the snapshot seqNum.
+//   - EventuallyFileOnlySnapshot (EFOS) in pre-file-only state: `readState` and
+//     `seqNum` are set. The specified readState is used with the snapshot
+//     sequence number.
+//   - EFOS in file-only state: Only `seqNum` and `vers` are set. No readState
+//     is referenced, as all the relevant SSTs are referenced by the *version.
+type snapshotIterOpts struct {
+	seqNum    uint64
+	readState *readState
+	vers      *version
+}
+
 // newIter constructs a new iterator, merging in batch iterators as an extra
 // level.
-func (d *DB) newIter(ctx context.Context, batch *Batch, s *Snapshot, o *IterOptions) *Iterator {
+func (d *DB) newIter(
+	ctx context.Context, batch *Batch, sOpts snapshotIterOpts, o *IterOptions,
+) *Iterator {
 	if err := d.closed.Load(); err != nil {
 		panic(err)
 	}
+	seqNum := sOpts.seqNum
 	if o.rangeKeys() {
 		if d.FormatMajorVersion() < FormatRangeKeys {
 			panic(fmt.Sprintf(
@@ -997,7 +1017,7 @@ func (d *DB) newIter(ctx context.Context, batch *Batch, s *Snapshot, o *IterOpti
 	if o != nil && o.RangeKeyMasking.Suffix != nil && o.KeyTypes != IterKeyTypePointsAndRanges {
 		panic("pebble: range key masking requires IterKeyTypePointsAndRanges")
 	}
-	if (batch != nil || s != nil) && (o != nil && o.OnlyReadGuaranteedDurable) {
+	if (batch != nil || seqNum != 0) && (o != nil && o.OnlyReadGuaranteedDurable) {
 		// We could add support for OnlyReadGuaranteedDurable on snapshots if
 		// there was a need: this would require checking that the sequence number
 		// of the snapshot has been flushed, by comparing with
@@ -1007,14 +1027,20 @@ func (d *DB) newIter(ctx context.Context, batch *Batch, s *Snapshot, o *IterOpti
 	// Grab and reference the current readState. This prevents the underlying
 	// files in the associated version from being deleted if there is a current
 	// compaction. The readState is unref'd by Iterator.Close().
-	readState := d.loadReadState()
+	readState := sOpts.readState
+	if readState == nil && sOpts.vers == nil {
+		// NB: loadReadState() calls readState.ref().
+		readState = d.loadReadState()
+	} else if readState != nil {
+		readState.ref()
+	} else {
+		// s.vers != nil
+		sOpts.vers.Ref()
+	}
 
 	// Determine the seqnum to read at after grabbing the read state (current and
 	// memtables) above.
-	var seqNum uint64
-	if s != nil {
-		seqNum = s.seqNum
-	} else {
+	if seqNum == 0 {
 		seqNum = d.mu.versions.visibleSeqNum.Load()
 	}
 
@@ -1028,6 +1054,7 @@ func (d *DB) newIter(ctx context.Context, batch *Batch, s *Snapshot, o *IterOpti
 		merge:               d.merge,
 		comparer:            *d.opts.Comparer,
 		readState:           readState,
+		version:             sOpts.vers,
 		keyBuf:              buf.keyBuf,
 		prefixOrFullSeekKey: buf.prefixOrFullSeekKey,
 		boundsBuf:           buf.boundsBuf,
@@ -1057,7 +1084,10 @@ func (d *DB) newIter(ctx context.Context, batch *Batch, s *Snapshot, o *IterOpti
 func finishInitializingIter(ctx context.Context, buf *iterAlloc) *Iterator {
 	// Short-hand.
 	dbi := &buf.dbi
-	memtables := dbi.readState.memtables
+	var memtables flushableList
+	if dbi.readState != nil {
+		memtables = dbi.readState.memtables
+	}
 	if dbi.opts.OnlyReadGuaranteedDurable {
 		memtables = nil
 	} else {
@@ -1139,7 +1169,11 @@ func finishInitializingIter(ctx context.Context, buf *iterAlloc) *Iterator {
 			// dbi already had an initialized range key iterator, in case the point
 			// iterator changed or the range key masking suffix changed.
 			dbi.rangeKey.iiter.Init(&dbi.comparer, dbi.iter, dbi.rangeKey.rangeKeyIter,
-				&dbi.rangeKeyMasking, dbi.opts.LowerBound, dbi.opts.UpperBound)
+				keyspan.InterleavingIterOpts{
+					Mask:       &dbi.rangeKeyMasking,
+					LowerBound: dbi.opts.LowerBound,
+					UpperBound: dbi.opts.UpperBound,
+				})
 			dbi.iter = &dbi.rangeKey.iiter
 		}
 	} else {
@@ -1196,7 +1230,7 @@ func (d *DB) ScanInternal(
 			UpperBound: upper,
 		},
 	}
-	iter := d.newInternalIter(nil /* snapshot */, scanInternalOpts)
+	iter := d.newInternalIter(snapshotIterOpts{} /* snapshot */, scanInternalOpts)
 	defer iter.close()
 	return scanInternalImpl(ctx, lower, upper, iter, scanInternalOpts)
 }
@@ -1208,31 +1242,39 @@ func (d *DB) ScanInternal(
 // TODO(bilal): This method has a lot of similarities with db.newIter as well as
 // finishInitializingIter. Both pairs of methods should be refactored to reduce
 // this duplication.
-func (d *DB) newInternalIter(s *Snapshot, o *scanInternalOptions) *scanInternalIterator {
+func (d *DB) newInternalIter(sOpts snapshotIterOpts, o *scanInternalOptions) *scanInternalIterator {
 	if err := d.closed.Load(); err != nil {
 		panic(err)
 	}
 	// Grab and reference the current readState. This prevents the underlying
 	// files in the associated version from being deleted if there is a current
 	// compaction. The readState is unref'd by Iterator.Close().
-	readState := d.loadReadState()
+	readState := sOpts.readState
+	if readState == nil && sOpts.vers == nil {
+		readState = d.loadReadState()
+	} else if readState != nil {
+		readState.ref()
+	}
+	if sOpts.vers != nil {
+		sOpts.vers.Ref()
+	}
 
 	// Determine the seqnum to read at after grabbing the read state (current and
 	// memtables) above.
-	var seqNum uint64
-	if s == nil {
+	seqNum := sOpts.seqNum
+	if seqNum == 0 {
 		seqNum = d.mu.versions.visibleSeqNum.Load()
-	} else {
-		seqNum = s.seqNum
 	}
 
 	// Bundle various structures under a single umbrella in order to allocate
 	// them together.
 	buf := iterAllocPool.Get().(*iterAlloc)
 	dbi := &scanInternalIterator{
+		db:              d,
 		comparer:        d.opts.Comparer,
 		merge:           d.opts.Merger.Merge,
 		readState:       readState,
+		version:         sOpts.vers,
 		alloc:           buf,
 		newIters:        d.newIters,
 		newIterRangeKey: d.tableNewRangeKeyIter,
@@ -1251,7 +1293,10 @@ func (d *DB) newInternalIter(s *Snapshot, o *scanInternalOptions) *scanInternalI
 
 func finishInitializingInternalIter(buf *iterAlloc, i *scanInternalIterator) *scanInternalIterator {
 	// Short-hand.
-	memtables := i.readState.memtables
+	var memtables flushableList
+	if i.readState != nil {
+		memtables = i.readState.memtables
+	}
 	// We only need to read from memtables which contain sequence numbers older
 	// than seqNum. Trim off newer memtables.
 	for j := len(memtables) - 1; j >= 0; j-- {
@@ -1274,7 +1319,10 @@ func finishInitializingInternalIter(buf *iterAlloc, i *scanInternalIterator) *sc
 	// iterator that interleaves range keys pulled from
 	// i.rangeKey.rangeKeyIter.
 	i.rangeKey.iiter.Init(i.comparer, i.iter, i.rangeKey.rangeKeyIter,
-		nil /* mask */, i.opts.LowerBound, i.opts.UpperBound)
+		keyspan.InterleavingIterOpts{
+			LowerBound: i.opts.LowerBound,
+			UpperBound: i.opts.UpperBound,
+		})
 	i.iter = &i.rangeKey.iiter
 
 	return i
@@ -1306,7 +1354,10 @@ func (i *Iterator) constructPointIter(
 	}
 	numMergingLevels += len(memtables)
 
-	current := i.readState.current
+	current := i.version
+	if current == nil {
+		current = i.readState.current
+	}
 	numMergingLevels += len(current.L0SublevelFiles)
 	numLevelIters += len(current.L0SublevelFiles)
 	for level := 1; level < len(current.Levels); level++ {
@@ -1411,6 +1462,12 @@ func (d *DB) NewBatch() *Batch {
 	return newBatch(d)
 }
 
+// NewBatchWithSize is mostly identical to NewBatch, but it will allocate the
+// the specified memory space for the internal slice in advance.
+func (d *DB) NewBatchWithSize(size int) *Batch {
+	return newBatchWithSize(d, size)
+}
+
 // NewIndexedBatch returns a new empty read-write batch. Any reads on the batch
 // will read from both the batch and the DB. If the batch is committed it will
 // be applied to the DB. An indexed batch is slower that a non-indexed batch
@@ -1418,6 +1475,12 @@ func (d *DB) NewBatch() *Batch {
 // NewBatch instead.
 func (d *DB) NewIndexedBatch() *Batch {
 	return newIndexedBatch(d, d.opts.Comparer)
+}
+
+// NewIndexedBatchWithSize is mostly identical to NewIndexedBatch, but it will
+// allocate the the specified memory space for the internal slice in advance.
+func (d *DB) NewIndexedBatchWithSize(size int) *Batch {
+	return newIndexedBatchWithSize(d, d.opts.Comparer, size)
 }
 
 // NewIter returns an iterator that is unpositioned (Iterator.Valid() will
@@ -1428,14 +1491,14 @@ func (d *DB) NewIndexedBatch() *Batch {
 // to maintain a long-lived point-in-time view of the DB state can lead to an
 // apparent memory and disk usage leak. Use snapshots (see NewSnapshot) for
 // point-in-time snapshots which avoids these problems.
-func (d *DB) NewIter(o *IterOptions) *Iterator {
+func (d *DB) NewIter(o *IterOptions) (*Iterator, error) {
 	return d.NewIterWithContext(context.Background(), o)
 }
 
 // NewIterWithContext is like NewIter, and additionally accepts a context for
 // tracing.
-func (d *DB) NewIterWithContext(ctx context.Context, o *IterOptions) *Iterator {
-	return d.newIter(ctx, nil /* batch */, nil /* snapshot */, o)
+func (d *DB) NewIterWithContext(ctx context.Context, o *IterOptions) (*Iterator, error) {
+	return d.newIter(ctx, nil /* batch */, snapshotIterOpts{}, o), nil
 }
 
 // NewSnapshot returns a point-in-time view of the current DB state. Iterators
@@ -1459,6 +1522,29 @@ func (d *DB) NewSnapshot() *Snapshot {
 	d.mu.snapshots.pushBack(s)
 	d.mu.Unlock()
 	return s
+}
+
+// NewEventuallyFileOnlySnapshot returns a point-in-time view of the current DB
+// state, similar to NewSnapshot, but with consistency constrained to the
+// provided set of key ranges. See the comment at EventuallyFileOnlySnapshot for
+// its semantics.
+func (d *DB) NewEventuallyFileOnlySnapshot(keyRanges []KeyRange) *EventuallyFileOnlySnapshot {
+	if err := d.closed.Load(); err != nil {
+		panic(err)
+	}
+
+	internalKeyRanges := make([]internalKeyRange, len(keyRanges))
+	for i := range keyRanges {
+		if i > 0 && d.cmp(keyRanges[i-1].End, keyRanges[i].Start) > 0 {
+			panic("pebble: key ranges for eventually-file-only-snapshot not in order")
+		}
+		internalKeyRanges[i] = internalKeyRange{
+			smallest: base.MakeInternalKey(keyRanges[i].Start, InternalKeySeqNumMax, InternalKeyKindMax),
+			largest:  base.MakeExclusiveSentinelKey(InternalKeyKindRangeDelete, keyRanges[i].End),
+		}
+	}
+
+	return d.makeEventuallyFileOnlySnapshot(keyRanges, internalKeyRanges)
 }
 
 // Close closes the DB.
@@ -1631,6 +1717,10 @@ func (d *DB) Compact(start, end []byte, parallelize bool) error {
 		}
 	}
 
+	keyRanges := make([]internalKeyRange, len(meta))
+	for i := range meta {
+		keyRanges[i] = internalKeyRange{smallest: m.Smallest, largest: m.Largest}
+	}
 	// Determine if any memtable overlaps with the compaction range. We wait for
 	// any such overlap to flush (initiating a flush if necessary).
 	mem, err := func() (*flushableEntry, error) {
@@ -1640,7 +1730,7 @@ func (d *DB) Compact(start, end []byte, parallelize bool) error {
 		// overlaps.
 		for i := len(d.mu.mem.queue) - 1; i >= 0; i-- {
 			mem := d.mu.mem.queue[i]
-			if ingestMemtableOverlaps(d.cmp, mem, meta) {
+			if ingestMemtableOverlaps(d.cmp, mem, keyRanges) {
 				var err error
 				if mem.flushable == d.mu.mem.mutable {
 					// We have to hold both commitPipeline.mu and DB.mu when calling
@@ -1897,7 +1987,11 @@ func (d *DB) Metrics() *Metrics {
 	metrics.BlockCache = d.opts.Cache.Metrics()
 	metrics.TableCache, metrics.Filter = d.tableCache.metrics()
 	metrics.TableIters = int64(d.tableCache.iterCount())
+
+	metrics.SecondaryCacheMetrics = d.objProvider.Metrics()
+
 	metrics.Uptime = d.timeNow().Sub(d.openedAt)
+
 	return metrics
 }
 
@@ -2202,7 +2296,7 @@ func (d *DB) walPreallocateSize() int {
 	// RocksDB. Could a smaller preallocation block size be used?
 	size := d.opts.MemTableSize
 	size = (size / 10) + size
-	return size
+	return int(size)
 }
 
 func (d *DB) newMemTable(logNum FileNum, logSeqNum uint64) (*memTable, *flushableEntry) {
@@ -2229,7 +2323,7 @@ func (d *DB) newMemTable(logNum FileNum, logSeqNum uint64) (*memTable, *flushabl
 	// existing memory.
 	var mem *memTable
 	mem = d.memTableRecycle.Swap(nil)
-	if mem != nil && len(mem.arenaBuf) != size {
+	if mem != nil && uint64(len(mem.arenaBuf)) != size {
 		d.freeMemTable(mem)
 		mem = nil
 	}
@@ -2240,7 +2334,7 @@ func (d *DB) newMemTable(logNum FileNum, logSeqNum uint64) (*memTable, *flushabl
 	} else {
 		mem = new(memTable)
 		memtblOpts.arenaBuf = manual.New(int(size))
-		memtblOpts.releaseAccountingReservation = d.opts.Cache.Reserve(size)
+		memtblOpts.releaseAccountingReservation = d.opts.Cache.Reserve(int(size))
 		d.memTableCount.Add(1)
 		d.memTableReserved.Add(int64(size))
 
@@ -2326,7 +2420,7 @@ func (d *DB) makeRoomForWrite(b *Batch) error {
 			for i := range d.mu.mem.queue {
 				size += d.mu.mem.queue[i].totalBytes()
 			}
-			if size >= uint64(d.opts.MemTableStopWritesThreshold)*uint64(d.opts.MemTableSize) {
+			if size >= uint64(d.opts.MemTableStopWritesThreshold)*d.opts.MemTableSize {
 				// We have filled up the current memtable, but already queued memtables
 				// are still flushing, so we wait.
 				if !stalled {
@@ -2380,7 +2474,7 @@ func (d *DB) makeRoomForWrite(b *Batch) error {
 		// reduces memtable memory pressure when an application is frequently
 		// manually flushing.
 		if (b == nil) && uint64(immMem.availBytes()) > immMem.totalBytes()/2 {
-			d.mu.mem.nextSize = int(immMem.totalBytes())
+			d.mu.mem.nextSize = immMem.totalBytes()
 		}
 
 		if b != nil && b.flushable != nil {
@@ -2740,7 +2834,7 @@ func (d *DB) ScanStatistics(
 		},
 		rateLimitFunc: rateLimitFunc,
 	}
-	iter := d.newInternalIter(nil /* snapshot */, scanInternalOpts)
+	iter := d.newInternalIter(snapshotIterOpts{}, scanInternalOpts)
 	defer iter.close()
 
 	err := scanInternalImpl(ctx, lower, upper, iter, scanInternalOpts)
