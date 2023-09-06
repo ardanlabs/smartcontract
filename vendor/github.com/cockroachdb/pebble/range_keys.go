@@ -36,24 +36,19 @@ func (i *Iterator) constructRangeKeyIter() {
 	}
 
 	// Next are the flushables: memtables and large batches.
-	if i.readState != nil {
-		for j := len(i.readState.memtables) - 1; j >= 0; j-- {
-			mem := i.readState.memtables[j]
-			// We only need to read from memtables which contain sequence numbers older
-			// than seqNum.
-			if logSeqNum := mem.logSeqNum; logSeqNum >= i.seqNum {
-				continue
-			}
-			if rki := mem.newRangeKeyIter(&i.opts); rki != nil {
-				i.rangeKey.iterConfig.AddLevel(rki)
-			}
+	for j := len(i.readState.memtables) - 1; j >= 0; j-- {
+		mem := i.readState.memtables[j]
+		// We only need to read from memtables which contain sequence numbers older
+		// than seqNum.
+		if logSeqNum := mem.logSeqNum; logSeqNum >= i.seqNum {
+			continue
+		}
+		if rki := mem.newRangeKeyIter(&i.opts); rki != nil {
+			i.rangeKey.iterConfig.AddLevel(rki)
 		}
 	}
 
-	current := i.version
-	if current == nil {
-		current = i.readState.current
-	}
+	current := i.readState.current
 	// Next are the file levels: L0 sub-levels followed by lower levels.
 	//
 	// Add file-specific iterators for L0 files containing range keys. This is less
@@ -68,7 +63,8 @@ func (i *Iterator) constructRangeKeyIter() {
 	// around Key Trailer order.
 	iter := current.RangeKeyLevels[0].Iter()
 	for f := iter.Last(); f != nil; f = iter.Prev() {
-		spanIter, err := i.newIterRangeKey(f, i.opts.SpanIterOptions())
+		spanIterOpts := &keyspan.SpanIterOptions{RangeKeyFilters: i.opts.RangeKeyFilters}
+		spanIter, err := i.newIterRangeKey(f, spanIterOpts)
 		if err != nil {
 			i.rangeKey.iterConfig.AddLevel(&errorKeyspanIter{err: err})
 			continue
@@ -82,7 +78,7 @@ func (i *Iterator) constructRangeKeyIter() {
 			continue
 		}
 		li := i.rangeKey.iterConfig.NewLevelIter()
-		spanIterOpts := i.opts.SpanIterOptions()
+		spanIterOpts := keyspan.SpanIterOptions{RangeKeyFilters: i.opts.RangeKeyFilters}
 		li.Init(spanIterOpts, i.cmp, i.newIterRangeKey, current.RangeKeyLevels[level].Iter(),
 			manifest.Level(level), manifest.KeyTypeRange)
 		i.rangeKey.iterConfig.AddLevel(li)
@@ -370,24 +366,24 @@ func (m *rangeKeyMasking) Intersects(prop []byte) (bool, error) {
 // KeyIsWithinLowerBound implements the limitedBlockPropertyFilter interface
 // defined in the sstable package. It's used to restrict the masking block
 // property filter to only applying within the bounds of the active range key.
-func (m *rangeKeyMasking) KeyIsWithinLowerBound(key []byte) bool {
+func (m *rangeKeyMasking) KeyIsWithinLowerBound(ik *InternalKey) bool {
 	// Invariant: m.maskSpan != nil
 	//
-	// The provided `key` is an inclusive lower bound of the block we're
+	// The provided `ik` is an inclusive lower bound of the block we're
 	// considering skipping.
-	return m.cmp(m.maskSpan.Start, key) <= 0
+	return m.cmp(m.maskSpan.Start, ik.UserKey) <= 0
 }
 
 // KeyIsWithinUpperBound implements the limitedBlockPropertyFilter interface
 // defined in the sstable package. It's used to restrict the masking block
 // property filter to only applying within the bounds of the active range key.
-func (m *rangeKeyMasking) KeyIsWithinUpperBound(key []byte) bool {
+func (m *rangeKeyMasking) KeyIsWithinUpperBound(ik *InternalKey) bool {
 	// Invariant: m.maskSpan != nil
 	//
-	// The provided `key` is an *inclusive* upper bound of the block we're
+	// The provided `ik` is an *inclusive* upper bound of the block we're
 	// considering skipping, so the range key's end must be strictly greater
 	// than the block bound for the block to be within bounds.
-	return m.cmp(m.maskSpan.End, key) > 0
+	return m.cmp(m.maskSpan.End, ik.UserKey) > 0
 }
 
 // lazyCombinedIter implements the internalIterator interface, wrapping a
@@ -516,11 +512,7 @@ func (i *lazyCombinedIter) initCombinedIteration(
 	// Initialize the Iterator's interleaving iterator.
 	i.parent.rangeKey.iiter.Init(
 		&i.parent.comparer, i.parent.pointIter, i.parent.rangeKey.rangeKeyIter,
-		keyspan.InterleavingIterOpts{
-			Mask:       &i.parent.rangeKeyMasking,
-			LowerBound: i.parent.opts.LowerBound,
-			UpperBound: i.parent.opts.UpperBound,
-		})
+		&i.parent.rangeKeyMasking, i.parent.opts.LowerBound, i.parent.opts.UpperBound)
 
 	// Set the parent's primary iterator to point to the combined, interleaving
 	// iterator that's now initialized with our current state.

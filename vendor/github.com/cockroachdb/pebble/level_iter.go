@@ -36,8 +36,9 @@ type tableNewIters func(
 // tableNewRangeDelIter takes a tableNewIters and returns a TableNewSpanIter
 // for the rangedel iterator returned by tableNewIters.
 func tableNewRangeDelIter(ctx context.Context, newIters tableNewIters) keyspan.TableNewSpanIter {
-	return func(file *manifest.FileMetadata, iterOptions keyspan.SpanIterOptions) (keyspan.FragmentIterator, error) {
-		iter, rangeDelIter, err := newIters(ctx, file, nil, internalIterOpts{})
+	return func(file *manifest.FileMetadata, iterOptions *keyspan.SpanIterOptions) (keyspan.FragmentIterator, error) {
+		iter, rangeDelIter, err := newIters(
+			ctx, file, &IterOptions{RangeKeyFilters: iterOptions.RangeKeyFilters}, internalIterOpts{})
 		if iter != nil {
 			_ = iter.Close()
 		}
@@ -50,7 +51,6 @@ func tableNewRangeDelIter(ctx context.Context, newIters tableNewIters) keyspan.T
 
 type internalIterOpts struct {
 	bytesIterated      *uint64
-	bufferPool         *sstable.BufferPool
 	stats              *base.InternalIteratorStats
 	boundLimitedFilter sstable.BoundLimitedBlockPropertyFilter
 }
@@ -200,11 +200,6 @@ type levelIter struct {
 	// cache when constructing new table iterators.
 	internalOpts internalIterOpts
 
-	// Scratch space for the obsolete keys filter, when there are no other block
-	// property filters specified. See the performance note where
-	// IterOptions.PointKeyFilters is declared.
-	filtersBuf [1]BlockPropertyFilter
-
 	// Disable invariant checks even if they are otherwise enabled. Used by tests
 	// which construct "impossible" situations (e.g. seeking to a key before the
 	// lower bound).
@@ -246,11 +241,11 @@ func newLevelIter(
 	newIters tableNewIters,
 	files manifest.LevelIterator,
 	level manifest.Level,
-	internalOpts internalIterOpts,
+	bytesIterated *uint64,
 ) *levelIter {
 	l := &levelIter{}
 	l.init(context.Background(), opts, cmp, split, newIters, files, level,
-		internalOpts)
+		internalIterOpts{bytesIterated: bytesIterated})
 	return l
 }
 
@@ -272,12 +267,8 @@ func (l *levelIter) init(
 	l.upper = opts.UpperBound
 	l.tableOpts.TableFilter = opts.TableFilter
 	l.tableOpts.PointKeyFilters = opts.PointKeyFilters
-	if len(opts.PointKeyFilters) == 0 {
-		l.tableOpts.PointKeyFilters = l.filtersBuf[:0:1]
-	}
 	l.tableOpts.UseL6Filters = opts.UseL6Filters
 	l.tableOpts.level = l.level
-	l.tableOpts.snapshotForHideObsoletePoints = opts.snapshotForHideObsoletePoints
 	l.cmp = cmp
 	l.split = split
 	l.iterFile = nil
@@ -797,7 +788,7 @@ func (l *levelIter) SeekPrefixGE(
 		}
 		return l.verify(l.largestBoundary, base.LazyValue{})
 	}
-	// It is possible that we are here because bloom filter matching failed. In
+	// It is possible that we are here because bloom filter matching failed.  In
 	// that case it is likely that all keys matching the prefix are wholly
 	// within the current file and cannot be in the subsequent file. In that
 	// case we don't want to go to the next file, since loading and seeking in
@@ -805,16 +796,7 @@ func (l *levelIter) SeekPrefixGE(
 	// next file will defeat the optimization for the next SeekPrefixGE that is
 	// called with flags.TrySeekUsingNext(), since for sparse key spaces it is
 	// likely that the next key will also be contained in the current file.
-	var n int
-	if l.split != nil {
-		// If the split function is specified, calculate the prefix length accordingly.
-		n = l.split(l.iterFile.LargestPointKey.UserKey)
-	} else {
-		// If the split function is not specified, the entire key is used as the
-		// prefix. This case can occur when getIter uses SeekPrefixGE.
-		n = len(l.iterFile.LargestPointKey.UserKey)
-	}
-	if l.cmp(prefix, l.iterFile.LargestPointKey.UserKey[:n]) < 0 {
+	if n := l.split(l.iterFile.LargestPointKey.UserKey); l.cmp(prefix, l.iterFile.LargestPointKey.UserKey[:n]) < 0 {
 		return nil, base.LazyValue{}
 	}
 	return l.verify(l.skipEmptyFileForward())
@@ -1084,9 +1066,7 @@ func (l *levelIter) skipEmptyFileForward() (*InternalKey, base.LazyValue) {
 			if *l.rangeDelIterPtr != nil && l.filteredIter != nil &&
 				l.filteredIter.MaybeFilteredKeys() {
 				l.largestBoundary = &l.iterFile.Largest
-				if l.boundaryContext != nil {
-					l.boundaryContext.isIgnorableBoundaryKey = true
-				}
+				l.boundaryContext.isIgnorableBoundaryKey = true
 				return l.largestBoundary, base.LazyValue{}
 			}
 		}
@@ -1175,9 +1155,7 @@ func (l *levelIter) skipEmptyFileBackward() (*InternalKey, base.LazyValue) {
 			// the next file.
 			if *l.rangeDelIterPtr != nil && l.filteredIter != nil && l.filteredIter.MaybeFilteredKeys() {
 				l.smallestBoundary = &l.iterFile.Smallest
-				if l.boundaryContext != nil {
-					l.boundaryContext.isIgnorableBoundaryKey = true
-				}
+				l.boundaryContext.isIgnorableBoundaryKey = true
 				return l.smallestBoundary, base.LazyValue{}
 			}
 		}

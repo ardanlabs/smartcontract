@@ -209,15 +209,15 @@ func createExternalPointIter(ctx context.Context, it *Iterator) (internalIterato
 				pointIter    internalIterator
 				err          error
 			)
-			// We could set hideObsoletePoints=true, since we are reading at
-			// InternalKeySeqNumMax, but we don't bother since these sstables should
-			// not have obsolete points (so the performance optimization is
-			// unnecessary), and we don't want to bother constructing a
-			// BlockPropertiesFilterer that includes obsoleteKeyBlockPropertyFilter.
-			pointIter, err = r.NewIterWithBlockPropertyFiltersAndContextEtc(
-				ctx, it.opts.LowerBound, it.opts.UpperBound, nil, /* BlockPropertiesFilterer */
-				false /* hideObsoletePoints */, false, /* useFilterBlock */
-				&it.stats.InternalStats, sstable.TrivialReaderProvider{Reader: r})
+			pointIter, err = r.NewIterWithBlockPropertyFiltersAndContext(
+				ctx,
+				it.opts.LowerBound,
+				it.opts.UpperBound,
+				nil,   /* BlockPropertiesFilterer */
+				false, /* useFilterBlock */
+				&it.stats.InternalStats,
+				sstable.TrivialReaderProvider{Reader: r},
+			)
 			if err != nil {
 				return nil, err
 			}
@@ -319,12 +319,8 @@ func finishInitializingExternal(ctx context.Context, it *Iterator) {
 			}
 		}
 		if it.rangeKey != nil {
-			it.rangeKey.iiter.Init(&it.comparer, it.iter, it.rangeKey.rangeKeyIter,
-				keyspan.InterleavingIterOpts{
-					Mask:       &it.rangeKeyMasking,
-					LowerBound: it.opts.LowerBound,
-					UpperBound: it.opts.UpperBound,
-				})
+			it.rangeKey.iiter.Init(&it.comparer, it.iter, it.rangeKey.rangeKeyIter, &it.rangeKeyMasking,
+				it.opts.LowerBound, it.opts.UpperBound)
 			it.iter = &it.rangeKey.iiter
 		}
 	}

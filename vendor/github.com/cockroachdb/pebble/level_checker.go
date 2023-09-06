@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"sync/atomic"
 
 	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble/internal/base"
@@ -165,7 +166,7 @@ func (m *simpleMergingIter) step() bool {
 		if m.valueMerger != nil {
 			// Ongoing series of MERGE records.
 			switch item.key.Kind() {
-			case InternalKeyKindSingleDelete, InternalKeyKindDelete, InternalKeyKindDeleteSized:
+			case InternalKeyKindSingleDelete, InternalKeyKindDelete:
 				var closer io.Closer
 				_, closer, m.err = m.valueMerger.Finish(true /* includesBase */)
 				if m.err == nil && closer != nil {
@@ -379,7 +380,7 @@ func checkRangeTombstones(c *checkConfig) error {
 			atomicUnit, _ := expandToAtomicUnit(c.cmp, lf.Slice(), true /* disableIsCompacting */)
 			lower, upper := manifest.KeyRange(c.cmp, atomicUnit.Iter())
 			iterToClose, iter, err := c.newIters(
-				context.Background(), lf.FileMetadata, &IterOptions{level: manifest.Level(lsmLevel)}, internalIterOpts{})
+				context.Background(), lf.FileMetadata, nil, internalIterOpts{})
 			if err != nil {
 				return err
 			}
@@ -567,7 +568,7 @@ func (d *DB) CheckLevels(stats *CheckLevelsStats) error {
 
 	// Determine the seqnum to read at after grabbing the read state (current and
 	// memtables) above.
-	seqNum := d.mu.versions.visibleSeqNum.Load()
+	seqNum := atomic.LoadUint64(&d.mu.versions.atomic.visibleSeqNum)
 
 	checkConfig := &checkConfig{
 		logger:    d.opts.Logger,

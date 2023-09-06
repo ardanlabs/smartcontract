@@ -63,8 +63,7 @@ func NewStrictMem() *MemFS {
 // NewMemFile returns a memory-backed File implementation. The memory-backed
 // file takes ownership of data.
 func NewMemFile(data []byte) File {
-	n := &memNode{}
-	n.refs.Store(1)
+	n := &memNode{refs: 1}
 	n.mu.data = data
 	n.mu.modTime = time.Now()
 	return &memFile{
@@ -209,7 +208,6 @@ func (y *MemFS) Create(fullname string) (File, error) {
 			ret = &memFile{
 				n:     n,
 				fs:    y,
-				read:  true,
 				write: true,
 			}
 		}
@@ -218,7 +216,7 @@ func (y *MemFS) Create(fullname string) (File, error) {
 	if err != nil {
 		return nil, err
 	}
-	ret.n.refs.Add(1)
+	atomic.AddInt32(&ret.n.refs, 1)
 	return ret, nil
 }
 
@@ -264,7 +262,7 @@ func (y *MemFS) Link(oldname, newname string) error {
 	})
 }
 
-func (y *MemFS) open(fullname string, openForWrite bool) (File, error) {
+func (y *MemFS) open(fullname string) (File, error) {
 	var ret *memFile
 	err := y.walk(fullname, func(dir *memNode, frag string, final bool) error {
 		if final {
@@ -277,10 +275,9 @@ func (y *MemFS) open(fullname string, openForWrite bool) (File, error) {
 			}
 			if n := dir.children[frag]; n != nil {
 				ret = &memFile{
-					n:     n,
-					fs:    y,
-					read:  true,
-					write: openForWrite,
+					n:    n,
+					fs:   y,
+					read: true,
 				}
 			}
 		}
@@ -296,28 +293,18 @@ func (y *MemFS) open(fullname string, openForWrite bool) (File, error) {
 			Err:  oserror.ErrNotExist,
 		}
 	}
-	ret.n.refs.Add(1)
+	atomic.AddInt32(&ret.n.refs, 1)
 	return ret, nil
 }
 
 // Open implements FS.Open.
 func (y *MemFS) Open(fullname string, opts ...OpenOption) (File, error) {
-	return y.open(fullname, false /* openForWrite */)
-}
-
-// OpenReadWrite implements FS.OpenReadWrite.
-func (y *MemFS) OpenReadWrite(fullname string, opts ...OpenOption) (File, error) {
-	f, err := y.open(fullname, true /* openForWrite */)
-	pathErr, ok := err.(*os.PathError)
-	if ok && pathErr.Err == oserror.ErrNotExist {
-		return y.Create(fullname)
-	}
-	return f, err
+	return y.open(fullname)
 }
 
 // OpenDir implements FS.OpenDir.
 func (y *MemFS) OpenDir(fullname string) (File, error) {
-	return y.open(fullname, false /* openForWrite */)
+	return y.open(fullname)
 }
 
 // Remove implements FS.Remove.
@@ -336,7 +323,7 @@ func (y *MemFS) Remove(fullname string) error {
 				// Windows semantics. This ensures that we don't regress in the
 				// ordering of operations and try to remove a file while it is
 				// still open.
-				if n := child.refs.Load(); n > 0 {
+				if n := atomic.LoadInt32(&child.refs); n > 0 {
 					return oserror.ErrInvalid
 				}
 			}
@@ -526,7 +513,7 @@ func (*MemFS) GetDiskUsage(string) (DiskUsage, error) {
 type memNode struct {
 	name  string
 	isDir bool
-	refs  atomic.Int32
+	refs  int32
 
 	// Mutable state.
 	// - For a file: data, syncedDate, modTime: A file is only being mutated by a single goroutine,
@@ -642,7 +629,7 @@ type memFile struct {
 var _ File = (*memFile)(nil)
 
 func (f *memFile) Close() error {
-	if n := f.n.refs.Add(-1); n < 0 {
+	if n := atomic.AddInt32(&f.n.refs, -1); n < 0 {
 		panic(fmt.Sprintf("pebble: close of unopened file: %d", n))
 	}
 	f.n = nil
@@ -678,11 +665,7 @@ func (f *memFile) ReadAt(p []byte, off int64) (int, error) {
 	if off >= int64(len(f.n.mu.data)) {
 		return 0, io.EOF
 	}
-	n := copy(p, f.n.mu.data[off:])
-	if n < len(p) {
-		return n, io.EOF
-	}
-	return n, nil
+	return copy(p, f.n.mu.data[off:]), nil
 }
 
 func (f *memFile) Write(p []byte) (int, error) {
@@ -712,29 +695,6 @@ func (f *memFile) Write(p []byte) (int, error) {
 			p[i] ^= 0xff
 		}
 	}
-	return len(p), nil
-}
-
-func (f *memFile) WriteAt(p []byte, ofs int64) (int, error) {
-	if !f.write {
-		return 0, errors.New("pebble/vfs: file was not created for writing")
-	}
-	if f.n.isDir {
-		return 0, errors.New("pebble/vfs: cannot write a directory")
-	}
-	f.n.mu.Lock()
-	defer f.n.mu.Unlock()
-	f.n.mu.modTime = time.Now()
-
-	for len(f.n.mu.data) < int(ofs)+len(p) {
-		f.n.mu.data = append(f.n.mu.data, 0)
-	}
-
-	n := copy(f.n.mu.data[int(ofs):int(ofs)+len(p)], p)
-	if n != len(p) {
-		panic("stuff")
-	}
-
 	return len(p), nil
 }
 
