@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -63,7 +64,8 @@ func NewStrictMem() *MemFS {
 // NewMemFile returns a memory-backed File implementation. The memory-backed
 // file takes ownership of data.
 func NewMemFile(data []byte) File {
-	n := &memNode{refs: 1}
+	n := &memNode{}
+	n.refs.Store(1)
 	n.mu.data = data
 	n.mu.modTime = time.Now()
 	return &memFile{
@@ -77,6 +79,11 @@ type MemFS struct {
 	mu   sync.Mutex
 	root *memNode
 
+	// lockFiles holds a map of open file locks. Presence in this map indicates
+	// a file lock is currently held. Keys are strings holding the path of the
+	// locked file. The stored value is untyped and  unused; only presence of
+	// the key within the map is significant.
+	lockedFiles sync.Map
 	strict      bool
 	ignoreSyncs bool
 	// Windows has peculiar semantics with respect to hard links and deleting
@@ -208,6 +215,7 @@ func (y *MemFS) Create(fullname string) (File, error) {
 			ret = &memFile{
 				n:     n,
 				fs:    y,
+				read:  true,
 				write: true,
 			}
 		}
@@ -216,7 +224,7 @@ func (y *MemFS) Create(fullname string) (File, error) {
 	if err != nil {
 		return nil, err
 	}
-	atomic.AddInt32(&ret.n.refs, 1)
+	ret.n.refs.Add(1)
 	return ret, nil
 }
 
@@ -262,7 +270,7 @@ func (y *MemFS) Link(oldname, newname string) error {
 	})
 }
 
-func (y *MemFS) open(fullname string) (File, error) {
+func (y *MemFS) open(fullname string, openForWrite bool) (File, error) {
 	var ret *memFile
 	err := y.walk(fullname, func(dir *memNode, frag string, final bool) error {
 		if final {
@@ -275,9 +283,10 @@ func (y *MemFS) open(fullname string) (File, error) {
 			}
 			if n := dir.children[frag]; n != nil {
 				ret = &memFile{
-					n:    n,
-					fs:   y,
-					read: true,
+					n:     n,
+					fs:    y,
+					read:  true,
+					write: openForWrite,
 				}
 			}
 		}
@@ -293,18 +302,28 @@ func (y *MemFS) open(fullname string) (File, error) {
 			Err:  oserror.ErrNotExist,
 		}
 	}
-	atomic.AddInt32(&ret.n.refs, 1)
+	ret.n.refs.Add(1)
 	return ret, nil
 }
 
 // Open implements FS.Open.
 func (y *MemFS) Open(fullname string, opts ...OpenOption) (File, error) {
-	return y.open(fullname)
+	return y.open(fullname, false /* openForWrite */)
+}
+
+// OpenReadWrite implements FS.OpenReadWrite.
+func (y *MemFS) OpenReadWrite(fullname string, opts ...OpenOption) (File, error) {
+	f, err := y.open(fullname, true /* openForWrite */)
+	pathErr, ok := err.(*os.PathError)
+	if ok && pathErr.Err == oserror.ErrNotExist {
+		return y.Create(fullname)
+	}
+	return f, err
 }
 
 // OpenDir implements FS.OpenDir.
 func (y *MemFS) OpenDir(fullname string) (File, error) {
-	return y.open(fullname)
+	return y.open(fullname, false /* openForWrite */)
 }
 
 // Remove implements FS.Remove.
@@ -323,7 +342,7 @@ func (y *MemFS) Remove(fullname string) error {
 				// Windows semantics. This ensures that we don't regress in the
 				// ordering of operations and try to remove a file while it is
 				// still open.
-				if n := atomic.LoadInt32(&child.refs); n > 0 {
+				if n := child.refs.Load(); n > 0 {
 					return oserror.ErrInvalid
 				}
 			}
@@ -444,9 +463,31 @@ func (y *MemFS) MkdirAll(dirname string, perm os.FileMode) error {
 // Lock implements FS.Lock.
 func (y *MemFS) Lock(fullname string) (io.Closer, error) {
 	// FS.Lock excludes other processes, but other processes cannot see this
-	// process' memory. We translate Lock into Create so that have the normal
-	// detection of non-existent directory paths.
-	return y.Create(fullname)
+	// process' memory. However some uses (eg, Cockroach tests) may open and
+	// close the same MemFS-backed database multiple times. We want mutual
+	// exclusion in this case too. See cockroachdb/cockroach#110645.
+	_, loaded := y.lockedFiles.Swap(fullname, nil /* the value itself is insignificant */)
+	if loaded {
+		// This file lock has already been acquired. On unix, this results in
+		// either EACCES or EAGAIN so we mimic.
+		return nil, syscall.EAGAIN
+	}
+	// Otherwise, we successfully acquired the lock. Locks are visible in the
+	// parent directory listing, and they also must be created under an existent
+	// directory. Create the path so that we have the normal detection of
+	// non-existent directory paths, and make the lock visible when listing
+	// directory entries.
+	f, err := y.Create(fullname)
+	if err != nil {
+		// "Release" the lock since we failed.
+		y.lockedFiles.Delete(fullname)
+		return nil, err
+	}
+	return &memFileLock{
+		y:        y,
+		f:        f,
+		fullname: fullname,
+	}, nil
 }
 
 // List implements FS.List.
@@ -513,7 +554,7 @@ func (*MemFS) GetDiskUsage(string) (DiskUsage, error) {
 type memNode struct {
 	name  string
 	isDir bool
-	refs  int32
+	refs  atomic.Int32
 
 	// Mutable state.
 	// - For a file: data, syncedDate, modTime: A file is only being mutated by a single goroutine,
@@ -629,7 +670,7 @@ type memFile struct {
 var _ File = (*memFile)(nil)
 
 func (f *memFile) Close() error {
-	if n := atomic.AddInt32(&f.n.refs, -1); n < 0 {
+	if n := f.n.refs.Add(-1); n < 0 {
 		panic(fmt.Sprintf("pebble: close of unopened file: %d", n))
 	}
 	f.n = nil
@@ -665,7 +706,11 @@ func (f *memFile) ReadAt(p []byte, off int64) (int, error) {
 	if off >= int64(len(f.n.mu.data)) {
 		return 0, io.EOF
 	}
-	return copy(p, f.n.mu.data[off:]), nil
+	n := copy(p, f.n.mu.data[off:])
+	if n < len(p) {
+		return n, io.EOF
+	}
+	return n, nil
 }
 
 func (f *memFile) Write(p []byte) (int, error) {
@@ -695,6 +740,29 @@ func (f *memFile) Write(p []byte) (int, error) {
 			p[i] ^= 0xff
 		}
 	}
+	return len(p), nil
+}
+
+func (f *memFile) WriteAt(p []byte, ofs int64) (int, error) {
+	if !f.write {
+		return 0, errors.New("pebble/vfs: file was not created for writing")
+	}
+	if f.n.isDir {
+		return 0, errors.New("pebble/vfs: cannot write a directory")
+	}
+	f.n.mu.Lock()
+	defer f.n.mu.Unlock()
+	f.n.mu.modTime = time.Now()
+
+	for len(f.n.mu.data) < int(ofs)+len(p) {
+		f.n.mu.data = append(f.n.mu.data, 0)
+	}
+
+	n := copy(f.n.mu.data[int(ofs):int(ofs)+len(p)], p)
+	if n != len(p) {
+		panic("stuff")
+	}
+
 	return len(p), nil
 }
 
@@ -746,4 +814,19 @@ func (f *memFile) Fd() uintptr {
 // (e.g. it prevents sstable.Writer from using a bufio.Writer).
 func (f *memFile) Flush() error {
 	return nil
+}
+
+type memFileLock struct {
+	y        *MemFS
+	f        File
+	fullname string
+}
+
+func (l *memFileLock) Close() error {
+	if l.y == nil {
+		return nil
+	}
+	l.y.lockedFiles.Delete(l.fullname)
+	l.y = nil
+	return l.f.Close()
 }

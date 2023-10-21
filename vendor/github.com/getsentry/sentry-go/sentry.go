@@ -6,15 +6,7 @@ import (
 )
 
 // The version of the SDK.
-// Deprecated: To be removed in 0.25.0. Use SDKVersion instead.
-const Version = SDKVersion
-
-// The version of the SDK.
-const SDKVersion = "0.24.0"
-
-// The identifier of the SDK.
-// Deprecated: To be removed in 0.25.0. Use Client.GetSDKIdentifier() instead.
-const SDKIdentifier = "sentry.go"
+const SDKVersion = "0.25.0"
 
 // apiVersion is the minimum version of the Sentry API compatible with the
 // sentry-go SDK.

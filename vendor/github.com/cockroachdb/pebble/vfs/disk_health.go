@@ -13,7 +13,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cockroachdb/pebble/internal/invariants"
 	"github.com/cockroachdb/redact"
 )
 
@@ -135,7 +134,7 @@ type diskHealthCheckingFile struct {
 	//
 	// NB: this packing scheme is not persisted, and is therefore safe to adjust
 	// across process boundaries.
-	lastWritePacked uint64
+	lastWritePacked atomic.Uint64
 	createTime      time.Time
 }
 
@@ -174,7 +173,7 @@ func (d *diskHealthCheckingFile) startTicker() {
 				return
 
 			case <-ticker.C:
-				packed := atomic.LoadUint64(&d.lastWritePacked)
+				packed := d.lastWritePacked.Load()
 				if packed == 0 {
 					continue
 				}
@@ -215,6 +214,14 @@ func (d *diskHealthCheckingFile) ReadAt(p []byte, off int64) (int, error) {
 func (d *diskHealthCheckingFile) Write(p []byte) (n int, err error) {
 	d.timeDiskOp(OpTypeWrite, int64(len(p)), func() {
 		n, err = d.file.Write(p)
+	})
+	return n, err
+}
+
+// Write implements the io.WriterAt interface.
+func (d *diskHealthCheckingFile) WriteAt(p []byte, ofs int64) (n int, err error) {
+	d.timeDiskOp(OpTypeWrite, int64(len(p)), func() {
+		n, err = d.file.WriteAt(p, ofs)
 	})
 	return n, err
 }
@@ -279,20 +286,12 @@ func (d *diskHealthCheckingFile) timeDiskOp(opType OpType, writeSizeInBytes int6
 
 	delta := time.Since(d.createTime)
 	packed := pack(delta, writeSizeInBytes, opType)
-	if invariants.Enabled {
-		if !atomic.CompareAndSwapUint64(&d.lastWritePacked, 0, packed) {
-			panic("concurrent write operations detected on file")
-		}
-	} else {
-		atomic.StoreUint64(&d.lastWritePacked, packed)
+	if d.lastWritePacked.Swap(packed) != 0 {
+		panic("concurrent write operations detected on file")
 	}
 	defer func() {
-		if invariants.Enabled {
-			if !atomic.CompareAndSwapUint64(&d.lastWritePacked, packed, 0) {
-				panic("concurrent write operations detected on file")
-			}
-		} else {
-			atomic.StoreUint64(&d.lastWritePacked, 0)
+		if d.lastWritePacked.Swap(0) != packed {
+			panic("concurrent write operations detected on file")
 		}
 	}()
 	op()
@@ -375,9 +374,17 @@ func (i DiskSlowInfo) String() string {
 
 // SafeFormat implements redact.SafeFormatter.
 func (i DiskSlowInfo) SafeFormat(w redact.SafePrinter, _ rune) {
-	w.Printf("disk slowness detected: %s on file %s (%d bytes) has been ongoing for %0.1fs",
-		redact.Safe(i.OpType.String()), redact.Safe(filepath.Base(i.Path)),
-		redact.Safe(i.WriteSize), redact.Safe(i.Duration.Seconds()))
+	switch i.OpType {
+	// Operations for which i.WriteSize is meaningful.
+	case OpTypeWrite, OpTypeSyncTo, OpTypePreallocate:
+		w.Printf("disk slowness detected: %s on file %s (%d bytes) has been ongoing for %0.1fs",
+			redact.Safe(i.OpType.String()), redact.Safe(filepath.Base(i.Path)),
+			redact.Safe(i.WriteSize), redact.Safe(i.Duration.Seconds()))
+	default:
+		w.Printf("disk slowness detected: %s on file %s has been ongoing for %0.1fs",
+			redact.Safe(i.OpType.String()), redact.Safe(filepath.Base(i.Path)),
+			redact.Safe(i.Duration.Seconds()))
+	}
 }
 
 // diskHealthCheckingFS adds disk-health checking facilities to a VFS.
@@ -443,7 +450,7 @@ type diskHealthCheckingFS struct {
 type slot struct {
 	name       string
 	opType     OpType
-	startNanos int64
+	startNanos atomic.Int64
 }
 
 // diskHealthCheckingFS implements FS.
@@ -510,12 +517,12 @@ func (d *diskHealthCheckingFS) timeFilesystemOp(name string, opType OpType, op f
 
 		startNanos := time.Now().UnixNano()
 		for i := 0; i < len(d.mu.inflight); i++ {
-			if atomic.LoadInt64(&d.mu.inflight[i].startNanos) == 0 {
+			if d.mu.inflight[i].startNanos.Load() == 0 {
 				// This slot is not in use. Claim it.
 				s = d.mu.inflight[i]
 				s.name = name
 				s.opType = opType
-				atomic.StoreInt64(&s.startNanos, startNanos)
+				s.startNanos.Store(startNanos)
 				break
 			}
 		}
@@ -526,10 +533,10 @@ func (d *diskHealthCheckingFS) timeFilesystemOp(name string, opType OpType, op f
 		// incur an allocation.
 		if s == nil {
 			s = &slot{
-				name:       name,
-				opType:     opType,
-				startNanos: startNanos,
+				name:   name,
+				opType: opType,
 			}
+			s.startNanos.Store(startNanos)
 			d.mu.inflight = append(d.mu.inflight, s)
 		}
 	}()
@@ -537,7 +544,7 @@ func (d *diskHealthCheckingFS) timeFilesystemOp(name string, opType OpType, op f
 	op()
 
 	// Signal completion by zeroing the start time.
-	atomic.StoreInt64(&s.startNanos, 0)
+	s.startNanos.Store(0)
 }
 
 // startTickerLocked starts a new goroutine with a ticker to monitor disk
@@ -548,7 +555,12 @@ func (d *diskHealthCheckingFS) startTickerLocked() {
 	go func() {
 		ticker := time.NewTicker(d.tickInterval)
 		defer ticker.Stop()
-		var exceededSlots []slot
+		type exceededSlot struct {
+			name       string
+			opType     OpType
+			startNanos int64
+		}
+		var exceededSlots []exceededSlot
 
 		for {
 			select {
@@ -559,14 +571,15 @@ func (d *diskHealthCheckingFS) startTickerLocked() {
 				d.mu.Lock()
 				now := time.Now()
 				for i := range d.mu.inflight {
-					nanos := atomic.LoadInt64(&d.mu.inflight[i].startNanos)
+					nanos := d.mu.inflight[i].startNanos.Load()
 					if nanos != 0 && time.Unix(0, nanos).Add(d.diskSlowThreshold).Before(now) {
 						// diskSlowThreshold was exceeded. Copy this inflightOp into
 						// exceededSlots and call d.onSlowDisk after dropping the mutex.
-						var inflightOp slot
-						inflightOp.name = d.mu.inflight[i].name
-						inflightOp.opType = d.mu.inflight[i].opType
-						inflightOp.startNanos = nanos
+						inflightOp := exceededSlot{
+							name:       d.mu.inflight[i].name,
+							opType:     d.mu.inflight[i].opType,
+							startNanos: nanos,
+						}
 						exceededSlots = append(exceededSlots, inflightOp)
 					}
 				}
@@ -678,6 +691,11 @@ func (d *diskHealthCheckingFS) MkdirAll(dir string, perm os.FileMode) error {
 // Open implements the FS interface.
 func (d *diskHealthCheckingFS) Open(name string, opts ...OpenOption) (File, error) {
 	return d.fs.Open(name, opts...)
+}
+
+// OpenReadWrite implements the FS interface.
+func (d *diskHealthCheckingFS) OpenReadWrite(name string, opts ...OpenOption) (File, error) {
+	return d.fs.OpenReadWrite(name, opts...)
 }
 
 // OpenDir implements the FS interface.

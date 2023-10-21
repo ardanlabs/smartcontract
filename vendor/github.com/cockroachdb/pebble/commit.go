@@ -9,7 +9,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"unsafe"
 
 	"github.com/cockroachdb/pebble/record"
 )
@@ -33,13 +32,13 @@ type commitQueue struct {
 	//
 	// The head index is stored in the most-significant bits so that we can
 	// atomically add to it and the overflow is harmless.
-	headTail uint64
+	headTail atomic.Uint64
 
 	// slots is a ring buffer of values stored in this queue. The size must be a
 	// power of 2. A slot is in use until *both* the tail index has moved beyond
 	// it and the slot value has been set to nil. The slot value is set to nil
 	// atomically by the consumer and read atomically by the producer.
-	slots [record.SyncConcurrency]unsafe.Pointer
+	slots [record.SyncConcurrency]atomic.Pointer[Batch]
 }
 
 const dequeueBits = 32
@@ -58,7 +57,7 @@ func (q *commitQueue) pack(head, tail uint32) uint64 {
 }
 
 func (q *commitQueue) enqueue(b *Batch) {
-	ptrs := atomic.LoadUint64(&q.headTail)
+	ptrs := q.headTail.Load()
 	head, tail := q.unpack(ptrs)
 	if (tail+uint32(len(q.slots)))&(1<<dequeueBits-1) == head {
 		// Queue is full. This should never be reached because commitPipeline.commitQueueSem
@@ -67,8 +66,8 @@ func (q *commitQueue) enqueue(b *Batch) {
 	}
 	slot := &q.slots[head&uint32(len(q.slots)-1)]
 
-	// Check if the head slot has been released by dequeue.
-	for atomic.LoadPointer(slot) != nil {
+	// Check if the head slot has been released by dequeueApplied.
+	for slot.Load() != nil {
 		// Another goroutine is still cleaning up the tail, so the queue is
 		// actually still full. We spin because this should resolve itself
 		// momentarily.
@@ -76,16 +75,20 @@ func (q *commitQueue) enqueue(b *Batch) {
 	}
 
 	// The head slot is free, so we own it.
-	atomic.StorePointer(slot, unsafe.Pointer(b))
+	slot.Store(b)
 
-	// Increment head. This passes ownership of slot to dequeue and acts as a
+	// Increment head. This passes ownership of slot to dequeueApplied and acts as a
 	// store barrier for writing the slot.
-	atomic.AddUint64(&q.headTail, 1<<dequeueBits)
+	q.headTail.Add(1 << dequeueBits)
 }
 
-func (q *commitQueue) dequeue() *Batch {
+// dequeueApplied removes the earliest enqueued Batch, if it is applied.
+//
+// Returns nil if the commit queue is empty or the earliest Batch is not yet
+// applied.
+func (q *commitQueue) dequeueApplied() *Batch {
 	for {
-		ptrs := atomic.LoadUint64(&q.headTail)
+		ptrs := q.headTail.Load()
 		head, tail := q.unpack(ptrs)
 		if tail == head {
 			// Queue is empty.
@@ -93,8 +96,8 @@ func (q *commitQueue) dequeue() *Batch {
 		}
 
 		slot := &q.slots[tail&uint32(len(q.slots)-1)]
-		b := (*Batch)(atomic.LoadPointer(slot))
-		if b == nil || atomic.LoadUint32(&b.applied) == 0 {
+		b := slot.Load()
+		if b == nil || !b.applied.Load() {
 			// The batch is not ready to be dequeued, or another goroutine has
 			// already dequeued it.
 			return nil
@@ -103,13 +106,13 @@ func (q *commitQueue) dequeue() *Batch {
 		// Confirm head and tail (for our speculative check above) and increment
 		// tail. If this succeeds, then we own the slot at tail.
 		ptrs2 := q.pack(head, tail+1)
-		if atomic.CompareAndSwapUint64(&q.headTail, ptrs, ptrs2) {
+		if q.headTail.CompareAndSwap(ptrs, ptrs2) {
 			// We now own slot.
 			//
 			// Tell enqueue that we're done with this slot. Zeroing the slot is also
 			// important so we don't leave behind references that could keep this object
 			// live longer than necessary.
-			atomic.StorePointer(slot, nil)
+			slot.Store(nil)
 			// At this point enqueue owns the slot.
 			return b
 		}
@@ -122,10 +125,10 @@ func (q *commitQueue) dequeue() *Batch {
 type commitEnv struct {
 	// The next sequence number to give to a batch. Protected by
 	// commitPipeline.mu.
-	logSeqNum *uint64
+	logSeqNum *atomic.Uint64
 	// The visible sequence number at which reads should be performed. Ratcheted
 	// upwards atomically as batches are applied to the memtable.
-	visibleSeqNum *uint64
+	visibleSeqNum *atomic.Uint64
 
 	// Apply the batch to the specified memtable. Called concurrently.
 	apply func(b *Batch, mem *memTable) error
@@ -239,6 +242,7 @@ type commitPipeline struct {
 	// logSyncQSem are used for this reservation.
 	commitQueueSem chan struct{}
 	logSyncQSem    chan struct{}
+	ingestSem      chan struct{}
 	// The mutex to use for synchronizing access to logSeqNum and serializing
 	// calls to commitEnv.write().
 	mu sync.Mutex
@@ -263,6 +267,7 @@ func newCommitPipeline(env commitEnv) *commitPipeline {
 		// and sync the WAL.
 		commitQueueSem: make(chan struct{}, record.SyncConcurrency-1),
 		logSyncQSem:    make(chan struct{}, record.SyncConcurrency-1),
+		ingestSem:      make(chan struct{}, 1),
 	}
 	return p
 }
@@ -381,12 +386,12 @@ func (p *commitPipeline) AllocateSeqNum(
 	// Assign the batch a sequence number. Note that we use atomic operations
 	// here to handle concurrent reads of logSeqNum. commitPipeline.mu provides
 	// mutual exclusion for other goroutines writing to logSeqNum.
-	logSeqNum := atomic.AddUint64(p.env.logSeqNum, uint64(count)) - uint64(count)
+	logSeqNum := p.env.logSeqNum.Add(uint64(count)) - uint64(count)
 	seqNum := logSeqNum
 	if seqNum == 0 {
 		// We can't use the value 0 for the global seqnum during ingestion, because
 		// 0 indicates no global seqnum. So allocate one more seqnum.
-		atomic.AddUint64(p.env.logSeqNum, 1)
+		p.env.logSeqNum.Add(1)
 		seqNum++
 	}
 	b.setSeqNum(seqNum)
@@ -396,7 +401,7 @@ func (p *commitPipeline) AllocateSeqNum(
 	// writes that were sequenced before the ingestion. The spin loop is
 	// unfortunate, but obviates the need for additional synchronization.
 	for {
-		visibleSeqNum := atomic.LoadUint64(p.env.visibleSeqNum)
+		visibleSeqNum := p.env.visibleSeqNum.Load()
 		if visibleSeqNum == logSeqNum {
 			break
 		}
@@ -455,7 +460,7 @@ func (p *commitPipeline) prepare(b *Batch, syncWAL bool, noSyncWait bool) (*memT
 	// Assign the batch a sequence number. Note that we use atomic operations
 	// here to handle concurrent reads of logSeqNum. commitPipeline.mu provides
 	// mutual exclusion for other goroutines writing to logSeqNum.
-	b.setSeqNum(atomic.AddUint64(p.env.logSeqNum, n) - n)
+	b.setSeqNum(p.env.logSeqNum.Add(n) - n)
 
 	// Write the data to the WAL.
 	mem, err := p.env.write(b, syncWG, syncErr)
@@ -467,17 +472,17 @@ func (p *commitPipeline) prepare(b *Batch, syncWAL bool, noSyncWait bool) (*memT
 
 func (p *commitPipeline) publish(b *Batch) {
 	// Mark the batch as applied.
-	atomic.StoreUint32(&b.applied, 1)
+	b.applied.Store(true)
 
 	// Loop dequeuing applied batches from the pending queue. If our batch was
 	// the head of the pending queue we are guaranteed that either we'll publish
-	// it or someone else will dequeue and publish it. If our batch is not the
-	// head of the queue then either we'll dequeue applied batches and reach our
+	// it or someone else will dequeueApplied and publish it. If our batch is not the
+	// head of the queue then either we'll dequeueApplied applied batches and reach our
 	// batch or there is an unapplied batch blocking us. When that unapplied
 	// batch applies it will go through the same process and publish our batch
 	// for us.
 	for {
-		t := p.pending.dequeue()
+		t := p.pending.dequeueApplied()
 		if t == nil {
 			// Wait for another goroutine to publish us. We might also be waiting for
 			// the WAL sync to finish.
@@ -486,7 +491,7 @@ func (p *commitPipeline) publish(b *Batch) {
 			b.commitStats.CommitWaitDuration += time.Since(now)
 			break
 		}
-		if atomic.LoadUint32(&t.applied) != 1 {
+		if !t.applied.Load() {
 			panic("not reached")
 		}
 
@@ -495,13 +500,13 @@ func (p *commitPipeline) publish(b *Batch) {
 		// number for a subsequent batch. That's ok as all we're guaranteeing is
 		// that the sequence number ratchets up.
 		for {
-			curSeqNum := atomic.LoadUint64(p.env.visibleSeqNum)
+			curSeqNum := p.env.visibleSeqNum.Load()
 			newSeqNum := t.SeqNum() + uint64(t.Count())
 			if newSeqNum <= curSeqNum {
 				// t's sequence number has already been published.
 				break
 			}
-			if atomic.CompareAndSwapUint64(p.env.visibleSeqNum, curSeqNum, newSeqNum) {
+			if p.env.visibleSeqNum.CompareAndSwap(curSeqNum, newSeqNum) {
 				// We successfully published t's sequence number.
 				break
 			}

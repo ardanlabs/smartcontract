@@ -29,25 +29,27 @@ import (
 // is used here. If a key/value overflows a uint32, it should not be added to
 // the skiplist.
 func MaxNodeSize(keySize, valueSize uint32) uint64 {
-	return uint64(maxNodeSize) + uint64(keySize) + uint64(valueSize) + align4
+	const maxPadding = nodeAlignment - 1
+	return uint64(maxNodeSize) + uint64(keySize) + uint64(valueSize) + maxPadding
 }
 
 type links struct {
-	nextOffset uint32
-	prevOffset uint32
+	nextOffset atomic.Uint32
+	prevOffset atomic.Uint32
 }
 
 func (l *links) init(prevOffset, nextOffset uint32) {
-	l.nextOffset = nextOffset
-	l.prevOffset = prevOffset
+	l.nextOffset.Store(nextOffset)
+	l.prevOffset.Store(prevOffset)
 }
 
 type node struct {
 	// Immutable fields, so no need to lock to access key.
-	keyOffset uint32
-	keySize   uint32
-	valueSize uint32
-	allocSize uint32
+	keyOffset  uint32
+	keySize    uint32
+	keyTrailer uint64
+	valueSize  uint32
+	allocSize  uint32
 
 	// Most nodes do not need to use the full height of the tower, since the
 	// probability of each successive level decreases exponentially. Because
@@ -65,7 +67,7 @@ func newNode(
 	if height < 1 || height > maxHeight {
 		panic("height cannot be less than one or greater than the max height")
 	}
-	keySize := key.Size()
+	keySize := len(key.UserKey)
 	if int64(keySize) > math.MaxUint32 {
 		panic("key is too large")
 	}
@@ -81,8 +83,8 @@ func newNode(
 	if err != nil {
 		return
 	}
-
-	key.Encode(nd.getKeyBytes(arena))
+	nd.keyTrailer = key.Trailer
+	copy(nd.getKeyBytes(arena), key.UserKey)
 	copy(nd.getValue(arena), value)
 	return
 }
@@ -93,7 +95,7 @@ func newRawNode(arena *Arena, height uint32, keySize, valueSize uint32) (nd *nod
 	unusedSize := uint32((maxHeight - int(height)) * linksSize)
 	nodeSize := uint32(maxNodeSize) - unusedSize
 
-	nodeOffset, allocSize, err := arena.alloc(nodeSize+keySize+valueSize, align4, unusedSize)
+	nodeOffset, allocSize, err := arena.alloc(nodeSize+keySize+valueSize, nodeAlignment, unusedSize)
 	if err != nil {
 		return
 	}
@@ -115,17 +117,17 @@ func (n *node) getValue(arena *Arena) []byte {
 }
 
 func (n *node) nextOffset(h int) uint32 {
-	return atomic.LoadUint32(&n.tower[h].nextOffset)
+	return n.tower[h].nextOffset.Load()
 }
 
 func (n *node) prevOffset(h int) uint32 {
-	return atomic.LoadUint32(&n.tower[h].prevOffset)
+	return n.tower[h].prevOffset.Load()
 }
 
 func (n *node) casNextOffset(h int, old, val uint32) bool {
-	return atomic.CompareAndSwapUint32(&n.tower[h].nextOffset, old, val)
+	return n.tower[h].nextOffset.CompareAndSwap(old, val)
 }
 
 func (n *node) casPrevOffset(h int, old, val uint32) bool {
-	return atomic.CompareAndSwapUint32(&n.tower[h].prevOffset, old, val)
+	return n.tower[h].prevOffset.CompareAndSwap(old, val)
 }

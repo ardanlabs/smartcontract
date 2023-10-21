@@ -108,7 +108,7 @@ type annotation struct {
 }
 
 type leafNode struct {
-	ref   int32
+	ref   atomic.Int32
 	count int16
 	leaf  bool
 	// subtreeCount holds the count of files in the entire subtree formed by
@@ -139,13 +139,13 @@ func leafToNode(ln *leafNode) *node {
 func newLeafNode() *node {
 	n := leafToNode(new(leafNode))
 	n.leaf = true
-	n.ref = 1
+	n.ref.Store(1)
 	return n
 }
 
 func newNode() *node {
 	n := new(node)
-	n.ref = 1
+	n.ref.Store(1)
 	return n
 }
 
@@ -159,7 +159,7 @@ func newNode() *node {
 // When a node is cloned, the provided pointer will be redirected to the new
 // mutable node.
 func mut(n **node) *node {
-	if atomic.LoadInt32(&(*n).ref) == 1 {
+	if (*n).ref.Load() == 1 {
 		// Exclusive ownership. Can mutate in place.
 
 		// Whenever a node will be mutated, reset its annotations to be marked
@@ -186,7 +186,7 @@ func mut(n **node) *node {
 
 // incRef acquires a reference to the node.
 func (n *node) incRef() {
-	atomic.AddInt32(&n.ref, 1)
+	n.ref.Add(1)
 }
 
 // decRef releases a reference to the node. If requested, the method will unref
@@ -195,8 +195,8 @@ func (n *node) incRef() {
 // new nodes pass contentsToo=false to preserve existing reference counts during
 // operations that should yield a net-zero change to descendant refcounts.
 // When a node is released, its contained files are dereferenced.
-func (n *node) decRef(contentsToo bool, obsolete *[]*FileMetadata) {
-	if atomic.AddInt32(&n.ref, -1) > 0 {
+func (n *node) decRef(contentsToo bool, obsolete *[]*FileBacking) {
+	if n.ref.Add(-1) > 0 {
 		// Other references remain. Can't free.
 		return
 	}
@@ -207,7 +207,7 @@ func (n *node) decRef(contentsToo bool, obsolete *[]*FileMetadata) {
 	// nodes, and they want to preserve the existing reference count.
 	if contentsToo {
 		for _, f := range n.items[:n.count] {
-			if atomic.AddInt32(&f.Refs, -1) == 0 {
+			if f.Unref() == 0 {
 				// There are two sources of node dereferences: tree mutations
 				// and Version dereferences. Files should only be made obsolete
 				// during Version dereferences, during which `obsolete` will be
@@ -215,7 +215,13 @@ func (n *node) decRef(contentsToo bool, obsolete *[]*FileMetadata) {
 				if obsolete == nil {
 					panic(fmt.Sprintf("file metadata %s dereferenced to zero during tree mutation", f.FileNum))
 				}
-				*obsolete = append(*obsolete, f)
+				// Reference counting is performed on the FileBacking. In the case
+				// of a virtual sstable, this reference counting is performed on
+				// a FileBacking which is shared by every single virtual sstable
+				// with the same backing sstable. If the reference count hits 0,
+				// then we know that the FileBacking won't be required by any
+				// sstable in Pebble, and that the backing sstable can be deleted.
+				*obsolete = append(*obsolete, f.FileBacking)
 			}
 		}
 		if !n.leaf {
@@ -241,7 +247,7 @@ func (n *node) clone() *node {
 	c.subtreeCount = n.subtreeCount
 	// Increase the refcount of each contained item.
 	for _, f := range n.items[:n.count] {
-		atomic.AddInt32(&f.Refs, 1)
+		f.Ref()
 	}
 	if !c.leaf {
 		// Copy children and increase each refcount.
@@ -761,8 +767,8 @@ type btree struct {
 
 // Release dereferences and clears the root node of the btree, removing all
 // items from the btree. In doing so, it decrements contained file counts.
-// It returns a slice of newly obsolete files, if any.
-func (t *btree) Release() (obsolete []*FileMetadata) {
+// It returns a slice of newly obsolete backing files, if any.
+func (t *btree) Release() (obsolete []*FileBacking) {
 	if t.root != nil {
 		t.root.decRef(true /* contentsToo */, &obsolete)
 		t.root = nil
@@ -800,7 +806,7 @@ func (t *btree) Delete(item *FileMetadata) (obsolete bool) {
 		return false
 	}
 	if out := mut(&t.root).Remove(t.cmp, item); out != nil {
-		obsolete = atomic.AddInt32(&out.Refs, -1) == 0
+		obsolete = out.Unref() == 0
 	}
 	if invariants.Enabled {
 		t.root.verifyInvariants()
@@ -832,7 +838,7 @@ func (t *btree) Insert(item *FileMetadata) error {
 		newRoot.subtreeCount = t.root.subtreeCount + splitNode.subtreeCount + 1
 		t.root = newRoot
 	}
-	atomic.AddInt32(&item.Refs, 1)
+	item.Ref()
 	err := mut(&t.root).Insert(t.cmp, item)
 	if invariants.Enabled {
 		t.root.verifyInvariants()

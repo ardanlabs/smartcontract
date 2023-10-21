@@ -140,6 +140,9 @@ type ClientOptions struct {
 	// and if applicable, caught errors type and value.
 	// If the match is found, then a whole event will be dropped.
 	IgnoreErrors []string
+	// List of regexp strings that will be used to match against a transaction's
+	// name.  If a match is found, then the transaction  will be dropped.
+	IgnoreTransactions []string
 	// If this flag is enabled, certain personally identifiable information (PII) is added by active integrations.
 	// By default, no such data is sent.
 	SendDefaultPII bool
@@ -221,6 +224,8 @@ type ClientOptions struct {
 	// is not optimized for long chains either. The top-level error together with a
 	// stack trace is often the most useful information.
 	MaxErrorDepth int
+	// Default event tags. These are overridden by tags set on a scope.
+	Tags map[string]string
 }
 
 // Client is the underlying processor that is used by the main API and Hub
@@ -371,6 +376,8 @@ func (client *Client) setupIntegrations() {
 		new(environmentIntegration),
 		new(modulesIntegration),
 		new(ignoreErrorsIntegration),
+		new(ignoreTransactionsIntegration),
+		new(globalTagsIntegration),
 	}
 
 	if client.options.Integrations != nil {
