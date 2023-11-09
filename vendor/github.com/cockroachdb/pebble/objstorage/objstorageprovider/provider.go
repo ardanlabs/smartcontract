@@ -97,10 +97,10 @@ type Settings struct {
 	Remote struct {
 		StorageFactory remote.StorageFactory
 
-		// If CreateOnShared is non-zero, sstables are created on remote storage using
+		// If CreateOnShared is true, sstables are created on remote storage using
 		// the CreateOnSharedLocator (when the PreferSharedStorage create option is
 		// true).
-		CreateOnShared        remote.CreateOnSharedStrategy
+		CreateOnShared        bool
 		CreateOnSharedLocator remote.Locator
 
 		// CacheSizeBytes is the size of the on-disk block cache for objects
@@ -249,13 +249,13 @@ func (p *provider) Create(
 	fileNum base.DiskFileNum,
 	opts objstorage.CreateOptions,
 ) (w objstorage.Writable, meta objstorage.ObjectMetadata, err error) {
-	if opts.PreferSharedStorage && p.st.Remote.CreateOnShared != remote.CreateOnSharedNone {
+	if opts.PreferSharedStorage && p.st.Remote.CreateOnShared {
 		w, meta, err = p.sharedCreate(ctx, fileType, fileNum, p.st.Remote.CreateOnSharedLocator, opts)
 	} else {
 		w, meta, err = p.vfsCreate(ctx, fileType, fileNum)
 	}
 	if err != nil {
-		err = errors.Wrapf(err, "creating object %s", fileNum)
+		err = errors.Wrapf(err, "creating object %s", errors.Safe(fileNum))
 		return nil, objstorage.ObjectMetadata{}, err
 	}
 	p.addMetadata(meta)
@@ -292,7 +292,7 @@ func (p *provider) Remove(fileType base.FileType, fileNum base.DiskFileNum) erro
 		// We want to be able to retry a Remove, so we keep the object in our list.
 		// TODO(radu): we should mark the object as "zombie" and not allow any other
 		// operations.
-		return errors.Wrapf(err, "removing object %s", fileNum)
+		return errors.Wrapf(err, "removing object %s", errors.Safe(fileNum))
 	}
 
 	p.removeMetadata(fileNum)
@@ -338,7 +338,7 @@ func (p *provider) LinkOrCopyFromLocal(
 	dstFileNum base.DiskFileNum,
 	opts objstorage.CreateOptions,
 ) (objstorage.ObjectMetadata, error) {
-	shared := opts.PreferSharedStorage && p.st.Remote.CreateOnShared != remote.CreateOnSharedNone
+	shared := opts.PreferSharedStorage && p.st.Remote.CreateOnShared
 	if !shared && srcFS == p.st.FS {
 		// Wrap the normal filesystem with one which wraps newly created files with
 		// vfs.NewSyncingFile.
@@ -404,13 +404,13 @@ func (p *provider) Lookup(
 		return objstorage.ObjectMetadata{}, errors.Wrapf(
 			os.ErrNotExist,
 			"file %s (type %d) unknown to the objstorage provider",
-			fileNum, errors.Safe(fileType),
+			errors.Safe(fileNum), errors.Safe(fileType),
 		)
 	}
 	if meta.FileType != fileType {
 		return objstorage.ObjectMetadata{}, errors.AssertionFailedf(
 			"file %s type mismatch (known type %d, expected type %d)",
-			fileNum, errors.Safe(meta.FileType), errors.Safe(fileType),
+			errors.Safe(fileNum), errors.Safe(meta.FileType), errors.Safe(fileType),
 		)
 	}
 	return meta, nil

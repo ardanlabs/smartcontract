@@ -94,7 +94,7 @@ type VersionEdit struct {
 	// mutations that have not been flushed to an sstable.
 	//
 	// This is an optional field, and 0 represents it is not set.
-	MinUnflushedLogNum base.DiskFileNum
+	MinUnflushedLogNum base.FileNum
 
 	// ObsoletePrevLogNum is a historic artifact from LevelDB that is not used by
 	// Pebble, RocksDB, or even LevelDB. Its use in LevelDB was deprecated in
@@ -104,7 +104,7 @@ type VersionEdit struct {
 
 	// The next file number. A single counter is used to assign file numbers
 	// for the WAL, MANIFEST, sstable, and OPTIONS files.
-	NextFileNum uint64
+	NextFileNum base.FileNum
 
 	// LastSeqNum is an upper bound on the sequence numbers that have been
 	// assigned in flushed WALs. Unflushed WALs (that will be replayed during
@@ -175,14 +175,14 @@ func (v *VersionEdit) Decode(r io.Reader) error {
 			v.ComparerName = string(s)
 
 		case tagLogNumber:
-			n, err := d.readUvarint()
+			n, err := d.readFileNum()
 			if err != nil {
 				return err
 			}
-			v.MinUnflushedLogNum = base.DiskFileNum(n)
+			v.MinUnflushedLogNum = n
 
 		case tagNextFileNumber:
-			n, err := d.readUvarint()
+			n, err := d.readFileNum()
 			if err != nil {
 				return err
 			}
@@ -852,8 +852,6 @@ func AccumulateIncompleteAndApplySingleVE(
 	flushSplitBytes int64,
 	readCompactionRate int64,
 	backingStateMap map[base.DiskFileNum]*FileBacking,
-	addBackingFunc func(*FileBacking),
-	removeBackingFunc func(base.DiskFileNum),
 ) (_ *Version, zombies map[base.DiskFileNum]uint64, _ error) {
 	if len(ve.RemovedBackingTables) != 0 {
 		panic("pebble: invalid incomplete version edit")
@@ -872,7 +870,7 @@ func AccumulateIncompleteAndApplySingleVE(
 	}
 
 	for _, s := range b.AddedFileBacking {
-		addBackingFunc(s)
+		backingStateMap[s.DiskFileNum] = s
 	}
 
 	for fileNum := range zombies {
@@ -883,9 +881,10 @@ func AccumulateIncompleteAndApplySingleVE(
 			ve.RemovedBackingTables = append(
 				ve.RemovedBackingTables, fileNum,
 			)
-			removeBackingFunc(fileNum)
+			delete(backingStateMap, fileNum)
 		}
 	}
+
 	return v, zombies, nil
 }
 
