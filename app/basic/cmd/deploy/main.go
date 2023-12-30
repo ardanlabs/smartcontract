@@ -28,6 +28,8 @@ func main() {
 func run() (err error) {
 	ctx := context.Background()
 
+	stdOut := log.NewLogger(log.NewTerminalHandlerWithLevel(os.Stdout, log.LevelInfo, true))
+
 	backend, err := ethereum.CreateDialedBackend(ctx, ethereum.NetworkLocalhost)
 	if err != nil {
 		return err
@@ -104,7 +106,7 @@ func run() (err error) {
 
 	fmt.Println("\nWaiting Logs")
 	fmt.Println("----------------------------------------------------")
-	log.Root().SetHandler(log.StdoutHandler)
+	log.SetDefault(stdOut)
 
 	receipt, err := clt.WaitMined(ctx, tx)
 	if err != nil {

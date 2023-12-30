@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"math/big"
 	"os"
 
@@ -27,6 +28,9 @@ func main() {
 
 func run() (err error) {
 	ctx := context.Background()
+
+	stdOut := log.NewLogger(log.NewTerminalHandlerWithLevel(os.Stdout, log.LevelInfo, true))
+	discard := log.NewLogger(log.NewTerminalHandlerWithLevel(io.Discard, log.LevelInfo, true))
 
 	backend, err := ethereum.CreateDialedBackend(ctx, ethereum.NetworkLocalhost)
 	if err != nil {
@@ -104,14 +108,14 @@ func run() (err error) {
 
 	fmt.Println("\nWaiting Logs")
 	fmt.Println("----------------------------------------------------")
-	log.Root().SetHandler(log.StdoutHandler)
+	log.SetDefault(stdOut)
 
 	receipt, err := clt.WaitMined(ctx, tx)
 	if err != nil {
 		return err
 	}
 	fmt.Print(converter.FmtTransactionReceipt(receipt, tx.GasPrice()))
-	log.Root().SetHandler(log.DiscardHandler())
+	log.SetDefault(discard)
 
 	// =========================================================================
 
