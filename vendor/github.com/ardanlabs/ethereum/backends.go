@@ -8,11 +8,11 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 )
 
 // DialedBackend represents a dialied connection to an ethereum node.
@@ -58,7 +58,8 @@ func (b *DialedBackend) ChainID() *big.Int {
 
 // SimulatedBackend represents a simulated connection to an ethereum node.
 type SimulatedBackend struct {
-	*backends.SimulatedBackend
+	simulated.Client
+	*simulated.Backend
 	AutoCommit  bool
 	PrivateKeys []*ecdsa.PrivateKey
 	network     string
@@ -85,22 +86,23 @@ func CreateSimulatedBackend(numAccounts int, autoCommit bool, accountBalance *bi
 		}
 	}
 
-	maxLimit := uint64(9223372036854775807)
-	client := backends.NewSimulatedBackend(alloc, maxLimit)
+	gasLimit := uint64(9223372036854775807)
+	backend := simulated.NewBackend(alloc, simulated.WithBlockGasLimit(gasLimit))
 
 	// Setting the clock 5.15 minutes into the past to deal with bugs using
 	// the simulated clock. Transactions will not be committed otherwise.
 	now := time.Since(time.Date(1970, time.January, 1, 0, 5, 15, 0, time.UTC))
-	client.AdjustTime(now)
+	backend.AdjustTime(now)
 
-	client.Commit()
+	backend.Commit()
 
 	b := SimulatedBackend{
-		SimulatedBackend: client,
-		AutoCommit:       autoCommit,
-		PrivateKeys:      keys,
-		network:          "simulated",
-		chainID:          big.NewInt(1337),
+		Client:      backend.Client(),
+		Backend:     backend,
+		AutoCommit:  autoCommit,
+		PrivateKeys: keys,
+		network:     "simulated",
+		chainID:     big.NewInt(1337),
 	}
 
 	return &b, nil
@@ -119,7 +121,7 @@ func (b *SimulatedBackend) ChainID() *big.Int {
 // SendTransaction functions pipes its parameters to the embedded backend and
 // also calls Commit() if sb.AutoCommit==true.
 func (b *SimulatedBackend) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	if err := b.SimulatedBackend.SendTransaction(ctx, tx); err != nil {
+	if err := b.Client.SendTransaction(ctx, tx); err != nil {
 		return err
 	}
 
