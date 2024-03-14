@@ -88,6 +88,7 @@ type database struct {
 type Options struct {
 	Path     string
 	Readonly bool
+	Repair   bool
 	Snappy   bool // unused for now
 }
 
@@ -105,6 +106,7 @@ func Open(opts Options, slotSizeFn SlotSizeFn, onData OnDataFn) (Database, error
 		prevSlotSize uint32
 		prevId       int
 		slotSize     uint32
+		slotSizes    []uint32
 		done         bool
 	)
 	for !done {
@@ -113,18 +115,21 @@ func Open(opts Options, slotSizeFn SlotSizeFn, onData OnDataFn) (Database, error
 			return nil, fmt.Errorf("slot sizes must be in increasing order")
 		}
 		prevSlotSize = slotSize
-		shelf, err := openShelf(opts.Path, slotSize, wrapShelfDataFn(len(db.shelves), slotSize, onData), opts.Readonly)
+
+		slotSizes = append(slotSizes, slotSize)
+		if id := len(slotSizes) & 0xfff; id < prevId {
+			return nil, fmt.Errorf("too many shelves (%d)", len(slotSizes))
+		} else {
+			prevId = id
+		}
+	}
+	for _, slotSize = range slotSizes {
+		shelf, err := openShelf(opts.Path, slotSize, wrapShelfDataFn(len(db.shelves), slotSize, onData), opts.Readonly, opts.Repair)
 		if err != nil {
 			db.Close() // Close shelves
 			return nil, err
 		}
 		db.shelves = append(db.shelves, shelf)
-
-		if id := len(db.shelves) & 0xfff; id < prevId {
-			return nil, fmt.Errorf("too many shelves (%d)", len(db.shelves))
-		} else {
-			prevId = id
-		}
 	}
 	return db, nil
 }
