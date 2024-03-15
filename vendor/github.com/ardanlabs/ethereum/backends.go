@@ -8,7 +8,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -71,7 +70,7 @@ type SimulatedBackend struct {
 // with the NewSimulation call to get an Ethereum API value.
 func CreateSimulatedBackend(numAccounts int, autoCommit bool, accountBalance *big.Int) (*SimulatedBackend, error) {
 	keys := make([]*ecdsa.PrivateKey, numAccounts)
-	alloc := make(core.GenesisAlloc)
+	alloc := make(types.GenesisAlloc)
 
 	for i := 0; i < numAccounts; i++ {
 		privateKey, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
@@ -81,7 +80,7 @@ func CreateSimulatedBackend(numAccounts int, autoCommit bool, accountBalance *bi
 
 		keys[i] = privateKey
 
-		alloc[crypto.PubkeyToAddress(privateKey.PublicKey)] = core.GenesisAccount{
+		alloc[crypto.PubkeyToAddress(privateKey.PublicKey)] = types.Account{
 			Balance: big.NewInt(0).Mul(accountBalance, big.NewInt(1e18)),
 		}
 	}

@@ -14,7 +14,7 @@ github.com/Microsoft/go-winio/pkg/guid
 # github.com/VictoriaMetrics/fastcache v1.12.2
 ## explicit; go 1.13
 github.com/VictoriaMetrics/fastcache
-# github.com/ardanlabs/ethereum v0.18.1
+# github.com/ardanlabs/ethereum v0.19.0
 ## explicit; go 1.21.6
 github.com/ardanlabs/ethereum
 github.com/ardanlabs/ethereum/currency

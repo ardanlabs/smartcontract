@@ -9,8 +9,8 @@ github.com/VictoriaMetrics/fastcache v1.12.2/go.mod h1:AmC+Nzz1+3G2eCPapF6UcsnkT
 github.com/allegro/bigcache v1.2.1-0.20190218064605-e24eb225f156/go.mod h1:Cb/ax3seSYIx7SuZdm2G2xzfwmv3TPSk2ucNfQESPXM=
 github.com/allegro/bigcache v1.2.1 h1:hg1sY1raCwic3Vnsvje6TT7/pnZba83LeFck5NrFKSc=
 github.com/allegro/bigcache v1.2.1/go.mod h1:Cb/ax3seSYIx7SuZdm2G2xzfwmv3TPSk2ucNfQESPXM=
-github.com/ardanlabs/ethereum v0.18.1 h1:byUcbDTBeH+wg95QdGwuZ/8/WLwdj/Hg88vwRMQ8z6E=
-github.com/ardanlabs/ethereum v0.18.1/go.mod h1:14shCGpZhCHHGyNhidy49bSovQ4bLEGl1L65DiWA1F0=
+github.com/ardanlabs/ethereum v0.19.0 h1:KFBwq1b3rF/pdEj3k80yo8S1NebojdXIzw3USESEWNI=
+github.com/ardanlabs/ethereum v0.19.0/go.mod h1:9KXq8cG+Ur6JxDyw4xCLZWjumiwyMeODulBcF8BorHg=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/bits-and-blooms/bitset v1.13.0 h1:bAQ9OPNFYbGHV6Nez0tmNI0RiEu7/hxlYJRUA0wFAVE=
