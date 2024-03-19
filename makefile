@@ -61,7 +61,7 @@
 #     github.com/crate-crypto/go-kzg-4844 v0.7.0 // indirect
 #     github.com/cockroachdb/pebble v0.0.0-20230928194634-aa077af62593 // indirect
 
-SOLC_EVM_VERSION := london
+SOLC_EVM_VERSION := shanghai
 
 # ==============================================================================
 # Install dependencies
