@@ -28,10 +28,13 @@ import (
 // FormatVersion that the default corresponds to may change with time.
 type FormatMajorVersion uint64
 
+// SafeValue implements redact.SafeValue.
+func (v FormatMajorVersion) SafeValue() {}
+
 // String implements fmt.Stringer.
 func (v FormatMajorVersion) String() string {
-	// NB: This must not change. It's used as the value for the the
-	// on-disk version marker file.
+	// NB: This must not change. It's used as the value for the on-disk
+	// version marker file.
 	//
 	// Specifically, this value must always parse as a base 10 integer
 	// that fits in a uint64. We format it as zero-padded, 3-digit
@@ -110,12 +113,12 @@ const (
 
 	// 23.1 versions.
 
-	// FormatUnusedPrePebblev1MarkedCompacted is an unused format major version.
+	// formatUnusedPrePebblev1MarkedCompacted is an unused format major version.
 	// This format major version was originally intended to ship in the 23.1
 	// release. It was later decided that this should be deferred until a
 	// subsequent release. The original ordering is preserved so as not to
 	// introduce breaking changes in Cockroach.
-	FormatUnusedPrePebblev1MarkedCompacted
+	formatUnusedPrePebblev1MarkedCompacted
 
 	// FormatSSTableValueBlocks is a format major version that adds support for
 	// storing values in value blocks in the sstable. Value block support is not
@@ -186,7 +189,7 @@ func (v FormatMajorVersion) MaxTableFormat() sstable.TableFormat {
 		FormatSplitUserKeysMarkedCompacted:
 		return sstable.TableFormatPebblev1
 	case FormatRangeKeys, FormatMinTableFormatPebblev1, FormatPrePebblev1Marked,
-		FormatUnusedPrePebblev1MarkedCompacted:
+		formatUnusedPrePebblev1MarkedCompacted:
 		return sstable.TableFormatPebblev2
 	case FormatSSTableValueBlocks, FormatFlushableIngest, FormatPrePebblev1MarkedCompacted:
 		return sstable.TableFormatPebblev3
@@ -207,13 +210,25 @@ func (v FormatMajorVersion) MinTableFormat() sstable.TableFormat {
 		FormatRangeKeys:
 		return sstable.TableFormatLevelDB
 	case FormatMinTableFormatPebblev1, FormatPrePebblev1Marked,
-		FormatUnusedPrePebblev1MarkedCompacted, FormatSSTableValueBlocks,
+		formatUnusedPrePebblev1MarkedCompacted, FormatSSTableValueBlocks,
 		FormatFlushableIngest, FormatPrePebblev1MarkedCompacted,
 		FormatDeleteSizedAndObsolete, FormatVirtualSSTables:
 		return sstable.TableFormatPebblev1
 	default:
 		panic(fmt.Sprintf("pebble: unsupported format major version: %s", v))
 	}
+}
+
+// orderingInvariants returns an enum encoding the set of invariants that must
+// hold within the receiver format major version. Invariants only get stricter
+// as the format major version advances, so it is okay to retrieve the
+// invariants from the current format major version and by the time the
+// invariants are enforced, the format major version has advanced.
+func (v FormatMajorVersion) orderingInvariants() manifest.OrderingInvariants {
+	if v < FormatSplitUserKeysMarkedCompacted {
+		return manifest.AllowSplitUserKeys
+	}
+	return manifest.ProhibitSplitUserKeys
 }
 
 // formatMajorVersionMigrations defines the migrations from one format
@@ -323,9 +338,9 @@ var formatMajorVersionMigrations = map[FormatMajorVersion]func(*DB) error{
 		}
 		return d.finalizeFormatVersUpgrade(FormatPrePebblev1Marked)
 	},
-	FormatUnusedPrePebblev1MarkedCompacted: func(d *DB) error {
+	formatUnusedPrePebblev1MarkedCompacted: func(d *DB) error {
 		// Intentional no-op.
-		return d.finalizeFormatVersUpgrade(FormatUnusedPrePebblev1MarkedCompacted)
+		return d.finalizeFormatVersUpgrade(formatUnusedPrePebblev1MarkedCompacted)
 	},
 	FormatSSTableValueBlocks: func(d *DB) error {
 		return d.finalizeFormatVersUpgrade(FormatSSTableValueBlocks)

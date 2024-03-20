@@ -685,19 +685,44 @@ type Options struct {
 		// allows ingestion of external files.
 		RemoteStorage remote.StorageFactory
 
-		// If CreateOnShared is true, any new sstables are created on remote storage
-		// (using CreateOnSharedLocator). These sstables can be shared between
-		// different Pebble instances; the lifecycle of such objects is managed by
-		// the cluster.
+		// If CreateOnShared is non-zero, new sstables are created on remote storage
+		// (using CreateOnSharedLocator and with the appropriate
+		// CreateOnSharedStrategy). These sstables can be shared between different
+		// Pebble instances; the lifecycle of such objects is managed by the
+		// remote.Storage constructed by options.RemoteStorage.
 		//
 		// Can only be used when RemoteStorage is set (and recognizes
 		// CreateOnSharedLocator).
-		CreateOnShared        bool
+		CreateOnShared        remote.CreateOnSharedStrategy
 		CreateOnSharedLocator remote.Locator
 
 		// CacheSizeBytesBytes is the size of the on-disk block cache for objects
 		// on shared storage in bytes. If it is 0, no cache is used.
 		SecondaryCacheSizeBytes int64
+
+		// IneffectualPointDeleteCallback is called in compactions/flushes if any
+		// single delete is being elided without deleting a point set/merge.
+		IneffectualSingleDeleteCallback func(userKey []byte)
+
+		// SingleDeleteInvariantViolationCallback is called in compactions/flushes if any
+		// single delete has consumed a Set/Merge, and there is another immediately older
+		// Set/SetWithDelete/Merge. The user of Pebble has violated the invariant under
+		// which SingleDelete can be used correctly.
+		//
+		// Consider the sequence SingleDelete#3, Set#2, Set#1. There are three
+		// ways some of these keys can first meet in a compaction.
+		//
+		// - All 3 keys in the same compaction: this callback will detect the
+		//   violation.
+		//
+		// - SingleDelete#3, Set#2 meet in a compaction first: Both keys will
+		//   disappear. The violation will not be detected, and the DB will have
+		//   Set#1 which is likely incorrect (from the user's perspective).
+		//
+		// - Set#2, Set#1 meet in a compaction first: The output will be Set#2,
+		//   which will later be consumed by SingleDelete#3. The violation will
+		//   not be detected and the DB will be correct.
+		SingleDeleteInvariantViolationCallback func(userKey []byte)
 	}
 
 	// Filters is a map from filter policy name to filter policy. It is used for
@@ -954,6 +979,10 @@ type Options struct {
 
 		// A private option to disable stats collection.
 		disableTableStats bool
+
+		// testingAlwaysWaitForCleanup is set by some tests to force waiting for
+		// obsolete file deletion (to make events deterministic).
+		testingAlwaysWaitForCleanup bool
 
 		// fsCloser holds a closer that should be invoked after a DB using these
 		// Options is closed. This is used to automatically stop the
@@ -1249,6 +1278,7 @@ func (o *Options) String() string {
 	fmt.Fprintf(&buf, "  max_writer_concurrency=%d\n", o.Experimental.MaxWriterConcurrency)
 	fmt.Fprintf(&buf, "  force_writer_parallelism=%t\n", o.Experimental.ForceWriterParallelism)
 	fmt.Fprintf(&buf, "  secondary_cache_size_bytes=%d\n", o.Experimental.SecondaryCacheSizeBytes)
+	fmt.Fprintf(&buf, "  create_on_shared=%d\n", o.Experimental.CreateOnShared)
 
 	// Private options.
 	//
@@ -1524,6 +1554,10 @@ func (o *Options) Parse(s string, hooks *ParseHooks) error {
 				o.Experimental.ForceWriterParallelism, err = strconv.ParseBool(value)
 			case "secondary_cache_size_bytes":
 				o.Experimental.SecondaryCacheSizeBytes, err = strconv.ParseInt(value, 10, 64)
+			case "create_on_shared":
+				var createOnSharedInt int64
+				createOnSharedInt, err = strconv.ParseInt(value, 10, 64)
+				o.Experimental.CreateOnShared = remote.CreateOnSharedStrategy(createOnSharedInt)
 			default:
 				if hooks != nil && hooks.SkipUnknown != nil && hooks.SkipUnknown(section+"."+key, value) {
 					return nil

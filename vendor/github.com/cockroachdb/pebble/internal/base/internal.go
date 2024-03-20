@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/cockroachdb/redact"
 )
 
 const (
@@ -159,6 +161,11 @@ func (k InternalKeyKind) String() string {
 		return internalKeyKindNames[k]
 	}
 	return fmt.Sprintf("UNKNOWN:%d", k)
+}
+
+// SafeFormat implements redact.SafeFormatter.
+func (k InternalKeyKind) SafeFormat(w redact.SafePrinter, _ rune) {
+	w.Print(redact.SafeString(k.String()))
 }
 
 // InternalKey is a key used for the in-memory and on-disk partial DBs that
@@ -372,6 +379,11 @@ func (k *InternalKey) SetSeqNum(seqNum uint64) {
 // SeqNum returns the sequence number component of the key.
 func (k InternalKey) SeqNum() uint64 {
 	return k.Trailer >> 8
+}
+
+// SeqNumFromTrailer returns the sequence number component of a trailer.
+func SeqNumFromTrailer(t uint64) uint64 {
+	return t >> 8
 }
 
 // Visible returns true if the key is visible at the specified snapshot

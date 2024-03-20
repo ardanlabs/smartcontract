@@ -14,12 +14,13 @@ import (
 	"github.com/cockroachdb/pebble/internal/keyspan"
 	"github.com/cockroachdb/pebble/internal/manifest"
 	"github.com/cockroachdb/pebble/objstorage"
+	"github.com/cockroachdb/pebble/objstorage/remote"
 )
 
 const (
 	// In skip-shared iteration mode, keys in levels sharedLevelsStart and greater
 	// (i.e. lower in the LSM) are skipped.
-	sharedLevelsStart = 5
+	sharedLevelsStart = remote.SharedLevelsStart
 )
 
 // ErrInvalidSkipSharedIteration is returned by ScanInternal if it was called
@@ -661,7 +662,17 @@ func scanInternalImpl(
 		case InternalKeyKindRangeKeyDelete, InternalKeyKindRangeKeyUnset, InternalKeyKindRangeKeySet:
 			if opts.visitRangeKey != nil {
 				span := iter.unsafeSpan()
-				if err := opts.visitRangeKey(span.Start, span.End, span.Keys); err != nil {
+				// NB: The caller isn't interested in the sequence numbers of these
+				// range keys. Rather, the caller wants them to be in trailer order
+				// _after_ zeroing of sequence numbers. Copy span.Keys, sort it, and then
+				// call visitRangeKey.
+				keysCopy := make([]keyspan.Key, len(span.Keys))
+				for i := range span.Keys {
+					keysCopy[i] = span.Keys[i]
+					keysCopy[i].Trailer = base.MakeTrailer(0, span.Keys[i].Kind())
+				}
+				keyspan.SortKeysByTrailer(&keysCopy)
+				if err := opts.visitRangeKey(span.Start, span.End, keysCopy); err != nil {
 					return err
 				}
 			}
@@ -832,7 +843,7 @@ func (i *scanInternalIterator) constructRangeKeyIter() {
 	// RangeKeyUnsets and RangeKeyDels.
 	i.rangeKey.rangeKeyIter = i.rangeKey.iterConfig.Init(
 		i.comparer, i.seqNum, i.opts.LowerBound, i.opts.UpperBound,
-		nil /* hasPrefix */, nil /* prefix */, false, /* onlySets */
+		nil /* hasPrefix */, nil /* prefix */, true, /* internalKeys */
 		&i.rangeKey.rangeKeyBuffers.internal)
 
 	// Next are the flushables: memtables and large batches.

@@ -34,9 +34,6 @@ import (
 )
 
 const (
-	// maxDiffLayers is the maximum diff layers allowed in the layer tree.
-	maxDiffLayers = 128
-
 	// defaultCleanSize is the default memory allowance of clean cache.
 	defaultCleanSize = 16 * 1024 * 1024
 
@@ -52,6 +49,11 @@ const (
 	// Do not increase the buffer size arbitrarily, otherwise the system
 	// pause time will increase when the database writes happen.
 	DefaultBufferSize = 64 * 1024 * 1024
+)
+
+var (
+	// maxDiffLayers is the maximum diff layers allowed in the layer tree.
+	maxDiffLayers = 128
 )
 
 // layer is the interface implemented by all state layers which includes some
@@ -203,7 +205,6 @@ func New(diskdb ethdb.Database, config *Config) *Database {
 			log.Crit("Failed to disable database", "err", err) // impossible to happen
 		}
 	}
-	log.Warn("Path-based state scheme is an experimental feature")
 	return db
 }
 
@@ -391,17 +392,20 @@ func (db *Database) Recoverable(root common.Hash) bool {
 	if *id >= dl.stateID() {
 		return false
 	}
+	// This is a temporary workaround for the unavailability of the freezer in
+	// dev mode. As a consequence, the Pathdb loses the ability for deep reorg
+	// in certain cases.
+	// TODO(rjl493456442): Implement the in-memory ancient store.
+	if db.freezer == nil {
+		return false
+	}
 	// Ensure the requested state is a canonical state and all state
 	// histories in range [id+1, disklayer.ID] are present and complete.
-	parent := root
 	return checkHistories(db.freezer, *id+1, dl.stateID()-*id, func(m *meta) error {
-		if m.parent != parent {
+		if m.parent != root {
 			return errors.New("unexpected state history")
 		}
-		if len(m.incomplete) > 0 {
-			return errors.New("incomplete state history")
-		}
-		parent = m.root
+		root = m.root
 		return nil
 	}) == nil
 }
