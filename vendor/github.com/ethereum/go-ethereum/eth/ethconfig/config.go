@@ -83,7 +83,7 @@ type Config struct {
 	SyncMode  downloader.SyncMode
 
 	// This can be set to list of enrtree:// URLs which will be queried for
-	// for nodes to connect to.
+	// nodes to connect to.
 	EthDiscoveryURLs  []string
 	SnapDiscoveryURLs []string
 
@@ -140,6 +140,10 @@ type Config struct {
 
 	// Enables tracking of SHA3 preimages in the VM
 	EnablePreimageRecording bool
+
+	// Enables VM tracing
+	VMTrace       string
+	VMTraceConfig string
 
 	// Miscellaneous options
 	DocRoot string `toml:"-"`

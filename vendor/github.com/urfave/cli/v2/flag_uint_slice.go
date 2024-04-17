@@ -201,15 +201,6 @@ func (f *UintSliceFlag) Get(ctx *Context) []uint {
 	return ctx.UintSlice(f.Name)
 }
 
-// RunAction executes flag action if set
-func (f *UintSliceFlag) RunAction(c *Context) error {
-	if f.Action != nil {
-		return f.Action(c, c.UintSlice(f.Name))
-	}
-
-	return nil
-}
-
 // UintSlice looks up the value of a local UintSliceFlag, returns
 // nil if not found
 func (cCtx *Context) UintSlice(name string) []uint {

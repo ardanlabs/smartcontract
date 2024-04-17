@@ -31,15 +31,10 @@ func (f *StringFlag) GetDefaultText() string {
 	if f.DefaultText != "" {
 		return f.DefaultText
 	}
-	val := f.Value
-	if f.defaultValueSet {
-		val = f.defaultValue
+	if f.defaultValue == "" {
+		return f.defaultValue
 	}
-
-	if val == "" {
-		return val
-	}
-	return fmt.Sprintf("%q", val)
+	return fmt.Sprintf("%q", f.defaultValue)
 }
 
 // GetEnvVars returns the env vars for this flag
@@ -51,7 +46,6 @@ func (f *StringFlag) GetEnvVars() []string {
 func (f *StringFlag) Apply(set *flag.FlagSet) error {
 	// set default value so that environment wont be able to overwrite it
 	f.defaultValue = f.Value
-	f.defaultValueSet = true
 
 	if val, _, found := flagFromEnvOrFile(f.EnvVars, f.FilePath); found {
 		f.Value = val

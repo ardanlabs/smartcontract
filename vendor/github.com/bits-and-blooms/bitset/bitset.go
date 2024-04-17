@@ -94,17 +94,17 @@ func (b *BitSet) SetBitsetFrom(buf []uint64) {
 	b.set = buf
 }
 
-// From is a constructor used to create a BitSet from an array of words
+// From is a constructor used to create a BitSet from an array of integers
 func From(buf []uint64) *BitSet {
 	return FromWithLength(uint(len(buf))*64, buf)
 }
 
-// FromWithLength constructs from an array of words and length.
+// FromWithLength constructs from an array of integers and length.
 func FromWithLength(len uint, set []uint64) *BitSet {
 	return &BitSet{len, set}
 }
 
-// Bytes returns the bitset as array of words
+// Bytes returns the bitset as array of integers
 func (b *BitSet) Bytes() []uint64 {
 	return b.set
 }
@@ -247,13 +247,8 @@ func (b *BitSet) FlipRange(start, end uint) *BitSet {
 	var startWord uint = start >> log2WordSize
 	var endWord uint = end >> log2WordSize
 	b.set[startWord] ^= ^(^uint64(0) << wordsIndex(start))
-	if endWord > 0 {
-		// bounds check elimination
-		data := b.set
-		_ = data[endWord-1]
-		for i := startWord; i < endWord; i++ {
-			data[i] = ^data[i]
-		}
+	for i := startWord; i < endWord; i++ {
+		b.set[i] = ^b.set[i]
 	}
 	if end&(wordSize-1) != 0 {
 		b.set[endWord] ^= ^uint64(0) >> wordsIndex(-end)
@@ -432,16 +427,12 @@ func (b *BitSet) NextSet(i uint) (uint, bool) {
 	if w != 0 {
 		return i + trailingZeroes64(w), true
 	}
-	x++
-	// bounds check elimination in the loop
-	if x < 0 {
-		return 0, false
-	}
+	x = x + 1
 	for x < len(b.set) {
 		if b.set[x] != 0 {
 			return uint(x)*wordSize + trailingZeroes64(b.set[x]), true
 		}
-		x++
+		x = x + 1
 
 	}
 	return 0, false
@@ -525,16 +516,10 @@ func (b *BitSet) NextClear(i uint) (uint, bool) {
 		return index, true
 	}
 	x++
-	// bounds check elimination in the loop
-	if x < 0 {
-		return 0, false
-	}
 	for x < len(b.set) {
-		if b.set[x] != allBits {
-			index = uint(x)*wordSize + trailingZeroes64(^b.set[x])
-			if index < b.length {
-				return index, true
-			}
+		index = uint(x)*wordSize + trailingZeroes64(^b.set[x])
+		if b.set[x] != allBits && index < b.length {
+			return index, true
 		}
 		x++
 	}
@@ -547,18 +532,6 @@ func (b *BitSet) ClearAll() *BitSet {
 		for i := range b.set {
 			b.set[i] = 0
 		}
-	}
-	return b
-}
-
-// SetAll sets the entire BitSet
-func (b *BitSet) SetAll() *BitSet {
-	if b != nil && b.set != nil {
-		for i := range b.set {
-			b.set[i] = allBits
-		}
-
-		b.cleanLastWord()
 	}
 	return b
 }
@@ -642,12 +615,6 @@ func (b *BitSet) Equal(c *BitSet) bool {
 		return true
 	}
 	wn := b.wordCount()
-	// bounds check elimination
-	if wn <= 0 {
-		return true
-	}
-	_ = b.set[wn-1]
-	_ = c.set[wn-1]
 	for p := 0; p < wn; p++ {
 		if c.set[p] != b.set[p] {
 			return false
@@ -668,9 +635,9 @@ func (b *BitSet) Difference(compare *BitSet) (result *BitSet) {
 	panicIfNull(b)
 	panicIfNull(compare)
 	result = b.Clone() // clone b (in case b is bigger than compare)
-	l := compare.wordCount()
-	if l > b.wordCount() {
-		l = b.wordCount()
+	l := int(compare.wordCount())
+	if l > int(b.wordCount()) {
+		l = int(b.wordCount())
 	}
 	for i := 0; i < l; i++ {
 		result.set[i] = b.set[i] &^ compare.set[i]
@@ -682,9 +649,9 @@ func (b *BitSet) Difference(compare *BitSet) (result *BitSet) {
 func (b *BitSet) DifferenceCardinality(compare *BitSet) uint {
 	panicIfNull(b)
 	panicIfNull(compare)
-	l := compare.wordCount()
-	if l > b.wordCount() {
-		l = b.wordCount()
+	l := int(compare.wordCount())
+	if l > int(b.wordCount()) {
+		l = int(b.wordCount())
 	}
 	cnt := uint64(0)
 	cnt += popcntMaskSlice(b.set[:l], compare.set[:l])
@@ -697,19 +664,12 @@ func (b *BitSet) DifferenceCardinality(compare *BitSet) uint {
 func (b *BitSet) InPlaceDifference(compare *BitSet) {
 	panicIfNull(b)
 	panicIfNull(compare)
-	l := compare.wordCount()
-	if l > b.wordCount() {
-		l = b.wordCount()
+	l := int(compare.wordCount())
+	if l > int(b.wordCount()) {
+		l = int(b.wordCount())
 	}
-	if l <= 0 {
-		return
-	}
-	// bounds check elimination
-	data, cmpData := b.set, compare.set
-	_ = data[l-1]
-	_ = cmpData[l-1]
 	for i := 0; i < l; i++ {
-		data[i] &^= cmpData[i]
+		b.set[i] &^= compare.set[i]
 	}
 }
 
@@ -752,24 +712,15 @@ func (b *BitSet) IntersectionCardinality(compare *BitSet) uint {
 func (b *BitSet) InPlaceIntersection(compare *BitSet) {
 	panicIfNull(b)
 	panicIfNull(compare)
-	l := compare.wordCount()
-	if l > b.wordCount() {
-		l = b.wordCount()
+	l := int(compare.wordCount())
+	if l > int(b.wordCount()) {
+		l = int(b.wordCount())
 	}
-	if l > 0 {
-		// bounds check elimination
-		data, cmpData := b.set, compare.set
-		_ = data[l-1]
-		_ = cmpData[l-1]
-
-		for i := 0; i < l; i++ {
-			data[i] &= cmpData[i]
-		}
+	for i := 0; i < l; i++ {
+		b.set[i] &= compare.set[i]
 	}
-	if l >= 0 {
-		for i := l; i < len(b.set); i++ {
-			b.set[i] = 0
-		}
+	for i := l; i < len(b.set); i++ {
+		b.set[i] = 0
 	}
 	if compare.length > 0 {
 		if compare.length-1 >= b.length {
@@ -809,22 +760,15 @@ func (b *BitSet) UnionCardinality(compare *BitSet) uint {
 func (b *BitSet) InPlaceUnion(compare *BitSet) {
 	panicIfNull(b)
 	panicIfNull(compare)
-	l := compare.wordCount()
-	if l > b.wordCount() {
-		l = b.wordCount()
+	l := int(compare.wordCount())
+	if l > int(b.wordCount()) {
+		l = int(b.wordCount())
 	}
 	if compare.length > 0 && compare.length-1 >= b.length {
 		b.extendSet(compare.length - 1)
 	}
-	if l > 0 {
-		// bounds check elimination
-		data, cmpData := b.set, compare.set
-		_ = data[l-1]
-		_ = cmpData[l-1]
-
-		for i := 0; i < l; i++ {
-			data[i] |= cmpData[i]
-		}
+	for i := 0; i < l; i++ {
+		b.set[i] |= compare.set[i]
 	}
 	if len(compare.set) > l {
 		for i := l; i < len(compare.set); i++ {
@@ -864,21 +808,15 @@ func (b *BitSet) SymmetricDifferenceCardinality(compare *BitSet) uint {
 func (b *BitSet) InPlaceSymmetricDifference(compare *BitSet) {
 	panicIfNull(b)
 	panicIfNull(compare)
-	l := compare.wordCount()
-	if l > b.wordCount() {
-		l = b.wordCount()
+	l := int(compare.wordCount())
+	if l > int(b.wordCount()) {
+		l = int(b.wordCount())
 	}
 	if compare.length > 0 && compare.length-1 >= b.length {
 		b.extendSet(compare.length - 1)
 	}
-	if l > 0 {
-		// bounds check elimination
-		data, cmpData := b.set, compare.set
-		_ = data[l-1]
-		_ = cmpData[l-1]
-		for i := 0; i < l; i++ {
-			data[i] ^= cmpData[i]
-		}
+	for i := 0; i < l; i++ {
+		b.set[i] ^= compare.set[i]
 	}
 	if len(compare.set) > l {
 		for i := l; i < len(compare.set); i++ {
@@ -939,16 +877,12 @@ func (b *BitSet) Any() bool {
 
 // IsSuperSet returns true if this is a superset of the other set
 func (b *BitSet) IsSuperSet(other *BitSet) bool {
-	l := other.wordCount()
-	if b.wordCount() < l {
-		l = b.wordCount()
-	}
-	for i, word := range other.set[:l] {
-		if b.set[i]&word != word {
+	for i, e := other.NextSet(0); e; i, e = other.NextSet(i + 1) {
+		if !b.Test(i) {
 			return false
 		}
 	}
-	return popcntSlice(other.set[l:]) == 0
+	return true
 }
 
 // IsStrictSuperSet returns true if this is a strict superset of the other set
@@ -956,8 +890,7 @@ func (b *BitSet) IsStrictSuperSet(other *BitSet) bool {
 	return b.Count() > other.Count() && b.IsSuperSet(other)
 }
 
-// DumpAsBits dumps a bit set as a string of bits. Following the usual convention in Go,
-// the least significant bits are printed last (index 0 is at the end of the string).
+// DumpAsBits dumps a bit set as a string of bits
 func (b *BitSet) DumpAsBits() string {
 	if b.set == nil {
 		return "."
@@ -1147,38 +1080,4 @@ func (b *BitSet) UnmarshalJSON(data []byte) error {
 
 	_, err = b.ReadFrom(bytes.NewReader(buf))
 	return err
-}
-
-// Rank returns the nunber of set bits up to and including the index
-// that are set in the bitset.
-// See https://en.wikipedia.org/wiki/Ranking#Ranking_in_statistics
-func (b *BitSet) Rank(index uint) uint {
-	if index >= b.length {
-		return b.Count()
-	}
-	leftover := (index + 1) & 63
-	answer := uint(popcntSlice(b.set[:(index+1)>>6]))
-	if leftover != 0 {
-		answer += uint(popcount(b.set[(index+1)>>6] << (64 - leftover)))
-	}
-	return answer
-}
-
-// Select returns the index of the jth set bit, where j is the argument.
-// The caller is responsible to ensure that 0 <= j < Count(): when j is
-// out of range, the function returns the length of the bitset (b.length).
-//
-// Note that this function differs in convention from the Rank function which
-// returns 1 when ranking the smallest value. We follow the conventional
-// textbook definition of Select and Rank.
-func (b *BitSet) Select(index uint) uint {
-	leftover := index
-	for idx, word := range b.set {
-		w := uint(popcount(word))
-		if w > leftover {
-			return uint(idx)*64 + select64(word, leftover)
-		}
-		leftover -= w
-	}
-	return b.length
 }

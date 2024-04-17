@@ -272,27 +272,13 @@ func (b *bucket) cleanLocked() {
 	bGen := b.gen & ((1 << genSizeBits) - 1)
 	bIdx := b.idx
 	bm := b.m
-	newItems := 0
-	for _, v := range bm {
+	for k, v := range bm {
 		gen := v >> bucketSizeBits
 		idx := v & ((1 << bucketSizeBits) - 1)
 		if (gen+1 == bGen || gen == maxGen && bGen == 1) && idx >= bIdx || gen == bGen && idx < bIdx {
-			newItems++
+			continue
 		}
-	}
-	if newItems < len(bm) {
-		// Re-create b.m with valid items, which weren't expired yet instead of deleting expired items from b.m.
-		// This should reduce memory fragmentation and the number Go objects behind b.m.
-		// See https://github.com/VictoriaMetrics/VictoriaMetrics/issues/5379
-		bmNew := make(map[uint64]uint64, newItems)
-		for k, v := range bm {
-			gen := v >> bucketSizeBits
-			idx := v & ((1 << bucketSizeBits) - 1)
-			if (gen+1 == bGen || gen == maxGen && bGen == 1) && idx >= bIdx || gen == bGen && idx < bIdx {
-				bmNew[k] = v
-			}
-		}
-		b.m = bmNew
+		delete(bm, k)
 	}
 }
 

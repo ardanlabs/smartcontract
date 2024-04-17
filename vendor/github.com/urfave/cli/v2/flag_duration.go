@@ -32,10 +32,7 @@ func (f *DurationFlag) GetDefaultText() string {
 	if f.DefaultText != "" {
 		return f.DefaultText
 	}
-	if f.defaultValueSet {
-		return f.defaultValue.String()
-	}
-	return f.Value.String()
+	return f.defaultValue.String()
 }
 
 // GetEnvVars returns the env vars for this flag
@@ -47,7 +44,6 @@ func (f *DurationFlag) GetEnvVars() []string {
 func (f *DurationFlag) Apply(set *flag.FlagSet) error {
 	// set default value so that environment wont be able to overwrite it
 	f.defaultValue = f.Value
-	f.defaultValueSet = true
 
 	if val, source, found := flagFromEnvOrFile(f.EnvVars, f.FilePath); found {
 		if val != "" {

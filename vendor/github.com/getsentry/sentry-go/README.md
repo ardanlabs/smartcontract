@@ -96,7 +96,7 @@ checkout the official documentation:
 ## License
 
 Licensed under
-[The MIT License](https://opensource.org/licenses/mit/), see
+[The 2-Clause BSD License](https://opensource.org/licenses/BSD-2-Clause), see
 [`LICENSE`](LICENSE).
 
 ## Community

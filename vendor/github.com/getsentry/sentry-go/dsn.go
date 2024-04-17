@@ -180,9 +180,19 @@ func (dsn Dsn) GetProjectID() string {
 	return dsn.projectID
 }
 
-// GetAPIURL returns the URL of the envelope endpoint of the project
+// StoreAPIURL returns the URL of the store endpoint of the project associated
+// with the DSN.
+func (dsn Dsn) StoreAPIURL() *url.URL {
+	return dsn.getAPIURL("store")
+}
+
+// EnvelopeAPIURL returns the URL of the envelope endpoint of the project
 // associated with the DSN.
-func (dsn Dsn) GetAPIURL() *url.URL {
+func (dsn Dsn) EnvelopeAPIURL() *url.URL {
+	return dsn.getAPIURL("envelope")
+}
+
+func (dsn Dsn) getAPIURL(s string) *url.URL {
 	var rawURL string
 	rawURL += fmt.Sprintf("%s://%s", dsn.scheme, dsn.host)
 	if dsn.port != dsn.scheme.defaultPort() {
@@ -191,20 +201,15 @@ func (dsn Dsn) GetAPIURL() *url.URL {
 	if dsn.path != "" {
 		rawURL += dsn.path
 	}
-	rawURL += fmt.Sprintf("/api/%s/%s/", dsn.projectID, "envelope")
+	rawURL += fmt.Sprintf("/api/%s/%s/", dsn.projectID, s)
 	parsedURL, _ := url.Parse(rawURL)
 	return parsedURL
 }
 
-// RequestHeaders returns all the necessary headers that have to be used in the transport when seinding events
-// to the /store endpoint.
-//
-// Deprecated: This method shall only be used if you want to implement your own transport that sends events to
-// the /store endpoint. If you're using the transport provided by the SDK, all necessary headers to authenticate
-// against the /envelope endpoint are added automatically.
+// RequestHeaders returns all the necessary headers that have to be used in the transport.
 func (dsn Dsn) RequestHeaders() map[string]string {
 	auth := fmt.Sprintf("Sentry sentry_version=%s, sentry_timestamp=%d, "+
-		"sentry_client=sentry.go/%s, sentry_key=%s", apiVersion, time.Now().Unix(), SDKVersion, dsn.publicKey)
+		"sentry_client=sentry.go/%s, sentry_key=%s", apiVersion, time.Now().Unix(), Version, dsn.publicKey)
 
 	if dsn.secretKey != "" {
 		auth = fmt.Sprintf("%s, sentry_secret=%s", auth, dsn.secretKey)

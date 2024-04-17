@@ -1,6 +1,8 @@
 package zstd
 
 /*
+#define ZSTD_STATIC_LINKING_ONLY
+#include "stdint.h"  // for uintptr_t
 #include "zstd.h"
 
 typedef struct compressStream2_result_s {
@@ -9,10 +11,9 @@ typedef struct compressStream2_result_s {
 	size_t bytes_written;
 } compressStream2_result;
 
-static void ZSTD_compressStream2_wrapper(compressStream2_result* result, ZSTD_CCtx* ctx,
-		void* dst, size_t maxDstSize, const void* src, size_t srcSize) {
-	ZSTD_outBuffer outBuffer = { dst, maxDstSize, 0 };
-	ZSTD_inBuffer inBuffer = { src, srcSize, 0 };
+static void ZSTD_compressStream2_wrapper(compressStream2_result* result, ZSTD_CCtx* ctx, uintptr_t dst, size_t maxDstSize, const uintptr_t src, size_t srcSize) {
+	ZSTD_outBuffer outBuffer = { (void*)dst, maxDstSize, 0 };
+	ZSTD_inBuffer inBuffer = { (void*)src, srcSize, 0 };
 	size_t retCode = ZSTD_compressStream2(ctx, &outBuffer, &inBuffer, ZSTD_e_continue);
 
 	result->return_code = retCode;
@@ -20,21 +21,9 @@ static void ZSTD_compressStream2_wrapper(compressStream2_result* result, ZSTD_CC
 	result->bytes_written = outBuffer.pos;
 }
 
-static void ZSTD_compressStream2_flush(compressStream2_result* result, ZSTD_CCtx* ctx,
-		void* dst, size_t maxDstSize, const void* src, size_t srcSize) {
-	ZSTD_outBuffer outBuffer = { dst, maxDstSize, 0 };
-	ZSTD_inBuffer inBuffer = { src, srcSize, 0 };
-	size_t retCode = ZSTD_compressStream2(ctx, &outBuffer, &inBuffer, ZSTD_e_flush);
-
-	result->return_code = retCode;
-	result->bytes_consumed = inBuffer.pos;
-	result->bytes_written = outBuffer.pos;
-}
-
-static void ZSTD_compressStream2_finish(compressStream2_result* result, ZSTD_CCtx* ctx,
-		void* dst, size_t maxDstSize, const void* src, size_t srcSize) {
-	ZSTD_outBuffer outBuffer = { dst, maxDstSize, 0 };
-	ZSTD_inBuffer inBuffer = { src, srcSize, 0 };
+static void ZSTD_compressStream2_finish(compressStream2_result* result, ZSTD_CCtx* ctx, uintptr_t dst, size_t maxDstSize, const uintptr_t src, size_t srcSize) {
+	ZSTD_outBuffer outBuffer = { (void*)dst, maxDstSize, 0 };
+	ZSTD_inBuffer inBuffer = { (void*)src, srcSize, 0 };
 	size_t retCode = ZSTD_compressStream2(ctx, &outBuffer, &inBuffer, ZSTD_e_end);
 
 	result->return_code = retCode;
@@ -49,10 +38,9 @@ typedef struct decompressStream2_result_s {
 	size_t bytes_written;
 } decompressStream2_result;
 
-static void ZSTD_decompressStream_wrapper(decompressStream2_result* result, ZSTD_DCtx* ctx,
-		void* dst, size_t maxDstSize, const void* src, size_t srcSize) {
-	ZSTD_outBuffer outBuffer = { dst, maxDstSize, 0 };
-	ZSTD_inBuffer inBuffer = { src, srcSize, 0 };
+static void ZSTD_decompressStream_wrapper(decompressStream2_result* result, ZSTD_DCtx* ctx, uintptr_t dst, size_t maxDstSize, const uintptr_t src, size_t srcSize) {
+	ZSTD_outBuffer outBuffer = { (void*)dst, maxDstSize, 0 };
+	ZSTD_inBuffer inBuffer = { (void*)src, srcSize, 0 };
 	size_t retCode = ZSTD_decompressStream(ctx, &outBuffer, &inBuffer);
 
 	result->return_code = retCode;
@@ -72,7 +60,6 @@ import (
 
 var errShortRead = errors.New("short read")
 var errReaderClosed = errors.New("Reader is closed")
-var ErrNoParallelSupport = errors.New("No parallel support")
 
 // Writer is an io.WriteCloser that zstd-compresses its input.
 type Writer struct {
@@ -168,19 +155,20 @@ func (w *Writer) Write(p []byte) (int, error) {
 		srcData = w.srcBuffer
 	}
 
-	if len(srcData) == 0 {
-		// this is technically unnecessary: srcData is p or w.srcBuffer, and len() > 0 checked above
-		// but this ensures the code can change without dereferencing an srcData[0]
-		return 0, nil
+	srcPtr := C.uintptr_t(uintptr(0)) // Do not point anywhere, if src is empty
+	if len(srcData) > 0 {
+		srcPtr = C.uintptr_t(uintptr(unsafe.Pointer(&srcData[0])))
 	}
+
 	C.ZSTD_compressStream2_wrapper(
 		w.resultBuffer,
 		w.ctx,
-		unsafe.Pointer(&w.dstBuffer[0]),
+		C.uintptr_t(uintptr(unsafe.Pointer(&w.dstBuffer[0]))),
 		C.size_t(len(w.dstBuffer)),
-		unsafe.Pointer(&srcData[0]),
+		srcPtr,
 		C.size_t(len(srcData)),
 	)
+	runtime.KeepAlive(p) // Ensure p is kept until here so pointer doesn't disappear during C call
 	ret := int(w.resultBuffer.return_code)
 	if err := getError(ret); err != nil {
 		return 0, err
@@ -215,49 +203,6 @@ func (w *Writer) Write(p []byte) (int, error) {
 	return len(p), err
 }
 
-// Flush writes any unwritten data to the underlying io.Writer.
-func (w *Writer) Flush() error {
-	if w.firstError != nil {
-		return w.firstError
-	}
-
-	ret := 1 // So we loop at least once
-	for ret > 0 {
-		var srcPtr *byte // Do not point anywhere, if src is empty
-		if len(w.srcBuffer) > 0 {
-			srcPtr = &w.srcBuffer[0]
-		}
-
-		C.ZSTD_compressStream2_flush(
-			w.resultBuffer,
-			w.ctx,
-			unsafe.Pointer(&w.dstBuffer[0]),
-			C.size_t(len(w.dstBuffer)),
-			unsafe.Pointer(srcPtr),
-			C.size_t(len(w.srcBuffer)),
-		)
-		ret = int(w.resultBuffer.return_code)
-		if err := getError(ret); err != nil {
-			return err
-		}
-		w.srcBuffer = w.srcBuffer[w.resultBuffer.bytes_consumed:]
-		written := int(w.resultBuffer.bytes_written)
-		_, err := w.underlyingWriter.Write(w.dstBuffer[:written])
-		if err != nil {
-			return err
-		}
-
-		if ret > 0 { // We have a hint if we need to resize the dstBuffer
-			w.dstBuffer = w.dstBuffer[:cap(w.dstBuffer)]
-			if len(w.dstBuffer) < ret {
-				w.dstBuffer = make([]byte, ret)
-			}
-		}
-	}
-
-	return nil
-}
-
 // Close closes the Writer, flushing any unwritten data to the underlying
 // io.Writer and freeing objects, but does not close the underlying io.Writer.
 func (w *Writer) Close() error {
@@ -267,17 +212,17 @@ func (w *Writer) Close() error {
 
 	ret := 1 // So we loop at least once
 	for ret > 0 {
-		var srcPtr *byte // Do not point anywhere, if src is empty
+		srcPtr := C.uintptr_t(uintptr(0)) // Do not point anywhere, if src is empty
 		if len(w.srcBuffer) > 0 {
-			srcPtr = &w.srcBuffer[0]
+			srcPtr = C.uintptr_t(uintptr(unsafe.Pointer(&w.srcBuffer[0])))
 		}
 
 		C.ZSTD_compressStream2_finish(
 			w.resultBuffer,
 			w.ctx,
-			unsafe.Pointer(&w.dstBuffer[0]),
+			C.uintptr_t(uintptr(unsafe.Pointer(&w.dstBuffer[0]))),
 			C.size_t(len(w.dstBuffer)),
-			unsafe.Pointer(srcPtr),
+			srcPtr,
 			C.size_t(len(w.srcBuffer)),
 		)
 		ret = int(w.resultBuffer.return_code)
@@ -286,11 +231,7 @@ func (w *Writer) Close() error {
 		}
 		w.srcBuffer = w.srcBuffer[w.resultBuffer.bytes_consumed:]
 		written := int(w.resultBuffer.bytes_written)
-		_, err := w.underlyingWriter.Write(w.dstBuffer[:written])
-		if err != nil {
-			C.ZSTD_freeCStream(w.ctx)
-			return err
-		}
+		w.underlyingWriter.Write(w.dstBuffer[:written])
 
 		if ret > 0 { // We have a hint if we need to resize the dstBuffer
 			w.dstBuffer = w.dstBuffer[:cap(w.dstBuffer)]
@@ -301,28 +242,6 @@ func (w *Writer) Close() error {
 	}
 
 	return getError(int(C.ZSTD_freeCStream(w.ctx)))
-}
-
-// Set the number of workers to run the compression in parallel using multiple threads
-// If > 1, the Write() call will become asynchronous. This means data will be buffered until processed.
-// If you call Write() too fast, you might incur a memory buffer up to as large as your input.
-// Consider calling Flush() periodically if you need to compress a very large file that would not fit all in memory.
-// By default only one worker is used.
-func (w *Writer) SetNbWorkers(n int) error {
-	if w.firstError != nil {
-		return w.firstError
-	}
-	if err := getError(int(C.ZSTD_CCtx_setParameter(w.ctx, C.ZSTD_c_nbWorkers, C.int(n)))); err != nil {
-		w.firstError = err
-		// First error case, a shared libary is used, and the library was compiled without parallel support
-		if err.Error() == "Unsupported parameter" {
-			return ErrNoParallelSupport
-		} else {
-			// This could happen if a very large number is passed in, and possibly zstd refuse to create as many threads, or the OS fails to do so
-			return err
-		}
-	}
-	return nil
 }
 
 // cSize is the recommended size of reader.compressionBuffer. This func and
@@ -444,86 +363,49 @@ func (r *reader) Read(p []byte) (int, error) {
 		return 0, r.firstError
 	}
 
-	if len(p) == 0 {
-		return 0, nil
+	// If we already have enough bytes, return
+	if r.decompSize-r.decompOff >= len(p) {
+		copy(p, r.decompressionBuffer[r.decompOff:])
+		r.decompOff += len(p)
+		return len(p), nil
 	}
 
-	// If we already have some uncompressed bytes, return without blocking
-	if r.decompSize > r.decompOff {
-		if r.decompSize-r.decompOff > len(p) {
-			copy(p, r.decompressionBuffer[r.decompOff:])
-			r.decompOff += len(p)
-			return len(p), nil
-		}
-		// From https://golang.org/pkg/io/#Reader
-		// > Read conventionally returns what is available instead of waiting for more.
-		copy(p, r.decompressionBuffer[r.decompOff:r.decompSize])
-		got := r.decompSize - r.decompOff
-		r.decompOff = r.decompSize
-		return got, nil
-	}
+	copy(p, r.decompressionBuffer[r.decompOff:r.decompSize])
+	got := r.decompSize - r.decompOff
+	r.decompSize = 0
+	r.decompOff = 0
 
-	// Repeatedly read from the underlying reader until we get
-	// at least one zstd block, so that we don't block if the
-	// other end has flushed a block.
-	for {
-		// - If the last decompression didn't entirely fill the decompression buffer,
-		//   zstd flushed all it could, and needs new data. In that case, do 1 Read.
-		// - If the last decompression did entirely fill the decompression buffer,
-		//   it might have needed more room to decompress the input. In that case,
-		//   don't do any unnecessary Read that might block.
-		needsData := r.decompSize < len(r.decompressionBuffer)
-
-		var src []byte
-		if !needsData {
-			src = r.compressionBuffer[:r.compressionLeft]
-		} else {
-			src = r.compressionBuffer
-			var n int
-			var err error
-			// Read until data arrives or an error occurs.
-			for n == 0 && err == nil {
-				n, err = r.underlyingReader.Read(src[r.compressionLeft:])
-			}
-			if err != nil && err != io.EOF { // Handle underlying reader errors first
-				return 0, fmt.Errorf("failed to read from underlying reader: %s", err)
-			}
-			if n == 0 {
-				// Ideally, we'd return with ErrUnexpectedEOF in all cases where the stream was unexpectedly EOF'd
-				// during a block or frame, i.e. when there are incomplete, pending compression data.
-				// However, it's hard to detect those cases with zstd. Namely, there is no way to know the size of
-				// the current buffered compression data in the zstd stream internal buffers.
-				// Best effort: throw ErrUnexpectedEOF if we still have some pending buffered compression data that
-				// zstd doesn't want to accept.
-				// If we don't have any buffered compression data but zstd still has some in its internal buffers,
-				// we will return with EOF instead.
-				if r.compressionLeft > 0 {
-					return 0, io.ErrUnexpectedEOF
-				}
-				return 0, io.EOF
-			}
-			src = src[:r.compressionLeft+n]
+	for got < len(p) {
+		// Populate src
+		src := r.compressionBuffer
+		reader := r.underlyingReader
+		n, err := TryReadFull(reader, src[r.compressionLeft:])
+		if err != nil && err != errShortRead { // Handle underlying reader errors first
+			return 0, fmt.Errorf("failed to read from underlying reader: %s", err)
+		} else if n == 0 && r.compressionLeft == 0 {
+			return got, io.EOF
 		}
+		src = src[:r.compressionLeft+n]
 
 		// C code
-		var srcPtr *byte // Do not point anywhere, if src is empty
+		srcPtr := C.uintptr_t(uintptr(0)) // Do not point anywhere, if src is empty
 		if len(src) > 0 {
-			srcPtr = &src[0]
+			srcPtr = C.uintptr_t(uintptr(unsafe.Pointer(&src[0])))
 		}
 
 		C.ZSTD_decompressStream_wrapper(
 			r.resultBuffer,
 			r.ctx,
-			unsafe.Pointer(&r.decompressionBuffer[0]),
+			C.uintptr_t(uintptr(unsafe.Pointer(&r.decompressionBuffer[0]))),
 			C.size_t(len(r.decompressionBuffer)),
-			unsafe.Pointer(srcPtr),
+			srcPtr,
 			C.size_t(len(src)),
 		)
 		retCode := int(r.resultBuffer.return_code)
 
-		// Keep src here even though we reuse later, the code might be deleted at some point
+		// Keep src here eventhough we reuse later, the code might be deleted at some point
 		runtime.KeepAlive(src)
-		if err := getError(retCode); err != nil {
+		if err = getError(retCode); err != nil {
 			return 0, fmt.Errorf("failed to decompress: %s", err)
 		}
 
@@ -533,9 +415,10 @@ func (r *reader) Read(p []byte) (int, error) {
 			left := src[bytesConsumed:]
 			copy(r.compressionBuffer, left)
 		}
-		r.compressionLeft = len(src) - bytesConsumed
+		r.compressionLeft = len(src) - int(bytesConsumed)
 		r.decompSize = int(r.resultBuffer.bytes_written)
-		r.decompOff = copy(p, r.decompressionBuffer[:r.decompSize])
+		r.decompOff = copy(p[got:], r.decompressionBuffer[:r.decompSize])
+		got += r.decompOff
 
 		// Resize buffers
 		nsize := retCode // Hint for next src buffer size
@@ -547,9 +430,25 @@ func (r *reader) Read(p []byte) (int, error) {
 			nsize = r.compressionLeft
 		}
 		r.compressionBuffer = resize(r.compressionBuffer, nsize)
-
-		if r.decompOff > 0 {
-			return r.decompOff, nil
-		}
 	}
+	return got, nil
+}
+
+// TryReadFull reads buffer just as ReadFull does
+// Here we expect that buffer may end and we do not return ErrUnexpectedEOF as ReadAtLeast does.
+// We return errShortRead instead to distinguish short reads and failures.
+// We cannot use ReadFull/ReadAtLeast because it masks Reader errors, such as network failures
+// and causes panic instead of error.
+func TryReadFull(r io.Reader, buf []byte) (n int, err error) {
+	for n < len(buf) && err == nil {
+		var nn int
+		nn, err = r.Read(buf[n:])
+		n += nn
+	}
+	if n == len(buf) && err == io.EOF {
+		err = nil // EOF at the end is somewhat expected
+	} else if err == io.EOF {
+		err = errShortRead
+	}
+	return
 }

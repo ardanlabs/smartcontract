@@ -361,21 +361,14 @@ func (b *blockEnc) encodeLits(lits []byte, raw bool) error {
 	if len(lits) >= 1024 {
 		// Use 4 Streams.
 		out, reUsed, err = huff0.Compress4X(lits, b.litEnc)
-	} else if len(lits) > 16 {
+	} else if len(lits) > 32 {
 		// Use 1 stream
 		single = true
 		out, reUsed, err = huff0.Compress1X(lits, b.litEnc)
 	} else {
 		err = huff0.ErrIncompressible
 	}
-	if err == nil && len(out)+5 > len(lits) {
-		// If we are close, we may still be worse or equal to raw.
-		var lh literalsHeader
-		lh.setSizes(len(out), len(lits), single)
-		if len(out)+lh.size() >= len(lits) {
-			err = huff0.ErrIncompressible
-		}
-	}
+
 	switch err {
 	case huff0.ErrIncompressible:
 		if debugEncoder {
@@ -480,7 +473,7 @@ func (b *blockEnc) encode(org []byte, raw, rawAllLits bool) error {
 		return b.encodeLits(b.literals, rawAllLits)
 	}
 	// We want some difference to at least account for the headers.
-	saved := b.size - len(b.literals) - (b.size >> 6)
+	saved := b.size - len(b.literals) - (b.size >> 5)
 	if saved < 16 {
 		if org == nil {
 			return errIncompressible
@@ -510,7 +503,7 @@ func (b *blockEnc) encode(org []byte, raw, rawAllLits bool) error {
 	if len(b.literals) >= 1024 && !raw {
 		// Use 4 Streams.
 		out, reUsed, err = huff0.Compress4X(b.literals, b.litEnc)
-	} else if len(b.literals) > 16 && !raw {
+	} else if len(b.literals) > 32 && !raw {
 		// Use 1 stream
 		single = true
 		out, reUsed, err = huff0.Compress1X(b.literals, b.litEnc)
@@ -518,17 +511,6 @@ func (b *blockEnc) encode(org []byte, raw, rawAllLits bool) error {
 		err = huff0.ErrIncompressible
 	}
 
-	if err == nil && len(out)+5 > len(b.literals) {
-		// If we are close, we may still be worse or equal to raw.
-		var lh literalsHeader
-		lh.setSize(len(b.literals))
-		szRaw := lh.size()
-		lh.setSizes(len(out), len(b.literals), single)
-		szComp := lh.size()
-		if len(out)+szComp >= len(b.literals)+szRaw {
-			err = huff0.ErrIncompressible
-		}
-	}
 	switch err {
 	case huff0.ErrIncompressible:
 		lh.setType(literalsBlockRaw)
@@ -791,16 +773,16 @@ func (b *blockEnc) encode(org []byte, raw, rawAllLits bool) error {
 	ml.flush(mlEnc.actualTableLog)
 	of.flush(ofEnc.actualTableLog)
 	ll.flush(llEnc.actualTableLog)
-	wr.close()
+	err = wr.close()
+	if err != nil {
+		return err
+	}
 	b.output = wr.out
 
-	// Maybe even add a bigger margin.
 	if len(b.output)-3-bhOffset >= b.size {
-		// Discard and encode as raw block.
-		b.output = b.encodeRawTo(b.output[:bhOffset], org)
-		b.popOffsets()
+		// Maybe even add a bigger margin.
 		b.litEnc.Reuse = huff0.ReusePolicyNone
-		return nil
+		return errIncompressible
 	}
 
 	// Size is output minus block header.
