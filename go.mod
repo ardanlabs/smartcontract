@@ -4,7 +4,7 @@ go 1.22
 
 require (
 	github.com/ardanlabs/ethereum v0.20.0
-	github.com/ethereum/go-ethereum v1.14.0
+	github.com/ethereum/go-ethereum v1.14.3
 )
 
 require (
