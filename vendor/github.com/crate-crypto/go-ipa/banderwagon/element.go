@@ -1,6 +1,7 @@
 package banderwagon
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -58,8 +59,10 @@ func (p Element) Bytes() [CompressedSize]byte {
 	return affineX.Bytes()
 }
 
-// BytesUncompressed returns the uncompressed serialized version of the element.
-func (p Element) BytesUncompressed() [UncompressedSize]byte {
+// BytesUncompressedTrusted returns the uncompressed serialized version of the element.
+// The returned bytes can only be used with SetBytesUncompressed with the trusted flag on.
+// This is because this method doesn't do any (x, y) transformation regarding the sign of y.
+func (p Element) BytesUncompressedTrusted() [UncompressedSize]byte {
 	// Convert underlying point to affine representation
 	var affine bandersnatch.PointAffine
 	affine.FromProj(&p.inner)
@@ -243,16 +246,26 @@ func (p *Element) SetBytesUncompressed(buf []byte, trusted bool) error {
 	var x fp.Element
 	x.SetBytes(buf[:coordinateSize])
 
-	// subgroup check
+	var y fp.Element
+	// point in curve & subgroup check
 	if !trusted {
+		point := bandersnatch.GetPointFromX(&x, true)
+		if point == nil {
+			return fmt.Errorf("point not in the curve")
+		}
+		calculatedYBytes := point.Y.Bytes()
+		if !bytes.Equal(calculatedYBytes[:], buf[coordinateSize:]) {
+			return fmt.Errorf("provided Y coordinate doesn't correspond to X")
+		}
+		y = point.Y
+
 		err := subgroupCheck(x)
 		if err != nil {
 			return err
 		}
+	} else {
+		y.SetBytes(buf[coordinateSize:])
 	}
-
-	var y fp.Element
-	y.SetBytes(buf[coordinateSize:])
 
 	*p = Element{inner: bandersnatch.PointProj{
 		X: x,
