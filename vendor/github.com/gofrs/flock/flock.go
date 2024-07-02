@@ -1,4 +1,5 @@
 // Copyright 2015 Tim Heckman. All rights reserved.
+// Copyright 2018-2024 The Gofrs. All rights reserved.
 // Use of this source code is governed by the BSD 3-Clause
 // license that can be found in the LICENSE file.
 
@@ -24,6 +25,22 @@ import (
 	"time"
 )
 
+type Option func(f *Flock)
+
+// SetFlag sets the flag used to create/open the file.
+func SetFlag(flag int) Option {
+	return func(f *Flock) {
+		f.flag = flag
+	}
+}
+
+// SetPermissions sets the OS permissions to set on the file.
+func SetPermissions(perm os.FileMode) Option {
+	return func(f *Flock) {
+		f.perm = perm
+	}
+}
+
 // Flock is the struct type to handle file locking. All fields are unexported,
 // with access to some of the fields provided by getter methods (Path() and Locked()).
 type Flock struct {
@@ -32,12 +49,37 @@ type Flock struct {
 	fh   *os.File
 	l    bool
 	r    bool
+
+	// flag is the flag used to create/open the file.
+	flag int
+	// perm is the OS permissions to set on the file.
+	perm os.FileMode
 }
 
 // New returns a new instance of *Flock. The only parameter
 // it takes is the path to the desired lockfile.
-func New(path string) *Flock {
-	return &Flock{path: path}
+func New(path string, opts ...Option) *Flock {
+	// create it if it doesn't exist, and open the file read-only.
+	flags := os.O_CREATE
+	switch runtime.GOOS {
+	case "aix", "solaris", "illumos":
+		// AIX cannot preform write-lock (i.e. exclusive) on a read-only file.
+		flags |= os.O_RDWR
+	default:
+		flags |= os.O_RDONLY
+	}
+
+	f := &Flock{
+		path: path,
+		flag: flags,
+		perm: os.FileMode(0o600),
+	}
+
+	for _, opt := range opts {
+		opt(f)
+	}
+
+	return f
 }
 
 // NewFlock returns a new instance of *Flock. The only parameter
@@ -101,10 +143,12 @@ func tryCtx(ctx context.Context, fn func() (bool, error), retryDelay time.Durati
 	if ctx.Err() != nil {
 		return false, ctx.Err()
 	}
+
 	for {
 		if ok, err := fn(); ok || err != nil {
 			return ok, err
 		}
+
 		select {
 		case <-ctx.Done():
 			return false, ctx.Err()
@@ -116,29 +160,24 @@ func tryCtx(ctx context.Context, fn func() (bool, error), retryDelay time.Durati
 
 func (f *Flock) setFh() error {
 	// open a new os.File instance
-	// create it if it doesn't exist, and open the file read-only.
-	flags := os.O_CREATE
-	if runtime.GOOS == "aix" {
-		// AIX cannot preform write-lock (ie exclusive) on a
-		// read-only file.
-		flags |= os.O_RDWR
-	} else {
-		flags |= os.O_RDONLY
-	}
-	fh, err := os.OpenFile(f.path, flags, os.FileMode(0600))
+	fh, err := os.OpenFile(f.path, f.flag, f.perm)
 	if err != nil {
 		return err
 	}
 
-	// set the filehandle on the struct
+	// set the file handle on the struct
 	f.fh = fh
+
 	return nil
 }
 
-// ensure the file handle is closed if no lock is held
+// ensure the file handle is closed if no lock is held.
 func (f *Flock) ensureFhState() {
-	if !f.l && !f.r && f.fh != nil {
-		f.fh.Close()
-		f.fh = nil
+	if f.l || f.r || f.fh == nil {
+		return
 	}
+
+	_ = f.fh.Close()
+
+	f.fh = nil
 }

@@ -1,12 +1,14 @@
 // Copyright 2015 Tim Heckman. All rights reserved.
+// Copyright 2018-2024 The Gofrs. All rights reserved.
 // Use of this source code is governed by the BSD 3-Clause
 // license that can be found in the LICENSE file.
 
-// +build !aix,!windows
+//go:build !aix && !solaris && !windows
 
 package flock
 
 import (
+	"errors"
 	"os"
 	"syscall"
 )
@@ -70,6 +72,7 @@ func (f *Flock) lock(locked *bool, flag int) error {
 	}
 
 	*locked = true
+
 	return nil
 }
 
@@ -98,7 +101,7 @@ func (f *Flock) Unlock() error {
 		return err
 	}
 
-	f.fh.Close()
+	_ = f.fh.Close()
 
 	f.l = false
 	f.r = false
@@ -150,13 +153,14 @@ func (f *Flock) try(locked *bool, flag int) (bool, error) {
 retry:
 	err := syscall.Flock(int(f.fh.Fd()), flag|syscall.LOCK_NB)
 
-	switch err {
-	case syscall.EWOULDBLOCK:
+	switch {
+	case errors.Is(err, syscall.EWOULDBLOCK):
 		return false, nil
-	case nil:
+	case err == nil:
 		*locked = true
 		return true, nil
 	}
+
 	if !retried {
 		if shouldRetry, reopenErr := f.reopenFDOnError(err); reopenErr != nil {
 			return false, reopenErr
@@ -171,24 +175,26 @@ retry:
 
 // reopenFDOnError determines whether we should reopen the file handle
 // in readwrite mode and try again. This comes from util-linux/sys-utils/flock.c:
-//  Since Linux 3.4 (commit 55725513)
-//  Probably NFSv4 where flock() is emulated by fcntl().
+//
+//	Since Linux 3.4 (commit 55725513)
+//	Probably NFSv4 where flock() is emulated by fcntl().
 func (f *Flock) reopenFDOnError(err error) (bool, error) {
-	if err != syscall.EIO && err != syscall.EBADF {
+	if !errors.Is(err, syscall.EIO) && !errors.Is(err, syscall.EBADF) {
 		return false, nil
 	}
 	if st, err := f.fh.Stat(); err == nil {
 		// if the file is able to be read and written
-		if st.Mode()&0600 == 0600 {
-			f.fh.Close()
+		if st.Mode()&f.perm == f.perm {
+			_ = f.fh.Close()
 			f.fh = nil
 
-			// reopen in read-write mode and set the filehandle
-			fh, err := os.OpenFile(f.path, os.O_CREATE|os.O_RDWR, os.FileMode(0600))
+			// reopen in read-write mode and set the file handle
+			fh, err := os.OpenFile(f.path, f.flag, f.perm)
 			if err != nil {
 				return false, err
 			}
 			f.fh = fh
+
 			return true, nil
 		}
 	}
