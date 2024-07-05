@@ -19,6 +19,7 @@ package flock
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"runtime"
 	"sync"
@@ -35,7 +36,7 @@ func SetFlag(flag int) Option {
 }
 
 // SetPermissions sets the OS permissions to set on the file.
-func SetPermissions(perm os.FileMode) Option {
+func SetPermissions(perm fs.FileMode) Option {
 	return func(f *Flock) {
 		f.perm = perm
 	}
@@ -53,7 +54,7 @@ type Flock struct {
 	// flag is the flag used to create/open the file.
 	flag int
 	// perm is the OS permissions to set on the file.
-	perm os.FileMode
+	perm fs.FileMode
 }
 
 // New returns a new instance of *Flock. The only parameter
@@ -72,7 +73,7 @@ func New(path string, opts ...Option) *Flock {
 	f := &Flock{
 		path: path,
 		flag: flags,
-		perm: os.FileMode(0o600),
+		perm: fs.FileMode(0o600),
 	}
 
 	for _, opt := range opts {
@@ -109,6 +110,7 @@ func (f *Flock) Path() string {
 func (f *Flock) Locked() bool {
 	f.m.RLock()
 	defer f.m.RUnlock()
+
 	return f.l
 }
 
@@ -118,6 +120,7 @@ func (f *Flock) Locked() bool {
 func (f *Flock) RLocked() bool {
 	f.m.RLock()
 	defer f.m.RUnlock()
+
 	return f.r
 }
 
@@ -125,16 +128,18 @@ func (f *Flock) String() string {
 	return f.path
 }
 
-// TryLockContext repeatedly tries to take an exclusive lock until one of the
-// conditions is met: TryLock succeeds, TryLock fails with error, or Context
-// Done channel is closed.
+// TryLockContext repeatedly tries to take an exclusive lock until one of the conditions is met:
+// - TryLock succeeds
+// - TryLock fails with error
+// - Context Done channel is closed.
 func (f *Flock) TryLockContext(ctx context.Context, retryDelay time.Duration) (bool, error) {
 	return tryCtx(ctx, f.TryLock, retryDelay)
 }
 
-// TryRLockContext repeatedly tries to take a shared lock until one of the
-// conditions is met: TryRLock succeeds, TryRLock fails with error, or Context
-// Done channel is closed.
+// TryRLockContext repeatedly tries to take a shared lock until one of the conditions is met:
+// - TryRLock succeeds
+// - TryRLock fails with error
+// - Context Done channel is closed.
 func (f *Flock) TryRLockContext(ctx context.Context, retryDelay time.Duration) (bool, error) {
 	return tryCtx(ctx, f.TryRLock, retryDelay)
 }
@@ -176,6 +181,15 @@ func (f *Flock) ensureFhState() {
 	if f.l || f.r || f.fh == nil {
 		return
 	}
+
+	_ = f.fh.Close()
+
+	f.fh = nil
+}
+
+func (f *Flock) reset() {
+	f.l = false
+	f.r = false
 
 	_ = f.fh.Close()
 
