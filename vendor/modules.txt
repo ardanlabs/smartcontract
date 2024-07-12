@@ -157,7 +157,7 @@ github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa
 # github.com/ethereum/c-kzg-4844 v1.0.2
 ## explicit; go 1.19
 github.com/ethereum/c-kzg-4844/bindings/go
-# github.com/ethereum/go-ethereum v1.14.6
+# github.com/ethereum/go-ethereum v1.14.7
 ## explicit; go 1.21
 github.com/ethereum/go-ethereum
 github.com/ethereum/go-ethereum/accounts
@@ -320,7 +320,7 @@ github.com/holiman/billy
 # github.com/holiman/bloomfilter/v2 v2.0.3
 ## explicit; go 1.15
 github.com/holiman/bloomfilter/v2
-# github.com/holiman/uint256 v1.2.4
+# github.com/holiman/uint256 v1.3.0
 ## explicit; go 1.19
 github.com/holiman/uint256
 # github.com/huin/goupnp v1.3.0
@@ -477,7 +477,7 @@ golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/ripemd160
 golang.org/x/crypto/scrypt
 golang.org/x/crypto/sha3
-# golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8
+# golang.org/x/exp v0.0.0-20240707233637-46b078467d37
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
