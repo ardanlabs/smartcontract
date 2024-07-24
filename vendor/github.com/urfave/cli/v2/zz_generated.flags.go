@@ -23,8 +23,7 @@ type Float64SliceFlag struct {
 	Aliases []string
 	EnvVars []string
 
-	defaultValue    *Float64Slice
-	defaultValueSet bool
+	defaultValue *Float64Slice
 
 	separator separatorSpec
 
@@ -70,8 +69,7 @@ type GenericFlag struct {
 	Aliases []string
 	EnvVars []string
 
-	defaultValue    Generic
-	defaultValueSet bool
+	defaultValue Generic
 
 	TakesFile bool
 
@@ -122,8 +120,7 @@ type Int64SliceFlag struct {
 	Aliases []string
 	EnvVars []string
 
-	defaultValue    *Int64Slice
-	defaultValueSet bool
+	defaultValue *Int64Slice
 
 	separator separatorSpec
 
@@ -169,8 +166,7 @@ type IntSliceFlag struct {
 	Aliases []string
 	EnvVars []string
 
-	defaultValue    *IntSlice
-	defaultValueSet bool
+	defaultValue *IntSlice
 
 	separator separatorSpec
 
@@ -216,8 +212,7 @@ type PathFlag struct {
 	Aliases []string
 	EnvVars []string
 
-	defaultValue    Path
-	defaultValueSet bool
+	defaultValue Path
 
 	TakesFile bool
 
@@ -268,8 +263,7 @@ type StringSliceFlag struct {
 	Aliases []string
 	EnvVars []string
 
-	defaultValue    *StringSlice
-	defaultValueSet bool
+	defaultValue *StringSlice
 
 	separator separatorSpec
 
@@ -319,8 +313,7 @@ type TimestampFlag struct {
 	Aliases []string
 	EnvVars []string
 
-	defaultValue    *Timestamp
-	defaultValueSet bool
+	defaultValue *Timestamp
 
 	Layout string
 
@@ -373,8 +366,7 @@ type Uint64SliceFlag struct {
 	Aliases []string
 	EnvVars []string
 
-	defaultValue    *Uint64Slice
-	defaultValueSet bool
+	defaultValue *Uint64Slice
 
 	separator separatorSpec
 
@@ -420,8 +412,7 @@ type UintSliceFlag struct {
 	Aliases []string
 	EnvVars []string
 
-	defaultValue    *UintSlice
-	defaultValueSet bool
+	defaultValue *UintSlice
 
 	separator separatorSpec
 
@@ -467,8 +458,7 @@ type BoolFlag struct {
 	Aliases []string
 	EnvVars []string
 
-	defaultValue    bool
-	defaultValueSet bool
+	defaultValue bool
 
 	Count *int
 
@@ -521,8 +511,7 @@ type Float64Flag struct {
 	Aliases []string
 	EnvVars []string
 
-	defaultValue    float64
-	defaultValueSet bool
+	defaultValue float64
 
 	Action func(*Context, float64) error
 }
@@ -571,8 +560,7 @@ type IntFlag struct {
 	Aliases []string
 	EnvVars []string
 
-	defaultValue    int
-	defaultValueSet bool
+	defaultValue int
 
 	Base int
 
@@ -623,8 +611,7 @@ type Int64Flag struct {
 	Aliases []string
 	EnvVars []string
 
-	defaultValue    int64
-	defaultValueSet bool
+	defaultValue int64
 
 	Base int
 
@@ -675,8 +662,7 @@ type StringFlag struct {
 	Aliases []string
 	EnvVars []string
 
-	defaultValue    string
-	defaultValueSet bool
+	defaultValue string
 
 	TakesFile bool
 
@@ -727,8 +713,7 @@ type DurationFlag struct {
 	Aliases []string
 	EnvVars []string
 
-	defaultValue    time.Duration
-	defaultValueSet bool
+	defaultValue time.Duration
 
 	Action func(*Context, time.Duration) error
 }
@@ -777,8 +762,7 @@ type UintFlag struct {
 	Aliases []string
 	EnvVars []string
 
-	defaultValue    uint
-	defaultValueSet bool
+	defaultValue uint
 
 	Base int
 
@@ -829,8 +813,7 @@ type Uint64Flag struct {
 	Aliases []string
 	EnvVars []string
 
-	defaultValue    uint64
-	defaultValueSet bool
+	defaultValue uint64
 
 	Base int
 

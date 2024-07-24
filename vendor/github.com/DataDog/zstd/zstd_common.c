@@ -1,6 +1,5 @@
-#ifndef USE_EXTERNAL_ZSTD
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) 2016-present, Yann Collet, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under both the BSD-style license (found in the
@@ -14,7 +13,8 @@
 /*-*************************************
 *  Dependencies
 ***************************************/
-#define ZSTD_DEPS_NEED_MALLOC
+#include <stdlib.h>      /* malloc, calloc, free */
+#include <string.h>      /* memset */
 #include "error_private.h"
 #include "zstd_internal.h"
 
@@ -48,4 +48,36 @@ ZSTD_ErrorCode ZSTD_getErrorCode(size_t code) { return ERR_getErrorCode(code); }
  *  provides error code string from enum */
 const char* ZSTD_getErrorString(ZSTD_ErrorCode code) { return ERR_getErrorString(code); }
 
-#endif /* USE_EXTERNAL_ZSTD */
+
+
+/*=**************************************************************
+*  Custom allocator
+****************************************************************/
+void* ZSTD_malloc(size_t size, ZSTD_customMem customMem)
+{
+    if (customMem.customAlloc)
+        return customMem.customAlloc(customMem.opaque, size);
+    return malloc(size);
+}
+
+void* ZSTD_calloc(size_t size, ZSTD_customMem customMem)
+{
+    if (customMem.customAlloc) {
+        /* calloc implemented as malloc+memset;
+         * not as efficient as calloc, but next best guess for custom malloc */
+        void* const ptr = customMem.customAlloc(customMem.opaque, size);
+        memset(ptr, 0, size);
+        return ptr;
+    }
+    return calloc(1, size);
+}
+
+void ZSTD_free(void* ptr, ZSTD_customMem customMem)
+{
+    if (ptr!=NULL) {
+        if (customMem.customFree)
+            customMem.customFree(customMem.opaque, ptr);
+        else
+            free(ptr);
+    }
+}

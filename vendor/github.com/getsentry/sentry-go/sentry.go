@@ -6,7 +6,7 @@ import (
 )
 
 // The version of the SDK.
-const SDKVersion = "0.28.1"
+const SDKVersion = "0.27.0"
 
 // apiVersion is the minimum version of the Sentry API compatible with the
 // sentry-go SDK.
@@ -72,17 +72,18 @@ func Recover() *EventID {
 
 // RecoverWithContext captures a panic and passes relevant context object.
 func RecoverWithContext(ctx context.Context) *EventID {
-	err := recover()
-	if err == nil {
-		return nil
-	}
+	if err := recover(); err != nil {
+		var hub *Hub
 
-	hub := GetHubFromContext(ctx)
-	if hub == nil {
-		hub = CurrentHub()
-	}
+		if HasHubOnContext(ctx) {
+			hub = GetHubFromContext(ctx)
+		} else {
+			hub = CurrentHub()
+		}
 
-	return hub.RecoverWithContext(ctx, err)
+		return hub.RecoverWithContext(ctx, err)
+	}
+	return nil
 }
 
 // WithScope is a shorthand for CurrentHub().WithScope.

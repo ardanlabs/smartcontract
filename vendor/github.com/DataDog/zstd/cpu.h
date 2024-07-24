@@ -1,6 +1,5 @@
-#ifndef USE_EXTERNAL_ZSTD
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) 2018-present, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under both the BSD-style license (found in the
@@ -16,6 +15,8 @@
  * Implementation taken from folly/CpuId.h
  * https://github.com/facebook/folly/blob/master/folly/CpuId.h
  */
+
+#include <string.h>
 
 #include "mem.h"
 
@@ -212,5 +213,3 @@ MEM_STATIC ZSTD_cpuid_t ZSTD_cpuid(void) {
 #undef X
 
 #endif /* ZSTD_COMMON_CPU_H */
-
-#endif /* USE_EXTERNAL_ZSTD */

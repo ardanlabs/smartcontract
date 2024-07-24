@@ -120,13 +120,8 @@ func (f *TimestampFlag) GetDefaultText() string {
 	if f.DefaultText != "" {
 		return f.DefaultText
 	}
-	val := f.Value
-	if f.defaultValueSet {
-		val = f.defaultValue
-	}
-
-	if val != nil && val.timestamp != nil {
-		return val.timestamp.String()
+	if f.defaultValue != nil && f.defaultValue.timestamp != nil {
+		return f.defaultValue.timestamp.String()
 	}
 
 	return ""
@@ -149,7 +144,6 @@ func (f *TimestampFlag) Apply(set *flag.FlagSet) error {
 	f.Value.SetLocation(f.Timezone)
 
 	f.defaultValue = f.Value.clone()
-	f.defaultValueSet = true
 
 	if val, source, found := flagFromEnvOrFile(f.EnvVars, f.FilePath); found {
 		if err := f.Value.Set(val); err != nil {
