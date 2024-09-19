@@ -125,7 +125,7 @@ github.com/consensys/gnark-crypto/field/hash
 github.com/consensys/gnark-crypto/field/pool
 github.com/consensys/gnark-crypto/internal/generator/config
 github.com/consensys/gnark-crypto/internal/parallel
-# github.com/cpuguy83/go-md2man/v2 v2.0.4
+# github.com/cpuguy83/go-md2man/v2 v2.0.5
 ## explicit; go 1.11
 github.com/cpuguy83/go-md2man/v2/md2man
 # github.com/crate-crypto/go-ipa v0.0.0-20240724233137-53bbb0ceb27a
@@ -157,8 +157,8 @@ github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa
 # github.com/ethereum/c-kzg-4844 v1.0.3
 ## explicit; go 1.19
 github.com/ethereum/c-kzg-4844/bindings/go
-# github.com/ethereum/go-ethereum v1.14.8
-## explicit; go 1.21
+# github.com/ethereum/go-ethereum v1.14.9
+## explicit; go 1.22
 github.com/ethereum/go-ethereum
 github.com/ethereum/go-ethereum/accounts
 github.com/ethereum/go-ethereum/accounts/abi
@@ -263,8 +263,8 @@ github.com/ethereum/go-ethereum/triedb
 github.com/ethereum/go-ethereum/triedb/database
 github.com/ethereum/go-ethereum/triedb/hashdb
 github.com/ethereum/go-ethereum/triedb/pathdb
-# github.com/ethereum/go-verkle v0.1.1-0.20240306133620-7d920df305f0
-## explicit; go 1.19
+# github.com/ethereum/go-verkle v0.1.1-0.20240829091221-dffa7562dbe9
+## explicit; go 1.22
 github.com/ethereum/go-verkle
 # github.com/fsnotify/fsnotify v1.7.0
 ## explicit; go 1.17
@@ -394,7 +394,7 @@ github.com/olekukonko/tablewriter
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
-# github.com/prometheus/client_golang v1.20.3
+# github.com/prometheus/client_golang v1.20.4
 ## explicit; go 1.20
 github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/internal
