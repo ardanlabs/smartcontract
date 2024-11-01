@@ -263,16 +263,17 @@ github.com/ethereum/go-ethereum/triedb
 github.com/ethereum/go-ethereum/triedb/database
 github.com/ethereum/go-ethereum/triedb/hashdb
 github.com/ethereum/go-ethereum/triedb/pathdb
-# github.com/ethereum/go-verkle v0.1.1-0.20240829091221-dffa7562dbe9
+# github.com/ethereum/go-verkle v0.2.2
 ## explicit; go 1.22
 github.com/ethereum/go-verkle
-# github.com/fsnotify/fsnotify v1.7.0
+# github.com/fsnotify/fsnotify v1.8.0
 ## explicit; go 1.17
 github.com/fsnotify/fsnotify
+github.com/fsnotify/fsnotify/internal
 # github.com/gballet/go-libpcsclite v0.0.0-20191108122812-4678299bea08
 ## explicit
 github.com/gballet/go-libpcsclite
-# github.com/getsentry/sentry-go v0.29.0
+# github.com/getsentry/sentry-go v0.29.1
 ## explicit; go 1.18
 github.com/getsentry/sentry-go
 github.com/getsentry/sentry-go/internal/debug
@@ -310,8 +311,8 @@ github.com/gorilla/websocket
 ## explicit; go 1.18
 github.com/hashicorp/go-bexpr
 github.com/hashicorp/go-bexpr/grammar
-# github.com/holiman/billy v0.0.0-20240322075458-72a4e81ec6da
-## explicit; go 1.18
+# github.com/holiman/billy v0.0.0-20241012173847-7527a2505cb9
+## explicit; go 1.19
 github.com/holiman/billy
 # github.com/holiman/bloomfilter/v2 v2.0.3
 ## explicit; go 1.15
@@ -331,7 +332,7 @@ github.com/huin/goupnp/ssdp
 # github.com/jackpal/go-nat-pmp v1.0.2
 ## explicit
 github.com/jackpal/go-nat-pmp
-# github.com/klauspost/compress v1.17.10
+# github.com/klauspost/compress v1.17.11
 ## explicit; go 1.21
 github.com/klauspost/compress
 github.com/klauspost/compress/fse
@@ -394,14 +395,14 @@ github.com/olekukonko/tablewriter
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
-# github.com/prometheus/client_golang v1.20.4
+# github.com/prometheus/client_golang v1.20.5
 ## explicit; go 1.20
 github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/internal
 # github.com/prometheus/client_model v0.6.1
 ## explicit; go 1.19
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.60.0
+# github.com/prometheus/common v0.60.1
 ## explicit; go 1.21
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/model
@@ -450,14 +451,14 @@ github.com/syndtr/goleveldb/leveldb/util
 # github.com/tklauser/go-sysconf v0.3.14
 ## explicit; go 1.18
 github.com/tklauser/go-sysconf
-# github.com/tklauser/numcpus v0.8.0
+# github.com/tklauser/numcpus v0.9.0
 ## explicit; go 1.18
 github.com/tklauser/numcpus
 # github.com/tyler-smith/go-bip39 v1.1.0
 ## explicit; go 1.14
 github.com/tyler-smith/go-bip39
 github.com/tyler-smith/go-bip39/wordlists
-# github.com/urfave/cli/v2 v2.27.4
+# github.com/urfave/cli/v2 v2.27.5
 ## explicit; go 1.18
 github.com/urfave/cli/v2
 # github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1
@@ -466,14 +467,14 @@ github.com/xrash/smetrics
 # github.com/yusufpapurcu/wmi v1.2.4
 ## explicit; go 1.16
 github.com/yusufpapurcu/wmi
-# golang.org/x/crypto v0.27.0
+# golang.org/x/crypto v0.28.0
 ## explicit; go 1.20
 golang.org/x/crypto/hkdf
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/ripemd160
 golang.org/x/crypto/scrypt
 golang.org/x/crypto/sha3
-# golang.org/x/exp v0.0.0-20240909161429-701f63a606c0
+# golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c
 ## explicit; go 1.22.0
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
@@ -482,13 +483,13 @@ golang.org/x/exp/rand
 ## explicit; go 1.18
 golang.org/x/sync/errgroup
 golang.org/x/sync/singleflight
-# golang.org/x/sys v0.25.0
+# golang.org/x/sys v0.26.0
 ## explicit; go 1.18
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/text v0.18.0
+# golang.org/x/text v0.19.0
 ## explicit; go 1.18
 golang.org/x/text/cases
 golang.org/x/text/internal
@@ -498,11 +499,11 @@ golang.org/x/text/internal/tag
 golang.org/x/text/language
 golang.org/x/text/transform
 golang.org/x/text/unicode/norm
-# golang.org/x/time v0.6.0
+# golang.org/x/time v0.7.0
 ## explicit; go 1.18
 golang.org/x/time/rate
-# google.golang.org/protobuf v1.34.2
-## explicit; go 1.20
+# google.golang.org/protobuf v1.35.1
+## explicit; go 1.21
 google.golang.org/protobuf/encoding/protodelim
 google.golang.org/protobuf/encoding/prototext
 google.golang.org/protobuf/encoding/protowire
