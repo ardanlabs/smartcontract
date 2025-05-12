@@ -2,7 +2,6 @@ package sentry
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 )
@@ -294,13 +293,8 @@ func (hub *Hub) AddBreadcrumb(breadcrumb *Breadcrumb, hint *BreadcrumbHint) {
 	}
 
 	max := client.options.MaxBreadcrumbs
-	switch {
-	case max < 0:
+	if max < 0 {
 		return
-	case max == 0:
-		max = defaultMaxBreadcrumbs
-	case max > maxBreadcrumbs:
-		max = maxBreadcrumbs
 	}
 
 	if client.options.BeforeBreadcrumb != nil {
@@ -311,6 +305,12 @@ func (hub *Hub) AddBreadcrumb(breadcrumb *Breadcrumb, hint *BreadcrumbHint) {
 			Logger.Println("breadcrumb dropped due to BeforeBreadcrumb callback.")
 			return
 		}
+	}
+
+	if max == 0 {
+		max = defaultMaxBreadcrumbs
+	} else if max > maxBreadcrumbs {
+		max = maxBreadcrumbs
 	}
 
 	hub.Scope().AddBreadcrumb(breadcrumb, max)
@@ -363,34 +363,6 @@ func (hub *Hub) Flush(timeout time.Duration) bool {
 	}
 
 	return client.Flush(timeout)
-}
-
-// GetTraceparent returns the current Sentry traceparent string, to be used as a HTTP header value
-// or HTML meta tag value.
-// This function is context aware, as in it either returns the traceparent based
-// on the current span, or the scope's propagation context.
-func (hub *Hub) GetTraceparent() string {
-	scope := hub.Scope()
-
-	if scope.span != nil {
-		return scope.span.ToSentryTrace()
-	}
-
-	return fmt.Sprintf("%s-%s", scope.propagationContext.TraceID, scope.propagationContext.SpanID)
-}
-
-// GetBaggage returns the current Sentry baggage string, to be used as a HTTP header value
-// or HTML meta tag value.
-// This function is context aware, as in it either returns the baggage based
-// on the current span or the scope's propagation context.
-func (hub *Hub) GetBaggage() string {
-	scope := hub.Scope()
-
-	if scope.span != nil {
-		return scope.span.ToBaggage()
-	}
-
-	return scope.propagationContext.DynamicSamplingContext.String()
 }
 
 // HasHubOnContext checks whether Hub instance is bound to a given Context struct.

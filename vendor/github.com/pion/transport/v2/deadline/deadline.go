@@ -11,46 +11,25 @@ import (
 	"time"
 )
 
-type deadlineState uint8
-
-const (
-	deadlineStopped deadlineState = iota
-	deadlineStarted
-	deadlineExceeded
-)
-
-var _ context.Context = (*Deadline)(nil)
-
 // Deadline signals updatable deadline timer.
 // Also, it implements context.Context.
 type Deadline struct {
-	mu       sync.RWMutex
-	timer    timer
-	done     chan struct{}
+	exceeded chan struct{}
+	stop     chan struct{}
+	stopped  chan bool
 	deadline time.Time
-	state    deadlineState
-	pending  uint8
+	mu       sync.RWMutex
 }
 
 // New creates new deadline timer.
 func New() *Deadline {
-	return &Deadline{
-		done: make(chan struct{}),
+	d := &Deadline{
+		exceeded: make(chan struct{}),
+		stop:     make(chan struct{}),
+		stopped:  make(chan bool, 1),
 	}
-}
-
-func (d *Deadline) timeout() {
-	d.mu.Lock()
-	if d.pending--; d.pending != 0 || d.state != deadlineStarted {
-		d.mu.Unlock()
-		return
-	}
-
-	d.state = deadlineExceeded
-	done := d.done
-	d.mu.Unlock()
-
-	close(done)
+	d.stopped <- true
+	return d
 }
 
 // Set new deadline. Zero value means no deadline.
@@ -58,43 +37,55 @@ func (d *Deadline) Set(t time.Time) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if d.state == deadlineStarted && d.timer.Stop() {
-		d.pending--
-	}
-
 	d.deadline = t
-	d.pending++
 
-	if d.state == deadlineExceeded {
-		d.done = make(chan struct{})
+	close(d.stop)
+
+	select {
+	case <-d.exceeded:
+		d.exceeded = make(chan struct{})
+	default:
+		stopped := <-d.stopped
+		if !stopped {
+			d.exceeded = make(chan struct{})
+		}
 	}
+	d.stop = make(chan struct{})
+	d.stopped = make(chan bool, 1)
 
 	if t.IsZero() {
-		d.pending--
-		d.state = deadlineStopped
+		d.stopped <- true
 		return
 	}
 
 	if dur := time.Until(t); dur > 0 {
-		d.state = deadlineStarted
-		if d.timer == nil {
-			d.timer = afterFunc(dur, d.timeout)
-		} else {
-			d.timer.Reset(dur)
-		}
+		exceeded := d.exceeded
+		stopped := d.stopped
+		go func() {
+			timer := time.NewTimer(dur)
+			select {
+			case <-timer.C:
+				close(exceeded)
+				stopped <- false
+			case <-d.stop:
+				if !timer.Stop() {
+					<-timer.C
+				}
+				stopped <- true
+			}
+		}()
 		return
 	}
 
-	d.pending--
-	d.state = deadlineExceeded
-	close(d.done)
+	close(d.exceeded)
+	d.stopped <- false
 }
 
 // Done receives deadline signal.
 func (d *Deadline) Done() <-chan struct{} {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	return d.done
+	return d.exceeded
 }
 
 // Err returns context.DeadlineExceeded if the deadline is exceeded.
@@ -102,10 +93,12 @@ func (d *Deadline) Done() <-chan struct{} {
 func (d *Deadline) Err() error {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	if d.state == deadlineExceeded {
+	select {
+	case <-d.exceeded:
 		return context.DeadlineExceeded
+	default:
+		return nil
 	}
-	return nil
 }
 
 // Deadline returns current deadline.

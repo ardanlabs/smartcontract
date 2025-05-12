@@ -3,12 +3,10 @@ package sentry
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"reflect"
-	"slices"
 	"strings"
 	"time"
 )
@@ -18,6 +16,10 @@ const eventType = "event"
 
 // transactionType is the type of a transaction event.
 const transactionType = "transaction"
+
+// profileType is the type of a profile event.
+// currently, profiles are always sent as part of a transaction event.
+const profileType = "profile"
 
 // checkInType is the type of a check in event.
 const checkInType = "check_in"
@@ -33,6 +35,15 @@ const (
 	LevelError   Level = "error"
 	LevelFatal   Level = "fatal"
 )
+
+func getSensitiveHeaders() map[string]bool {
+	return map[string]bool{
+		"Authorization":   true,
+		"Cookie":          true,
+		"X-Forwarded-For": true,
+		"X-Real-Ip":       true,
+	}
+}
 
 // SdkInfo contains all metadata about about the SDK being used.
 type SdkInfo struct {
@@ -112,27 +123,32 @@ type User struct {
 	IPAddress string            `json:"ip_address,omitempty"`
 	Username  string            `json:"username,omitempty"`
 	Name      string            `json:"name,omitempty"`
+	Segment   string            `json:"segment,omitempty"`
 	Data      map[string]string `json:"data,omitempty"`
 }
 
 func (u User) IsEmpty() bool {
-	if u.ID != "" {
+	if len(u.ID) > 0 {
 		return false
 	}
 
-	if u.Email != "" {
+	if len(u.Email) > 0 {
 		return false
 	}
 
-	if u.IPAddress != "" {
+	if len(u.IPAddress) > 0 {
 		return false
 	}
 
-	if u.Username != "" {
+	if len(u.Username) > 0 {
 		return false
 	}
 
-	if u.Name != "" {
+	if len(u.Name) > 0 {
+		return false
+	}
+
+	if len(u.Segment) > 0 {
 		return false
 	}
 
@@ -152,14 +168,6 @@ type Request struct {
 	Cookies     string            `json:"cookies,omitempty"`
 	Headers     map[string]string `json:"headers,omitempty"`
 	Env         map[string]string `json:"env,omitempty"`
-}
-
-var sensitiveHeaders = map[string]struct{}{
-	"Authorization":       {},
-	"Proxy-Authorization": {},
-	"Cookie":              {},
-	"X-Forwarded-For":     {},
-	"X-Real-Ip":           {},
 }
 
 // NewRequest returns a new Sentry Request from the given http.Request.
@@ -184,7 +192,6 @@ func NewRequest(r *http.Request) *Request {
 		// attach more than one Cookie header field.
 		cookies = r.Header.Get("Cookie")
 
-		headers = make(map[string]string, len(r.Header))
 		for k, v := range r.Header {
 			headers[k] = strings.Join(v, ",")
 		}
@@ -193,6 +200,7 @@ func NewRequest(r *http.Request) *Request {
 			env = map[string]string{"REMOTE_ADDR": addr, "REMOTE_PORT": port}
 		}
 	} else {
+		sensitiveHeaders := getSensitiveHeaders()
 		for k, v := range r.Header {
 			if _, ok := sensitiveHeaders[k]; !ok {
 				headers[k] = strings.Join(v, ",")
@@ -214,21 +222,18 @@ func NewRequest(r *http.Request) *Request {
 
 // Mechanism is the mechanism by which an exception was generated and handled.
 type Mechanism struct {
-	Type             string         `json:"type,omitempty"`
-	Description      string         `json:"description,omitempty"`
-	HelpLink         string         `json:"help_link,omitempty"`
-	Source           string         `json:"source,omitempty"`
-	Handled          *bool          `json:"handled,omitempty"`
-	ParentID         *int           `json:"parent_id,omitempty"`
-	ExceptionID      int            `json:"exception_id"`
-	IsExceptionGroup bool           `json:"is_exception_group,omitempty"`
-	Data             map[string]any `json:"data,omitempty"`
+	Type        string                 `json:"type,omitempty"`
+	Description string                 `json:"description,omitempty"`
+	HelpLink    string                 `json:"help_link,omitempty"`
+	Handled     *bool                  `json:"handled,omitempty"`
+	Data        map[string]interface{} `json:"data,omitempty"`
 }
 
 // SetUnhandled indicates that the exception is an unhandled exception, i.e.
 // from a panic.
 func (m *Mechanism) SetUnhandled() {
-	m.Handled = Pointer(false)
+	h := false
+	m.Handled = &h
 }
 
 // Exception specifies an error that occurred.
@@ -244,7 +249,8 @@ type Exception struct {
 // SDKMetaData is a struct to stash data which is needed at some point in the SDK's event processing pipeline
 // but which shouldn't get send to Sentry.
 type SDKMetaData struct {
-	dsc DynamicSamplingContext
+	dsc                DynamicSamplingContext
+	transactionProfile *profileInfo
 }
 
 // Contains information about how the name of the transaction was determined.
@@ -333,43 +339,27 @@ type Event struct {
 // SetException appends the unwrapped errors to the event's exception list.
 //
 // maxErrorDepth is the maximum depth of the error chain we will look
-// into while unwrapping the errors. If maxErrorDepth is -1, we will
-// unwrap all errors in the chain.
+// into while unwrapping the errors.
 func (e *Event) SetException(exception error, maxErrorDepth int) {
-	if exception == nil {
+	err := exception
+	if err == nil {
 		return
 	}
 
-	err := exception
-
-	for i := 0; err != nil && (i < maxErrorDepth || maxErrorDepth == -1); i++ {
-		// Add the current error to the exception slice with its details
+	for i := 0; i < maxErrorDepth && err != nil; i++ {
 		e.Exception = append(e.Exception, Exception{
 			Value:      err.Error(),
 			Type:       reflect.TypeOf(err).String(),
 			Stacktrace: ExtractStacktrace(err),
 		})
-
-		// Attempt to unwrap the error using the standard library's Unwrap method.
-		// If errors.Unwrap returns nil, it means either there is no error to unwrap,
-		// or the error does not implement the Unwrap method.
-		unwrappedErr := errors.Unwrap(err)
-
-		if unwrappedErr != nil {
-			// The error was successfully unwrapped using the standard library's Unwrap method.
-			err = unwrappedErr
-			continue
+		switch previous := err.(type) {
+		case interface{ Unwrap() error }:
+			err = previous.Unwrap()
+		case interface{ Cause() error }:
+			err = previous.Cause()
+		default:
+			err = nil
 		}
-
-		cause, ok := err.(interface{ Cause() error })
-		if !ok {
-			// We cannot unwrap the error further.
-			break
-		}
-
-		// The error implements the Cause method, indicating it may have been wrapped
-		// using the github.com/pkg/errors package.
-		err = cause.Cause()
 	}
 
 	// Add a trace of the current stack to the most recent error in a chain if
@@ -380,24 +370,8 @@ func (e *Event) SetException(exception error, maxErrorDepth int) {
 		e.Exception[0].Stacktrace = NewStacktrace()
 	}
 
-	if len(e.Exception) <= 1 {
-		return
-	}
-
 	// event.Exception should be sorted such that the most recent error is last.
-	slices.Reverse(e.Exception)
-
-	for i := range e.Exception {
-		e.Exception[i].Mechanism = &Mechanism{
-			IsExceptionGroup: true,
-			ExceptionID:      i,
-			Type:             "generic",
-		}
-		if i == 0 {
-			continue
-		}
-		e.Exception[i].Mechanism.ParentID = Pointer(i - 1)
-	}
+	reverse(e.Exception)
 }
 
 // TODO: Event.Contexts map[string]interface{} => map[string]EventContext,
@@ -417,9 +391,7 @@ func (e *Event) MarshalJSON() ([]byte, error) {
 	// and a few type tricks.
 	if e.Type == transactionType {
 		return e.transactionMarshalJSON()
-	}
-
-	if e.Type == checkInType {
+	} else if e.Type == checkInType {
 		return e.checkInMarshalJSON()
 	}
 	return e.defaultMarshalJSON()
@@ -520,12 +492,13 @@ func (e *Event) checkInMarshalJSON() ([]byte, error) {
 
 // NewEvent creates a new Event.
 func NewEvent() *Event {
-	return &Event{
+	event := Event{
 		Contexts: make(map[string]Context),
 		Extra:    make(map[string]interface{}),
 		Tags:     make(map[string]string),
 		Modules:  make(map[string]string),
 	}
+	return &event
 }
 
 // Thread specifies threads that were running at the time of an event.

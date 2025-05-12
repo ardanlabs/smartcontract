@@ -143,14 +143,14 @@ func compare(aVal, bVal reflect.Value) int {
 			return 0
 		}
 	case reflect.Struct:
-		for i := range aVal.NumField() {
+		for i := 0; i < aVal.NumField(); i++ {
 			if c := compare(aVal.Field(i), bVal.Field(i)); c != 0 {
 				return c
 			}
 		}
 		return 0
 	case reflect.Array:
-		for i := range aVal.Len() {
+		for i := 0; i < aVal.Len(); i++ {
 			if c := compare(aVal.Index(i), bVal.Index(i)); c != 0 {
 				return c
 			}

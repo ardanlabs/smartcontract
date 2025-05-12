@@ -57,7 +57,7 @@
 # https://github.com/OpenZeppelin/openzeppelin-contracts/tree/master/contracts/token/ERC721
 #
 
-SOLC_EVM_VERSION := cancun
+SOLC_EVM_VERSION := prague
 
 # ==============================================================================
 # Install dependencies

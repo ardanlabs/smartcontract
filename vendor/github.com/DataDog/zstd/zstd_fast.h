@@ -1,6 +1,5 @@
-#ifndef USE_EXTERNAL_ZSTD
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) 2016-present, Yann Collet, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under both the BSD-style license (found in the
@@ -12,22 +11,27 @@
 #ifndef ZSTD_FAST_H
 #define ZSTD_FAST_H
 
+#if defined (__cplusplus)
+extern "C" {
+#endif
+
 #include "mem.h"      /* U32 */
 #include "zstd_compress_internal.h"
 
-void ZSTD_fillHashTable(ZSTD_MatchState_t* ms,
-                        void const* end, ZSTD_dictTableLoadMethod_e dtlm,
-                        ZSTD_tableFillPurpose_e tfp);
+void ZSTD_fillHashTable(ZSTD_matchState_t* ms,
+                        void const* end, ZSTD_dictTableLoadMethod_e dtlm);
 size_t ZSTD_compressBlock_fast(
-        ZSTD_MatchState_t* ms, SeqStore_t* seqStore, U32 rep[ZSTD_REP_NUM],
+        ZSTD_matchState_t* ms, seqStore_t* seqStore, U32 rep[ZSTD_REP_NUM],
         void const* src, size_t srcSize);
 size_t ZSTD_compressBlock_fast_dictMatchState(
-        ZSTD_MatchState_t* ms, SeqStore_t* seqStore, U32 rep[ZSTD_REP_NUM],
+        ZSTD_matchState_t* ms, seqStore_t* seqStore, U32 rep[ZSTD_REP_NUM],
         void const* src, size_t srcSize);
 size_t ZSTD_compressBlock_fast_extDict(
-        ZSTD_MatchState_t* ms, SeqStore_t* seqStore, U32 rep[ZSTD_REP_NUM],
+        ZSTD_matchState_t* ms, seqStore_t* seqStore, U32 rep[ZSTD_REP_NUM],
         void const* src, size_t srcSize);
 
-#endif /* ZSTD_FAST_H */
+#if defined (__cplusplus)
+}
+#endif
 
-#endif /* USE_EXTERNAL_ZSTD */
+#endif /* ZSTD_FAST_H */

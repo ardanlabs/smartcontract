@@ -34,9 +34,6 @@ const (
 	inboundBufferSize     = 8192
 	// Default replay protection window is specified by RFC 6347 Section 4.1.2.6
 	defaultReplayProtectionWindow = 64
-	// maxAppDataPacketQueueSize is the maximum number of app data packets we will
-	// enqueue before the handshake is completed
-	maxAppDataPacketQueueSize = 100
 )
 
 func invalidKeyingLabels() map[string]bool {
@@ -84,7 +81,7 @@ type Conn struct {
 	replayProtectionWindow uint
 }
 
-func createConn(nextConn net.Conn, config *Config, isClient bool) (*Conn, error) {
+func createConn(ctx context.Context, nextConn net.Conn, config *Config, isClient bool, initialState *State) (*Conn, error) {
 	err := validateConfig(config)
 	if err != nil {
 		return nil, err
@@ -92,6 +89,21 @@ func createConn(nextConn net.Conn, config *Config, isClient bool) (*Conn, error)
 
 	if nextConn == nil {
 		return nil, errNilNextConn
+	}
+
+	cipherSuites, err := parseCipherSuites(config.CipherSuites, config.CustomCipherSuites, config.includeCertificateSuites(), config.PSK != nil)
+	if err != nil {
+		return nil, err
+	}
+
+	signatureSchemes, err := signaturehash.ParseSignatureSchemes(config.SignatureSchemes, config.InsecureHashes)
+	if err != nil {
+		return nil, err
+	}
+
+	workerInterval := initialTickerInterval
+	if config.FlightInterval != 0 {
+		workerInterval = config.FlightInterval
 	}
 
 	loggerFactory := config.LoggerFactory
@@ -137,28 +149,6 @@ func createConn(nextConn net.Conn, config *Config, isClient bool) (*Conn, error)
 
 	c.setRemoteEpoch(0)
 	c.setLocalEpoch(0)
-	return c, nil
-}
-
-func handshakeConn(ctx context.Context, conn *Conn, config *Config, isClient bool, initialState *State) (*Conn, error) {
-	if conn == nil {
-		return nil, errNilNextConn
-	}
-
-	cipherSuites, err := parseCipherSuites(config.CipherSuites, config.CustomCipherSuites, config.includeCertificateSuites(), config.PSK != nil)
-	if err != nil {
-		return nil, err
-	}
-
-	signatureSchemes, err := signaturehash.ParseSignatureSchemes(config.SignatureSchemes, config.InsecureHashes)
-	if err != nil {
-		return nil, err
-	}
-
-	workerInterval := initialTickerInterval
-	if config.FlightInterval != 0 {
-		workerInterval = config.FlightInterval
-	}
 
 	serverName := config.ServerName
 	// Do not allow the use of an IP address literal as an SNI value.
@@ -190,7 +180,7 @@ func handshakeConn(ctx context.Context, conn *Conn, config *Config, isClient boo
 		clientCAs:                   config.ClientCAs,
 		customCipherSuites:          config.CustomCipherSuites,
 		retransmitInterval:          workerInterval,
-		log:                         conn.log,
+		log:                         logger,
 		initialEpoch:                0,
 		keyLogWriter:                config.KeyLogWriter,
 		sessionStore:                config.SessionStore,
@@ -215,16 +205,16 @@ func handshakeConn(ctx context.Context, conn *Conn, config *Config, isClient boo
 	var initialFSMState handshakeState
 
 	if initialState != nil {
-		if conn.state.isClient {
+		if c.state.isClient {
 			initialFlight = flight5
 		} else {
 			initialFlight = flight6
 		}
 		initialFSMState = handshakeFinished
 
-		conn.state = *initialState
+		c.state = *initialState
 	} else {
-		if conn.state.isClient {
+		if c.state.isClient {
 			initialFlight = flight1
 		} else {
 			initialFlight = flight0
@@ -232,13 +222,13 @@ func handshakeConn(ctx context.Context, conn *Conn, config *Config, isClient boo
 		initialFSMState = handshakePreparing
 	}
 	// Do handshake
-	if err := conn.handshake(ctx, hsCfg, initialFlight, initialFSMState); err != nil {
+	if err := c.handshake(ctx, hsCfg, initialFlight, initialFSMState); err != nil {
 		return nil, err
 	}
 
-	conn.log.Trace("Handshake Completed")
+	c.log.Trace("Handshake Completed")
 
-	return conn, nil
+	return c, nil
 }
 
 // Dial connects to the given network address and establishes a DTLS connection on top.
@@ -289,12 +279,7 @@ func ClientWithContext(ctx context.Context, conn net.Conn, config *Config) (*Con
 		return nil, errPSKAndIdentityMustBeSetForClient
 	}
 
-	dconn, err := createConn(conn, config, true)
-	if err != nil {
-		return nil, err
-	}
-
-	return handshakeConn(ctx, dconn, config, true, nil)
+	return createConn(ctx, conn, config, true, nil)
 }
 
 // ServerWithContext listens for incoming DTLS connections.
@@ -302,11 +287,8 @@ func ServerWithContext(ctx context.Context, conn net.Conn, config *Config) (*Con
 	if config == nil {
 		return nil, errNoConfigProvided
 	}
-	dconn, err := createConn(conn, config, false)
-	if err != nil {
-		return nil, err
-	}
-	return handshakeConn(ctx, dconn, config, false, nil)
+
+	return createConn(ctx, conn, config, false, nil)
 }
 
 // Read reads data from the connection.
@@ -392,12 +374,14 @@ func (c *Conn) ConnectionState() State {
 
 // SelectedSRTPProtectionProfile returns the selected SRTPProtectionProfile
 func (c *Conn) SelectedSRTPProtectionProfile() (SRTPProtectionProfile, bool) {
-	profile := c.state.getSRTPProtectionProfile()
-	if profile == 0 {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	if c.state.srtpProtectionProfile == 0 {
 		return 0, false
 	}
 
-	return profile, true
+	return c.state.srtpProtectionProfile, true
 }
 
 func (c *Conn) writePackets(ctx context.Context, pkts []*packet) error {
@@ -625,8 +609,13 @@ func (c *Conn) readAndBuffer(ctx context.Context) error {
 			hasHandshake = true
 		}
 
-		if err != nil {
-			return err
+		var e *alertError
+		if errors.As(err, &e) {
+			if e.IsFatalOrCloseNotify() {
+				return e
+			}
+		} else if err != nil {
+			return e
 		}
 	}
 	if hasHandshake {
@@ -661,18 +650,10 @@ func (c *Conn) handleQueuedPackets(ctx context.Context) error {
 				return e
 			}
 		} else if err != nil {
-			return err
+			return e
 		}
 	}
 	return nil
-}
-
-func (c *Conn) enqueueEncryptedPackets(packet []byte) bool {
-	if len(c.encryptedPackets) < maxAppDataPacketQueueSize {
-		c.encryptedPackets = append(c.encryptedPackets, packet)
-		return true
-	}
-	return false
 }
 
 func (c *Conn) handleIncomingPacket(ctx context.Context, buf []byte, enqueue bool) (bool, *alert.Alert, error) { //nolint:gocognit
@@ -683,6 +664,7 @@ func (c *Conn) handleIncomingPacket(ctx context.Context, buf []byte, enqueue boo
 		c.log.Debugf("discarded broken packet: %v", err)
 		return false, nil, nil
 	}
+
 	// Validate epoch
 	remoteEpoch := c.state.getRemoteEpoch()
 	if h.Epoch > remoteEpoch {
@@ -693,9 +675,8 @@ func (c *Conn) handleIncomingPacket(ctx context.Context, buf []byte, enqueue boo
 			return false, nil, nil
 		}
 		if enqueue {
-			if ok := c.enqueueEncryptedPackets(buf); ok {
-				c.log.Debug("received packet of next epoch, queuing packet")
-			}
+			c.log.Debug("received packet of next epoch, queuing packet")
+			c.encryptedPackets = append(c.encryptedPackets, buf)
 		}
 		return false, nil, nil
 	}
@@ -718,9 +699,8 @@ func (c *Conn) handleIncomingPacket(ctx context.Context, buf []byte, enqueue boo
 	if h.Epoch != 0 {
 		if c.state.cipherSuite == nil || !c.state.cipherSuite.IsInitialized() {
 			if enqueue {
-				if ok := c.enqueueEncryptedPackets(buf); ok {
-					c.log.Debug("handshake not finished, queuing packet")
-				}
+				c.encryptedPackets = append(c.encryptedPackets, buf)
+				c.log.Debug("handshake not finished, queuing packet")
 			}
 			return false, nil, nil
 		}
@@ -771,9 +751,8 @@ func (c *Conn) handleIncomingPacket(ctx context.Context, buf []byte, enqueue boo
 	case *protocol.ChangeCipherSpec:
 		if c.state.cipherSuite == nil || !c.state.cipherSuite.IsInitialized() {
 			if enqueue {
-				if ok := c.enqueueEncryptedPackets(buf); ok {
-					c.log.Debugf("CipherSuite not initialized, queuing packet")
-				}
+				c.encryptedPackets = append(c.encryptedPackets, buf)
+				c.log.Debugf("CipherSuite not initialized, queuing packet")
 			}
 			return false, nil, nil
 		}
@@ -904,11 +883,7 @@ func (c *Conn) handshake(ctx context.Context, cfg *handshakeConfig, initialFligh
 					}
 				} else {
 					switch {
-					case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled), errors.Is(err, io.EOF), errors.Is(err, net.ErrClosed):
-					case errors.Is(err, recordlayer.ErrInvalidPacketLength):
-						// Decode error must be silently discarded
-						// [RFC6347 Section-4.1.2.7]
-						continue
+					case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled), errors.Is(err, io.EOF):
 					default:
 						if c.isHandshakeCompletedSuccessfully() {
 							// Keep read loop and pass the read error to Read()

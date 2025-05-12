@@ -82,7 +82,7 @@ var (
 // can run multiple concurrent stateless decodes. It is even possible to
 // use stateless decodes while a stream is being decoded.
 //
-// The Reset function can be used to initiate a new stream, which will considerably
+// The Reset function can be used to initiate a new stream, which is will considerably
 // reduce the allocations normally caused by NewReader.
 func NewReader(r io.Reader, opts ...DOption) (*Decoder, error) {
 	initPredefined()
@@ -123,7 +123,7 @@ func NewReader(r io.Reader, opts ...DOption) (*Decoder, error) {
 }
 
 // Read bytes from the decompressed stream into p.
-// Returns the number of bytes read and any error that occurred.
+// Returns the number of bytes written and any error that occurred.
 // When the stream is done, io.EOF will be returned.
 func (d *Decoder) Read(p []byte) (int, error) {
 	var n int
@@ -323,7 +323,6 @@ func (d *Decoder) DecodeAll(input, dst []byte) ([]byte, error) {
 		frame.bBuf = nil
 		if frame.history.decoders.br != nil {
 			frame.history.decoders.br.in = nil
-			frame.history.decoders.br.cursor = 0
 		}
 		d.decoders <- block
 	}()
@@ -456,7 +455,12 @@ func (d *Decoder) nextBlock(blocking bool) (ok bool) {
 	}
 
 	if len(next.b) > 0 {
-		d.current.crc.Write(next.b)
+		n, err := d.current.crc.Write(next.b)
+		if err == nil {
+			if n != len(next.b) {
+				d.current.err = io.ErrShortWrite
+			}
+		}
 	}
 	if next.err == nil && next.d != nil && next.d.hasCRC {
 		got := uint32(d.current.crc.Sum64())

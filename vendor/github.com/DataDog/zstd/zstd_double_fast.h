@@ -1,6 +1,5 @@
-#ifndef USE_EXTERNAL_ZSTD
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) 2016-present, Yann Collet, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under both the BSD-style license (found in the
@@ -12,34 +11,28 @@
 #ifndef ZSTD_DOUBLE_FAST_H
 #define ZSTD_DOUBLE_FAST_H
 
+#if defined (__cplusplus)
+extern "C" {
+#endif
+
 #include "mem.h"      /* U32 */
 #include "zstd_compress_internal.h"     /* ZSTD_CCtx, size_t */
 
-#ifndef ZSTD_EXCLUDE_DFAST_BLOCK_COMPRESSOR
-
-void ZSTD_fillDoubleHashTable(ZSTD_MatchState_t* ms,
-                              void const* end, ZSTD_dictTableLoadMethod_e dtlm,
-                              ZSTD_tableFillPurpose_e tfp);
-
+void ZSTD_fillDoubleHashTable(ZSTD_matchState_t* ms,
+                              void const* end, ZSTD_dictTableLoadMethod_e dtlm);
 size_t ZSTD_compressBlock_doubleFast(
-        ZSTD_MatchState_t* ms, SeqStore_t* seqStore, U32 rep[ZSTD_REP_NUM],
+        ZSTD_matchState_t* ms, seqStore_t* seqStore, U32 rep[ZSTD_REP_NUM],
         void const* src, size_t srcSize);
 size_t ZSTD_compressBlock_doubleFast_dictMatchState(
-        ZSTD_MatchState_t* ms, SeqStore_t* seqStore, U32 rep[ZSTD_REP_NUM],
+        ZSTD_matchState_t* ms, seqStore_t* seqStore, U32 rep[ZSTD_REP_NUM],
         void const* src, size_t srcSize);
 size_t ZSTD_compressBlock_doubleFast_extDict(
-        ZSTD_MatchState_t* ms, SeqStore_t* seqStore, U32 rep[ZSTD_REP_NUM],
+        ZSTD_matchState_t* ms, seqStore_t* seqStore, U32 rep[ZSTD_REP_NUM],
         void const* src, size_t srcSize);
 
-#define ZSTD_COMPRESSBLOCK_DOUBLEFAST ZSTD_compressBlock_doubleFast
-#define ZSTD_COMPRESSBLOCK_DOUBLEFAST_DICTMATCHSTATE ZSTD_compressBlock_doubleFast_dictMatchState
-#define ZSTD_COMPRESSBLOCK_DOUBLEFAST_EXTDICT ZSTD_compressBlock_doubleFast_extDict
-#else
-#define ZSTD_COMPRESSBLOCK_DOUBLEFAST NULL
-#define ZSTD_COMPRESSBLOCK_DOUBLEFAST_DICTMATCHSTATE NULL
-#define ZSTD_COMPRESSBLOCK_DOUBLEFAST_EXTDICT NULL
-#endif /* ZSTD_EXCLUDE_DFAST_BLOCK_COMPRESSOR */
+
+#if defined (__cplusplus)
+}
+#endif
 
 #endif /* ZSTD_DOUBLE_FAST_H */
-
-#endif /* USE_EXTERNAL_ZSTD */

@@ -1,6 +1,5 @@
-#ifndef USE_EXTERNAL_ZSTD
 /*
- * Copyright (c) Yann Collet, Meta Platforms, Inc. and affiliates.
+ * Copyright (c) 2016-present, Yann Collet, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under both the BSD-style license (found in the
@@ -186,5 +185,3 @@ ZSTDLIBv07_API size_t ZBUFFv07_recommendedDOutSize(void);
 #endif
 
 #endif  /* ZSTDv07_H_235446 */
-
-#endif /* USE_EXTERNAL_ZSTD */

@@ -95,9 +95,10 @@ func (r *SnappyConverter) Convert(in io.Reader, w io.Writer) (int64, error) {
 	var written int64
 	var readHeader bool
 	{
-		header := frameHeader{WindowSize: snappyMaxBlockSize}.appendTo(r.buf[:0])
-
+		var header []byte
 		var n int
+		header, r.err = frameHeader{WindowSize: snappyMaxBlockSize}.appendTo(r.buf[:0])
+
 		n, r.err = w.Write(header)
 		if r.err != nil {
 			return written, r.err
@@ -197,7 +198,7 @@ func (r *SnappyConverter) Convert(in io.Reader, w io.Writer) (int64, error) {
 
 			n, r.err = w.Write(r.block.output)
 			if r.err != nil {
-				return written, r.err
+				return written, err
 			}
 			written += int64(n)
 			continue
@@ -239,7 +240,7 @@ func (r *SnappyConverter) Convert(in io.Reader, w io.Writer) (int64, error) {
 			}
 			n, r.err = w.Write(r.block.output)
 			if r.err != nil {
-				return written, r.err
+				return written, err
 			}
 			written += int64(n)
 			continue
