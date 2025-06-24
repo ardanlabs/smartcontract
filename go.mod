@@ -1,6 +1,8 @@
 module github.com/ardanlabs/smartcontract
 
-go 1.23.0
+go 1.24.0
+
+toolchain go1.24.4
 
 require (
 	github.com/ardanlabs/ethereum v0.20.0
