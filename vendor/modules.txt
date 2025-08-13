@@ -156,10 +156,13 @@ github.com/deckarep/golang-set/v2
 ## explicit; go 1.16
 github.com/decred/dcrd/dcrec/secp256k1/v4
 github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa
+# github.com/emicklei/dot v1.6.2
+## explicit; go 1.13
+github.com/emicklei/dot
 # github.com/ethereum/c-kzg-4844/v2 v2.1.0
 ## explicit; go 1.19
 github.com/ethereum/c-kzg-4844/v2/bindings/go
-# github.com/ethereum/go-ethereum v1.16.1
+# github.com/ethereum/go-ethereum v1.16.2
 ## explicit; go 1.23.0
 github.com/ethereum/go-ethereum
 github.com/ethereum/go-ethereum/accounts
@@ -212,6 +215,7 @@ github.com/ethereum/go-ethereum/crypto/secp256k1
 github.com/ethereum/go-ethereum/crypto/secp256k1/libsecp256k1/include
 github.com/ethereum/go-ethereum/crypto/secp256k1/libsecp256k1/src
 github.com/ethereum/go-ethereum/crypto/secp256k1/libsecp256k1/src/modules/recovery
+github.com/ethereum/go-ethereum/crypto/secp256r1
 github.com/ethereum/go-ethereum/eth
 github.com/ethereum/go-ethereum/eth/catalyst
 github.com/ethereum/go-ethereum/eth/downloader
@@ -275,7 +279,7 @@ github.com/ethereum/go-ethereum/version
 # github.com/ethereum/go-verkle v0.2.2
 ## explicit; go 1.22
 github.com/ethereum/go-verkle
-# github.com/ferranbt/fastssz v0.1.2
+# github.com/ferranbt/fastssz v0.1.4
 ## explicit; go 1.18
 github.com/ferranbt/fastssz
 # github.com/fsnotify/fsnotify v1.6.0
@@ -303,7 +307,7 @@ github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/protoc-gen-gogo/descriptor
 github.com/gogo/protobuf/sortkeys
 github.com/gogo/protobuf/types
-# github.com/golang-jwt/jwt/v4 v4.5.1
+# github.com/golang-jwt/jwt/v4 v4.5.2
 ## explicit; go 1.16
 github.com/golang-jwt/jwt/v4
 # github.com/golang/protobuf v1.5.4
