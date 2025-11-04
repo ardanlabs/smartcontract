@@ -5,6 +5,7 @@ package zstd
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/klauspost/compress/internal/cpuinfo"
 )
@@ -78,10 +79,7 @@ func (s *sequenceDecs) decodeSyncSimple(hist []byte) (bool, error) {
 
 	br := s.br
 
-	maxBlockSize := maxCompressedBlockSize
-	if s.windowSize < maxBlockSize {
-		maxBlockSize = s.windowSize
-	}
+	maxBlockSize := min(s.windowSize, maxCompressedBlockSize)
 
 	ctx := decodeSyncAsmContext{
 		llTable:     s.litLengths.fse.dt[:maxTablesize],
@@ -134,6 +132,9 @@ func (s *sequenceDecs) decodeSyncSimple(hist []byte) (bool, error) {
 		return true, fmt.Errorf("unexpected literal count, want %d bytes, but only %d is available",
 			ctx.ll, ctx.litRemain+ctx.ll)
 
+	case errorOverread:
+		return true, io.ErrUnexpectedEOF
+
 	case errorNotEnoughSpace:
 		size := ctx.outPosition + ctx.ll + ctx.ml
 		if debugDecoder {
@@ -142,13 +143,12 @@ func (s *sequenceDecs) decodeSyncSimple(hist []byte) (bool, error) {
 		return true, fmt.Errorf("output bigger than max block size (%d)", maxBlockSize)
 
 	default:
-		return true, fmt.Errorf("sequenceDecs_decode returned erronous code %d", errCode)
+		return true, fmt.Errorf("sequenceDecs_decode returned erroneous code %d", errCode)
 	}
 
 	s.seqSize += ctx.litRemain
 	if s.seqSize > maxBlockSize {
 		return true, fmt.Errorf("output bigger than max block size (%d)", maxBlockSize)
-
 	}
 	err := br.close()
 	if err != nil {
@@ -203,6 +203,9 @@ const errorNotEnoughLiterals = 4
 // error reported when capacity of `out` is too small
 const errorNotEnoughSpace = 5
 
+// error reported when bits are overread.
+const errorOverread = 6
+
 // sequenceDecs_decode implements the main loop of sequenceDecs in x86 asm.
 //
 // Please refer to seqdec_generic.go for the reference implementation.
@@ -231,10 +234,7 @@ func sequenceDecs_decode_56_bmi2(s *sequenceDecs, br *bitReader, ctx *decodeAsmC
 func (s *sequenceDecs) decode(seqs []seqVals) error {
 	br := s.br
 
-	maxBlockSize := maxCompressedBlockSize
-	if s.windowSize < maxBlockSize {
-		maxBlockSize = s.windowSize
-	}
+	maxBlockSize := min(s.windowSize, maxCompressedBlockSize)
 
 	ctx := decodeAsmContext{
 		llTable:   s.litLengths.fse.dt[:maxTablesize],
@@ -246,6 +246,10 @@ func (s *sequenceDecs) decode(seqs []seqVals) error {
 		seqs:      seqs,
 		iteration: len(seqs) - 1,
 		litRemain: len(s.literals),
+	}
+
+	if debugDecoder {
+		println("decode: decoding", len(seqs), "sequences", br.remain(), "bits remain on stream")
 	}
 
 	s.seqSize = 0
@@ -278,9 +282,11 @@ func (s *sequenceDecs) decode(seqs []seqVals) error {
 		case errorNotEnoughLiterals:
 			ll := ctx.seqs[i].ll
 			return fmt.Errorf("unexpected literal count, want %d bytes, but only %d is available", ll, ctx.litRemain+ll)
+		case errorOverread:
+			return io.ErrUnexpectedEOF
 		}
 
-		return fmt.Errorf("sequenceDecs_decode_amd64 returned erronous code %d", errCode)
+		return fmt.Errorf("sequenceDecs_decode_amd64 returned erroneous code %d", errCode)
 	}
 
 	if ctx.litRemain < 0 {
@@ -291,6 +297,9 @@ func (s *sequenceDecs) decode(seqs []seqVals) error {
 	s.seqSize += ctx.litRemain
 	if s.seqSize > maxBlockSize {
 		return fmt.Errorf("output bigger than max block size (%d)", maxBlockSize)
+	}
+	if debugDecoder {
+		println("decode: ", br.remain(), "bits remain on stream. code:", errCode)
 	}
 	err := br.close()
 	if err != nil {

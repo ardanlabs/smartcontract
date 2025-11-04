@@ -47,13 +47,13 @@ For the [proposal by @karalabe](https://gist.github.com/karalabe/821a1cd0270984a
 we have very special circumstances: 
 
 - The disk-backed storage is indeed backed by an in-memory structure of metadata. 
-- The payloads will roughly equally heavy on `write`, `delete` and `read` operations.
+- The payloads will be roughly equally heavy on `write`, `delete` and `read` operations.
 - The data is somewhat transient, meaning that it's expected that the mean-storage time for a piece of data
  is measured in minutes rather than weeks. 
  
  ## Implementation
  
- The `bagdb` uses has the following API:
+ `billy` has the following API:
  
  - `Put(data []byte) uint64`. This operation stores the given `data`, and returns a 'direct' reference to where the data is stored. By 'direct', it means that there is no 
  indirection involved, the returned `key` is a direct reference to the `shelf` and `slot` where the data can later be found. 
@@ -76,7 +76,7 @@ Saying that we can't do compaction is not strictly true: there are two things th
    we always prefer writing to lower gaps, leaving the higher gaps for later. 
 - Compact-on-open
   - Compact-on-open uses the fact that before the external calles is notified about the data content, we have the freedom to reorder the data, and uses this 
-  period overwrite any gaps and truncate the underlying file. 
+  period to overwrite any gaps and truncate the underlying file. 
 
 
 ### Data format

@@ -42,6 +42,21 @@ func NewGraph(options ...GraphOption) *Graph {
 	return graph
 }
 
+// WalkEdges iterates over all edges in the graph and all its subgraphs recursively
+// and calls the callback function for each edge. Abort if the callback returns false.
+func (g *Graph) WalkEdges(callback func(edge Edge) bool) {
+	for _, edges := range g.edgesFrom {
+		for _, edge := range edges {
+			if !callback(edge) {
+				return
+			}
+		}
+	}
+	for _, subgraph := range g.subgraphs {
+		subgraph.WalkEdges(callback)
+	}
+}
+
 // GetID returns the identifier of the graph.
 func (g *Graph) GetID() string {
 	return g.id
@@ -417,4 +432,82 @@ func (g *Graph) EdgesMap() map[string][]Edge {
 // HasNode returns whether the node was created in this graph (does not look for it in subgraphs).
 func (g *Graph) HasNode(n Node) bool {
 	return g == n.graph
+}
+
+// GetAttributes returns a copy of the attributes.
+func (am *AttributesMap) GetAttributes() map[string]interface{} {
+	copyMap := make(map[string]interface{}, len(am.attributes))
+	for k, v := range am.attributes {
+		copyMap[k] = v
+	}
+	return copyMap
+}
+
+// DeepCopy creates a deep copy of a Graph, including all nodes, edges, subgraphs & attributes
+func (g *Graph) DeepCopy() *Graph {
+	copy := NewGraph()
+	copy.id = g.id
+	copy.isStrict = g.isStrict
+	copy.graphType = g.graphType
+	copy.seq = g.seq
+	copy.parent = g.parent
+
+	copy.AttributesMap = AttributesMap{attributes: g.GetAttributes()}
+
+	copy.nodes = make(map[string]Node, len(g.nodes))
+	for id, node := range g.nodes {
+		copy.nodes[id] = Node{
+			AttributesMap: AttributesMap{attributes: node.GetAttributes()},
+			graph:         copy,
+			id:            node.id,
+			seq:           node.seq,
+		}
+	}
+
+	copy.edgesFrom = make(map[string][]Edge, len(g.edgesFrom))
+	for from, edges := range g.edgesFrom {
+		newEdges := make([]Edge, len(edges))
+		for i, edge := range edges {
+			newEdges[i] = Edge{
+				AttributesMap: AttributesMap{attributes: edge.GetAttributes()},
+				graph:         copy,
+				from:          copy.nodes[edge.from.id],
+				to:            copy.nodes[edge.to.id],
+				fromPort:      edge.fromPort,
+				toPort:        edge.toPort,
+			}
+		}
+		copy.edgesFrom[from] = newEdges
+	}
+
+	copy.subgraphs = make(map[string]*Graph, len(g.subgraphs))
+	keys := make([]string, 0, len(g.subgraphs))
+	for id := range g.subgraphs {
+		keys = append(keys, id)
+	}
+	sort.Strings(keys)
+	for _, id := range keys {
+		newSubgraph := g.subgraphs[id].DeepCopy()
+		newSubgraph.parent = copy
+		copy.subgraphs[id] = newSubgraph
+	}
+
+	copy.sameRank = make(map[string][]Node, len(g.sameRank))
+	rankKeys := make([]string, 0, len(g.sameRank))
+	for rank := range g.sameRank {
+		rankKeys = append(rankKeys, rank)
+	}
+	sort.Strings(rankKeys)
+	for _, rank := range rankKeys {
+		newNodes := make([]Node, len(g.sameRank[rank]))
+		for i, node := range g.sameRank[rank] {
+			newNodes[i] = copy.nodes[node.id]
+		}
+		copy.sameRank[rank] = newNodes
+	}
+
+	copy.nodeInitializer = g.nodeInitializer
+	copy.edgeInitializer = g.edgeInitializer
+
+	return copy
 }

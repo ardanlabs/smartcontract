@@ -1,5 +1,33 @@
 # Change history of the dot package
 
+## v1.9.2 - 2025-10-07
+
+- add Node.HasDefaultLabel()
+
+## v1.9.1 - 2025-09-14
+
+- do not use exe permission on exported dot files (thx come-maiz)
+
+## v1.9.0 - 2025-07-25
+
+- add Graph.WalkEdges(func(edge Edge) bool)
+
+## v1.8.0
+
+- add Graph.DeepCopy(func(edge Edge) bool) (thx @jasonmadigan)
+
+## v1.7.0
+
+- add GetAttributes (Node and Edge) (thx @jasonmadigan)
+
+## v1.6.4
+
+- fix mermaid generation with string shape in node (issue #40)
+
+## v1.6.3
+
+- fix empty label for mermaid
+- allow link attribute for edge in mermaid
 
 ## v1.6.2
 

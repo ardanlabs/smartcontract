@@ -1,4 +1,4 @@
-// Copyright 2020-2021 The Decred developers
+// Copyright 2020-2022 The Decred developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
@@ -102,7 +102,7 @@ func (curve *KoblitzCurve) IsOnCurve(x, y *big.Int) bool {
 //
 // This is part of the elliptic.Curve interface implementation.
 func (curve *KoblitzCurve) Add(x1, y1, x2, y2 *big.Int) (*big.Int, *big.Int) {
-	// A point at infinity is the identity according to the group law for
+	// The point at infinity is the identity according to the group law for
 	// elliptic curve cryptography.  Thus, ∞ + P = P and P + ∞ = P.
 	if x1.Sign() == 0 && y1.Sign() == 0 {
 		return x2, y2
@@ -153,17 +153,17 @@ func moduloReduce(k []byte) []byte {
 	return k
 }
 
-// ScalarMult returns k*(Bx, By) where k is a big endian integer.
+// ScalarMult returns k*(bx, by) where k is a big endian integer.
 //
 // This is part of the elliptic.Curve interface implementation.
-func (curve *KoblitzCurve) ScalarMult(Bx, By *big.Int, k []byte) (*big.Int, *big.Int) {
+func (curve *KoblitzCurve) ScalarMult(bx, by *big.Int, k []byte) (*big.Int, *big.Int) {
 	// Convert the affine coordinates from big integers to Jacobian points,
 	// do the multiplication in Jacobian projective space, and convert the
 	// Jacobian point back to affine big.Ints.
 	var kModN ModNScalar
 	kModN.SetByteSlice(moduloReduce(k))
 	var point, result JacobianPoint
-	bigAffineToJacobian(Bx, By, &point)
+	bigAffineToJacobian(bx, by, &point)
 	ScalarMultNonConst(&kModN, &point, &result)
 	return jacobianToBigAffine(&result)
 }
@@ -249,7 +249,7 @@ var secp256k1 = &KoblitzCurve{
 	},
 }
 
-// S256 returns a Curve which implements secp256k1.
+// S256 returns an elliptic.Curve which implements secp256k1.
 func S256() *KoblitzCurve {
 	return secp256k1
 }
