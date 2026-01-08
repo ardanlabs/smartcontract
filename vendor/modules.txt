@@ -11,7 +11,7 @@ github.com/Microsoft/go-winio/internal/fs
 github.com/Microsoft/go-winio/internal/socket
 github.com/Microsoft/go-winio/internal/stringbuffer
 github.com/Microsoft/go-winio/pkg/guid
-# github.com/ProjectZKM/Ziren/crates/go-runtime/zkvm_runtime v0.0.0-20251208031133-be43a854e4be
+# github.com/ProjectZKM/Ziren/crates/go-runtime/zkvm_runtime v0.0.0-20260104020744-7268a54d0358
 ## explicit; go 1.24.0
 github.com/ProjectZKM/Ziren/crates/go-runtime/zkvm_runtime
 # github.com/VictoriaMetrics/fastcache v1.13.2
@@ -30,8 +30,6 @@ github.com/bits-and-blooms/bitset
 # github.com/cespare/xxhash/v2 v2.3.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
-# github.com/clipperhouse/displaywidth v0.6.1
-## explicit; go 1.18
 # github.com/clipperhouse/stringish v0.1.1
 ## explicit; go 1.18
 github.com/clipperhouse/stringish
@@ -160,7 +158,7 @@ github.com/crate-crypto/go-ipa/banderwagon
 github.com/crate-crypto/go-ipa/common
 github.com/crate-crypto/go-ipa/common/parallel
 github.com/crate-crypto/go-ipa/ipa
-# github.com/davecgh/go-spew v1.1.1
+# github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 ## explicit
 github.com/davecgh/go-spew/spew
 # github.com/dchest/siphash v1.2.3
@@ -301,8 +299,6 @@ github.com/ethereum/go-ethereum/version
 # github.com/ethereum/go-verkle v0.2.2
 ## explicit; go 1.22
 github.com/ethereum/go-verkle
-# github.com/fatih/color v1.18.0
-## explicit; go 1.17
 # github.com/ferranbt/fastssz v1.0.0
 ## explicit; go 1.18
 github.com/ferranbt/fastssz
@@ -413,15 +409,11 @@ github.com/mitchellh/pointerstructure
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
 github.com/munnerz/goautoneg
-# github.com/olekukonko/cat v0.0.0-20250911104152-50322a0618f6
-## explicit; go 1.21
-# github.com/olekukonko/errors v1.1.0
-## explicit; go 1.21
-# github.com/olekukonko/ll v0.1.3
-## explicit; go 1.21
 # github.com/olekukonko/tablewriter v0.0.5
 ## explicit; go 1.12
 github.com/olekukonko/tablewriter
+# github.com/peterh/liner v1.2.2
+## explicit
 # github.com/pion/dtls/v2 v2.2.12
 ## explicit; go 1.13
 github.com/pion/dtls/v2
@@ -464,6 +456,8 @@ github.com/pion/transport/v3/utils/xor
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
+# github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
+## explicit
 # github.com/prometheus/client_golang v1.23.2
 ## explicit; go 1.23.0
 github.com/prometheus/client_golang/prometheus
@@ -471,7 +465,7 @@ github.com/prometheus/client_golang/prometheus/internal
 # github.com/prometheus/client_model v0.6.2
 ## explicit; go 1.22.0
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.67.4
+# github.com/prometheus/common v0.67.5
 ## explicit; go 1.24.0
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/model
@@ -542,7 +536,7 @@ golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/ripemd160
 golang.org/x/crypto/scrypt
 golang.org/x/crypto/sha3
-# golang.org/x/exp v0.0.0-20251125195548-87e1e737ad39
+# golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93
 ## explicit; go 1.24.0
 golang.org/x/exp/constraints
 golang.org/x/exp/rand
@@ -576,7 +570,7 @@ golang.org/x/text/unicode/norm
 # golang.org/x/time v0.14.0
 ## explicit; go 1.24.0
 golang.org/x/time/rate
-# google.golang.org/protobuf v1.36.10
+# google.golang.org/protobuf v1.36.11
 ## explicit; go 1.23
 google.golang.org/protobuf/encoding/protodelim
 google.golang.org/protobuf/encoding/prototext
