@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2019, 2025
 // SPDX-License-Identifier: MPL-2.0
 
 package bexpr
@@ -71,7 +71,7 @@ func derefType(rtype reflect.Type) reflect.Type {
 
 func doMatchMatches(expression *grammar.MatchExpression, value reflect.Value) (bool, error) {
 	if !value.Type().ConvertibleTo(byteSliceTyp) {
-		return false, fmt.Errorf("Value of type %s is not convertible to []byte", value.Type())
+		return false, fmt.Errorf("value of type %s is not convertible to []byte", value.Type())
 	}
 
 	var re *regexp.Regexp
@@ -83,7 +83,7 @@ func doMatchMatches(expression *grammar.MatchExpression, value reflect.Value) (b
 		var err error
 		re, err = regexp.Compile(expression.Value.Raw)
 		if err != nil {
-			return false, fmt.Errorf("Failed to compile regular expression %q: %v", expression.Value.Raw, err)
+			return false, fmt.Errorf("failed to compile regular expression %q: %v", expression.Value.Raw, err)
 		}
 		expression.Value.Converted = re
 	}
@@ -181,13 +181,40 @@ func doMatchIn(expression *grammar.MatchExpression, value reflect.Value) (bool, 
 		return strings.Contains(value.String(), matchValue.(string)), nil
 
 	default:
-		return false, fmt.Errorf("Cannot perform in/contains operations on type %s for selector: %q", kind, expression.Selector)
+		return false, fmt.Errorf("cannot perform in/contains operations on type %s for selector: %q", kind, expression.Selector)
 	}
 }
 
 func doMatchIsEmpty(matcher *grammar.MatchExpression, value reflect.Value) (bool, error) {
-	// NOTE: see preconditions in evaluategrammar.MatchExpressionRecurse
-	return value.Len() == 0, nil
+	switch kind := value.Kind(); kind {
+	case reflect.Map, reflect.Slice, reflect.Array, reflect.Chan, reflect.String:
+		return value.Len() == 0, nil
+	default:
+		return false, fmt.Errorf(
+			"cannot perform is-empty operations on type %s for selector: %q", kind, matcher.Selector)
+	}
+}
+
+func doMatchIsNil(matcher *grammar.MatchExpression, value reflect.Value) (bool, error) {
+	switch kind := value.Kind(); kind {
+	case reflect.Map, reflect.Slice, reflect.Array, reflect.Chan:
+		return value.IsNil(), nil
+	case reflect.Struct:
+		// a non-nil pointer to a struct will also have this type when
+		// dereferenced by the caller
+		return false, nil
+	case reflect.Invalid:
+		// a nil pointer to a struct will have this type when dereferenced by
+		// the caller
+		return true, nil
+	case reflect.Pointer:
+		// the caller should be chasing pointers-to-pointers but handle this for
+		// robustness
+		return value.IsNil(), nil
+	default:
+		return false, fmt.Errorf(
+			"cannot perform is-nil operations on type %s for selector: %q", kind, matcher.Selector)
+	}
 }
 
 func getMatchExprValue(expression *grammar.MatchExpression, rvalue reflect.Kind) (interface{}, error) {
@@ -369,8 +396,16 @@ func evaluateMatchExpression(expression *grammar.MatchExpression, datum interfac
 			return !result, nil
 		}
 		return false, err
+	case grammar.MatchIsNil:
+		return doMatchIsNil(expression, rvalue)
+	case grammar.MatchIsNotNil:
+		result, err := doMatchIsNil(expression, rvalue)
+		if err == nil {
+			return !result, nil
+		}
+		return false, err
 	default:
-		return false, fmt.Errorf("Invalid match operation: %d", expression.Operator)
+		return false, fmt.Errorf("invalid match operation: %d", expression.Operator)
 	}
 }
 
@@ -484,5 +519,5 @@ func evaluate(ast grammar.Expression, datum interface{}, opt ...Option) (bool, e
 	case *grammar.CollectionExpression:
 		return evaluateCollectionExpression(node, datum, opt...)
 	}
-	return false, fmt.Errorf("Invalid AST node")
+	return false, fmt.Errorf("invalid AST node")
 }
